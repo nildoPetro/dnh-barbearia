@@ -192,6 +192,17 @@ function aplicarPermissoesUI() {
 
 
     /* -------------------------
+       ELEMENTOS CLIENTE
+       ------------------------- */
+
+    $$('.client-only').forEach(el => {
+
+        el.style.display = admin ? 'none' : '';
+
+    });
+
+
+    /* -------------------------
        PÁGINAS ADMIN
        ------------------------- */
 
@@ -227,7 +238,7 @@ function aplicarPermissoesUI() {
             button.style.display = admin ? '' : 'none';
         }
 
-        if (page === 'consultar') {
+        if (page === 'consultar' && isAdmin()) {
             button.style.display = 'none';
         }
 
