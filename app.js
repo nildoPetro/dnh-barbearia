@@ -228,7 +228,7 @@ function aplicarPermissoesUI() {
         }
 
         if (page === 'consultar') {
-            button.style.display = admin ? 'none' : '';
+            button.style.display = 'none';
         }
 
     });
@@ -242,59 +242,65 @@ function aplicarPermissoesUI() {
 async function user() {
 
     const {
-        data: {
-            user: authUser
-        }
+        data: { user: authUser },
+        error: authError
     } = await sb.auth.getUser();
 
-    if (!authUser) {
-
+    if (authError || !authUser) {
         profile = null;
-
+        if (authError) console.error('Erro ao obter usuário autenticado:', authError);
         return null;
     }
 
-
-    const {
-        data,
-        error
-    } = await sb
+    const { data, error } = await sb
         .from('profiles')
         .select('*')
         .eq('id', authUser.id)
         .maybeSingle();
 
-
     if (error) {
-
-        console.error(
-            'Erro ao carregar perfil:',
-            error
-        );
-
+        console.error('Erro ao carregar perfil:', error);
         profile = null;
-
         return null;
     }
 
+    if (data) {
+        profile = data;
+    } else {
+        // Recupera automaticamente um perfil de cliente que tenha sido
+        // removido da tabela profiles, mas cujo usuário ainda exista no Auth.
+        const metadata = authUser.user_metadata || {};
+        const fallbackProfile = {
+            id: authUser.id,
+            name: metadata.name || authUser.email?.split('@')[0] || 'Cliente',
+            phone: metadata.phone || '',
+            email: authUser.email || '',
+            birth: metadata.birth || null,
+            role: 'client',
+            active: true
+        };
 
-    profile = data;
+        const { data: restored, error: restoreError } = await sb
+            .from('profiles')
+            .upsert(fallbackProfile, { onConflict: 'id' })
+            .select('*')
+            .maybeSingle();
 
+        if (restoreError) {
+            console.error('PERFIL AUSENTE E NÃO FOI POSSÍVEL RESTAURAR:', restoreError);
+            profile = null;
+            return null;
+        }
 
-    console.log(
-        'PERFIL LOGADO:',
-        profile
-    );
+        profile = restored || fallbackProfile;
+        console.log('Perfil de cliente restaurado automaticamente:', profile);
+    }
 
-    console.log(
-        'ROLE:',
-        profile?.role
-    );
-
+    console.log('PERFIL LOGADO:', profile);
+    console.log('ROLE:', profile?.role);
 
     return profile;
 }
-
 
 /* =========================================================
    NAVEGAÇÃO
@@ -572,11 +578,18 @@ async function loadSettings() {
         const enabled = row.querySelector('[data-week-enabled]');
         const start = row.querySelector('[data-week-start]');
         const end = row.querySelector('[data-week-end]');
-        if (enabled) enabled.checked = cfg.enabled !== false;
+        const isEnabled = cfg.enabled !== false;
+        if (enabled) enabled.checked = isEnabled;
         if (start) start.value = cfg.start || settings.start_time?.slice(0,5) || '08:00';
         if (end) end.value = cfg.end || settings.end_time?.slice(0,5) || '18:00';
-        if (start) start.disabled = cfg.enabled === false;
-        if (end) end.disabled = cfg.enabled === false;
+        if (start) start.disabled = !isEnabled;
+        if (end) end.disabled = !isEnabled;
+        const nameEl = row.querySelector('[data-week-name]');
+        if (nameEl) {
+            const baseName = nameEl.dataset.baseName || nameEl.textContent.replace(/\s+—.*$/, '').trim();
+            nameEl.dataset.baseName = baseName;
+            nameEl.textContent = isEnabled ? baseName : `${baseName} — NÃO ATENDE`;
+        }
     });
 
 
@@ -2265,7 +2278,11 @@ async function agenda() {
                STATUS
                ================================================= */
 
-            function statusInfo(status) {
+            services.forEach(s => { if (!serviceMap.has(s.id)) serviceMap.set(s.id, s); });
+    professionals.forEach(p => { if (!professionalMap.has(p.id)) professionalMap.set(p.id, p); });
+
+
+    function statusInfo(status) {
 
                 switch (status) {
 
@@ -2936,15 +2953,12 @@ async function agenda() {
             );
 
 
-        serviceMap =
-            new Map(
-                serviceData.map(
-                    s => [
-                        s.id,
-                        s
-                    ]
-                )
-            );
+        serviceMap = new Map(
+            serviceData.map(s => [s.id, s])
+        );
+        // Fallback para manter os dados mesmo se uma policy de leitura
+        // devolver a lista de serviços vazia nesta consulta.
+        services.forEach(s => { if (!serviceMap.has(s.id)) serviceMap.set(s.id, s); });
     }
 
 
@@ -3424,257 +3438,91 @@ function initClientBooking() {
 
 async function loadClientTimes() {
 
-    const serviceId =
-        $('#clientService')?.value;
+    const serviceId = $('#clientService')?.value;
+    const professionalId = $('#clientProfessional')?.value;
+    const date = $('#clientDate')?.value;
+    const grid = $('#clientTimeGrid');
 
+    if (!grid) return;
 
-    const professionalId =
-        $('#clientProfessional')?.value;
+    atualizarResumoAgendamento('');
 
-
-    const date =
-        $('#clientDate')?.value;
-
-
-    const grid =
-        $('#clientTimeGrid');
-
-
-    if (!grid) {
+    if (!serviceId || !professionalId || !date) {
+        grid.innerHTML = '<p class="muted">Selecione serviço, profissional e data.</p>';
         return;
     }
 
-
-    if (
-        !serviceId ||
-        !professionalId ||
-        !date
-    ) {
-
-        grid.innerHTML =
-            '<p class="muted">Selecione serviço, profissional e data.</p>';
-
-
-        if ($('#bookingSummary')) {
-
-            $('#bookingSummary')
-                .classList
-                .add('hidden');
-
-        }
-
-        return;
-    }
-
-
-    const service =
-        services.find(
-            s =>
-                s.id === serviceId
-        );
-
-
+    const service = services.find(s => s.id === serviceId);
     if (!service) {
-
-        grid.innerHTML =
-            '<p class="muted">Serviço não encontrado.</p>';
-
+        grid.innerHTML = '<p class="muted">Serviço não encontrado.</p>';
         return;
     }
 
+    const duration = Number(service.duration) || 30;
+    const daySchedule = scheduleForDate(date);
 
-    const duration =
-        Number(
-            service.duration
-        ) || 30;
+    if (daySchedule.enabled === false) {
+        grid.innerHTML = '<p class="muted"><b>Não há atendimento nesta data.</b> A barbearia não atende neste dia.</p>';
+        return;
+    }
 
+    const opening = timeToMinutes(String(daySchedule.start || settings.start_time || '08:00').slice(0, 5));
+    const closing = timeToMinutes(String(daySchedule.end || settings.end_time || '18:00').slice(0, 5));
+    const interval = Number(settings.slot_interval) || 30;
 
-    const {
-        data: bookings = [],
-        error
-    } = await sb
+    if (!Number.isFinite(opening) || !Number.isFinite(closing) || closing <= opening) {
+        grid.innerHTML = '<p class="muted">Horário de atendimento configurado incorretamente.</p>';
+        return;
+    }
+
+    const { data: bookings = [], error } = await sb
         .from('bookings')
-        .select(`
-            booking_time,
-            status,
-            service_id
-        `)
-        .eq(
-            'professional_id',
-            professionalId
-        )
-        .eq(
-            'booking_date',
-            date
-        )
-        .neq(
-            'status',
-            'cancelled'
-        );
-
+        .select('booking_time,status,service_id')
+        .eq('professional_id', professionalId)
+        .eq('booking_date', date)
+        .neq('status', 'cancelled');
 
     if (error) {
-
-        console.error(
-            'Erro ao carregar horários:',
-            error
-        );
-
-
-        grid.innerHTML =
-            '<p class="muted">Não foi possível carregar os horários.</p>';
-
+        console.error('Erro ao carregar horários:', error);
+        grid.innerHTML = '<p class="muted">Não foi possível carregar os horários.</p>';
         return;
     }
 
+    const occupied = bookings
+        .filter(b => b.booking_time)
+        .map(b => {
+            const start = timeToMinutes(String(b.booking_time).slice(0, 5));
+            const bookedService = services.find(s => s.id === b.service_id);
+            const bookedDuration = Number(bookedService?.duration) || 30;
+            return { start, end: start + bookedDuration };
+        })
+        .filter(b => Number.isFinite(b.start));
 
-    const occupied =
-        [];
-
-
-    for (
-        const booking of bookings
-    ) {
-
-        if (!booking.booking_time) {
-            continue;
-        }
-
-
-        const start =
-            timeToMinutes(
-                booking.booking_time
-                    .slice(0, 5)
-            );
-
-
-        const bookedService =
-            services.find(
-                s =>
-                    s.id ===
-                    booking.service_id
-            );
-
-
-        const bookedDuration =
-            Number(
-                bookedService?.duration
-            ) || 30;
-
-
-        const end =
-            start +
-            bookedDuration;
-
-
-        occupied.push({
-            start,
-            end
-        });
-    }
-
-
-    const daySchedule = scheduleForDate(date);
-    if (daySchedule.enabled === false) {
-        grid.innerHTML = '<p class="muted">Não há atendimento nesta data.</p>';
-        $('#bookingSummary')?.classList.add('hidden');
-        return;
-    }
-
-    const [openHour, openMinute] = String(daySchedule.start || settings.start_time || '08:00').slice(0,5).split(':').map(Number);
-    const [closingHour, closingMinute] = String(daySchedule.end || settings.end_time || '18:00').slice(0,5).split(':').map(Number);
-    const opening = openHour * 60 + openMinute;
-    const closing = closingHour * 60 + closingMinute;
-    const interval = Number(settings.slot_interval) || 30;
     const available = [];
-    for(let start=opening; start + duration <= closing; start += interval){
-        const hh=String(Math.floor(start/60)).padStart(2,'0');
-        const mm=String(start%60).padStart(2,'0');
-        const time=`${hh}:${mm}`;
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-            const start =
-                timeToMinutes(time);
+    for (let start = opening; start + duration <= closing; start += interval) {
+        if (date === today() && start <= currentMinutes) continue;
 
+        const end = start + duration;
+        const conflict = occupied.some(booked => start < booked.end && end > booked.start);
+        if (conflict) continue;
 
-            const end =
-                start +
-                duration;
-
-
-            if (end > closing) {
-                return false;
-            }
-
-
-            if (date === today()) {
-
-                const now =
-                    new Date();
-
-
-                const current =
-                    now.getHours() * 60 +
-                    now.getMinutes();
-
-
-                if (start <= current) {
-                    return false;
-                }
-            }
-
-
-            const conflict =
-                occupied.some(
-                    booked => {
-
-                        return (
-                            start <
-                                booked.end &&
-                            end >
-                                booked.start
-                        );
-
-                    }
-                );
-
-
-            if (conflict) continue;
-            available.push(time);
-        }
-
+        const hh = String(Math.floor(start / 60)).padStart(2, '0');
+        const mm = String(start % 60).padStart(2, '0');
+        available.push(`${hh}:${mm}`);
+    }
 
     if (!available.length) {
-
-        grid.innerHTML =
-            '<p class="muted">Nenhum horário disponível para esta data.</p>';
-
-
-        if ($('#bookingSummary')) {
-
-            $('#bookingSummary')
-                .classList
-                .add('hidden');
-
-        }
-
+        grid.innerHTML = '<p class="muted">Nenhum horário disponível para esta data.</p>';
         return;
     }
 
-
-    grid.innerHTML =
-        available.map(time => `
-
-            <button
-                type="button"
-                class="time-option"
-                data-booking-time="${time}"
-            >
-                ${time}
-            </button>
-
-        `).join('');
+    grid.innerHTML = available.map(time => `
+        <button type="button" class="time-option" data-booking-time="${time}">${time}</button>
+    `).join('');
 }
-
 
 /* =========================================================
    CLIENTE - RESUMO
@@ -3801,20 +3649,30 @@ async function createBooking() {
 
 
     const time =
-        $('#summaryTime')?.textContent;
+        $('#summaryTime')?.textContent?.trim();
 
 
-    if (
-        !serviceId ||
-        !professionalId ||
-        !date ||
-        !time
-    ) {
+    if (!serviceId || !professionalId || !date || !time) {
+        alert('Selecione serviço, profissional, data e horário antes de confirmar o agendamento.');
+        return;
+    }
 
-        toast(
-            'Selecione serviço, profissional, data e horário.'
-        );
+    const daySchedule = scheduleForDate(date);
+    if (daySchedule.enabled === false) {
+        alert('A barbearia não atende nesta data. Escolha outro dia.');
+        await loadClientTimes();
+        return;
+    }
 
+    const selectedMinutes = timeToMinutes(time);
+    const opening = timeToMinutes(String(daySchedule.start || settings.start_time).slice(0, 5));
+    const closing = timeToMinutes(String(daySchedule.end || settings.end_time).slice(0, 5));
+    const selectedService = services.find(s => s.id === serviceId);
+    const duration = Number(selectedService?.duration) || 30;
+
+    if (selectedMinutes < opening || selectedMinutes + duration > closing) {
+        alert('O horário escolhido está fora do horário de atendimento configurado para este dia.');
+        await loadClientTimes();
         return;
     }
 
@@ -4069,18 +3927,8 @@ async function consultarAgenda() {
             'user_id',
             authUser.id
         )
-        .order(
-            'booking_date',
-            {
-                ascending: false
-            }
-        )
-        .order(
-            'booking_time',
-            {
-                ascending: false
-            }
-        );
+        .order('booking_date', { ascending: true })
+        .order('booking_time', { ascending: true });
 
 
     if (error) {
@@ -4205,15 +4053,10 @@ async function consultarAgenda() {
             );
 
 
-        professionalMap =
-            new Map(
-                professionalData.map(
-                    p => [
-                        p.id,
-                        p
-                    ]
-                )
-            );
+        professionalMap = new Map(
+            professionalData.map(p => [p.id, p])
+        );
+        professionals.forEach(p => { if (!professionalMap.has(p.id)) professionalMap.set(p.id, p); });
     }
 
 
@@ -4659,33 +4502,102 @@ async function registrarMovimentoEstoque(id, tipo) {
    FINANCEIRO
    ========================================================= */
 
+function updateFinanceMonthControl() {
+    const filter = $('#financePeriod')?.value || 'month';
+    const wrap = $('#financeMonthWrap');
+    if (wrap) wrap.style.display = filter === 'month' ? '' : 'none';
+}
+
+
 async function loadFinance() {
     if (!isAdmin()) return;
+
     const filter = $('#financePeriod')?.value || 'month';
-    const now = new Date();
-    let from, to;
+    const monthInput = $('#financeMonth');
+    const selectedMonth = monthInput?.value || today().slice(0, 7);
+    let from;
+    let to;
+
     if (filter === 'day') {
         from = to = today();
     } else if (filter === 'week') {
-        const d = new Date(now); const day = d.getDay(); const diff = day === 0 ? -6 : 1 - day;
-        const monday = new Date(d); monday.setDate(d.getDate()+diff);
-        const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
-        from = new Date(monday.getTime()-monday.getTimezoneOffset()*60000).toISOString().slice(0,10);
-        to = new Date(sunday.getTime()-sunday.getTimezoneOffset()*60000).toISOString().slice(0,10);
+        const reference = new Date();
+        const day = reference.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        const monday = new Date(reference);
+        monday.setDate(reference.getDate() + diff);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        from = toDateInputValue(monday);
+        to = toDateInputValue(sunday);
     } else {
-        const ym = today().slice(0,7); from = ym+'-01'; const last = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate(); to = ym+'-'+String(last).padStart(2,'0');
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const lastDay = new Date(year, month, 0).getDate();
+        from = `${selectedMonth}-01`;
+        to = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`;
     }
-    const { data = [], error } = await sb.from('cash_entries').select('*').gte('entry_date',from).lte('entry_date',to).order('entry_date',{ascending:false}).order('created_at',{ascending:false});
-    if (error) { console.error('Erro ao carregar financeiro:',error); toast('Não foi possível carregar o financeiro.'); return; }
-    const income=data.filter(x=>x.type==='income').reduce((a,x)=>a+Number(x.amount||0),0);
-    const expense=data.filter(x=>x.type==='expense').reduce((a,x)=>a+Number(x.amount||0),0);
-    if ($('#sumIncome')) $('#sumIncome').textContent=money(income);
-    if ($('#sumExpense')) $('#sumExpense').textContent=money(expense);
-    if ($('#sumBalance')) $('#sumBalance').textContent=money(income-expense);
-    if ($('#financeList')) $('#financeList').innerHTML=data.length?data.slice(0,20).map(x=>`<div class="list-row"><div><b>${escapeHtml(x.description||'Lançamento')}</b><small>${new Date(x.entry_date+'T12:00').toLocaleDateString('pt-BR')} • ${x.booking_id?'Sistema':'Manual'}</small></div><span class="${x.type==='income'?'ok':'cancel'}">${x.type==='income'?'+':'-'} ${money(x.amount)}</span></div>`).join(''):'<p class="muted">Nenhum lançamento no período.</p>';
-    renderFinanceChart(data,from,to);
-    if ($('#financePeriod')) $('#financePeriod').onchange = loadFinance;
-    if (!$('#financeAllButton')) { const btn=document.createElement('button'); btn.id='financeAllButton'; btn.type='button'; btn.className='btn secondary'; btn.textContent='Ver todos os lançamentos'; btn.style.marginTop='12px'; $('#financeList')?.parentElement?.appendChild(btn); btn.addEventListener('click',abrirTodosFinanceiros); }
+
+    const { data = [], error } = await sb
+        .from('cash_entries')
+        .select('*')
+        .gte('entry_date', from)
+        .lte('entry_date', to)
+        .order('entry_date', { ascending: false })
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Erro ao carregar financeiro:', error);
+        toast('Não foi possível carregar o financeiro.');
+        return;
+    }
+
+    const income = data.filter(x => x.type === 'income').reduce((a, x) => a + Number(x.amount || 0), 0);
+    const expense = data.filter(x => x.type === 'expense').reduce((a, x) => a + Number(x.amount || 0), 0);
+
+    if ($('#sumIncome')) $('#sumIncome').textContent = money(income);
+    if ($('#sumExpense')) $('#sumExpense').textContent = money(expense);
+    if ($('#sumBalance')) $('#sumBalance').textContent = money(income - expense);
+
+    if ($('#financeList')) {
+        $('#financeList').innerHTML = data.length
+            ? data.slice(0, 50).map(x => `
+                <div class="list-row">
+                    <div>
+                        <b>${escapeHtml(x.description || 'Lançamento')}</b>
+                        <small>${new Date(x.entry_date + 'T12:00').toLocaleDateString('pt-BR')} • ${x.booking_id ? 'Sistema' : 'Manual'}</small>
+                    </div>
+                    <span class="${x.type === 'income' ? 'ok' : 'cancel'}">${x.type === 'income' ? '+' : '-'} ${money(x.amount)}</span>
+                </div>
+            `).join('')
+            : '<p class="muted">Nenhum lançamento no período.</p>';
+    }
+
+    renderFinanceChart(data, from, to);
+
+    if ($('#financePeriod')) {
+        $('#financePeriod').onchange = async () => {
+            updateFinanceMonthControl();
+            await loadFinance();
+        };
+    }
+    if ($('#financeMonth')) $('#financeMonth').onchange = loadFinance;
+    updateFinanceMonthControl();
+
+    if (!$('#financeAllButton')) {
+        const btn = document.createElement('button');
+        btn.id = 'financeAllButton';
+        btn.type = 'button';
+        btn.className = 'btn secondary';
+        btn.textContent = 'Ver todos os lançamentos';
+        btn.style.marginTop = '12px';
+        $('#financeList')?.parentElement?.appendChild(btn);
+        btn.addEventListener('click', abrirTodosFinanceiros);
+    }
+}
+
+function toDateInputValue(date) {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
 }
 
 function renderFinanceChart(data, from, to) {
@@ -5617,8 +5529,15 @@ if ($('#teamForm')) {
 $$('[data-week-enabled]').forEach(box => {
     box.addEventListener('change', () => {
         const row = box.closest('[data-weekday]');
-        row?.querySelector('[data-week-start]')?.toggleAttribute('disabled', !box.checked);
-        row?.querySelector('[data-week-end]')?.toggleAttribute('disabled', !box.checked);
+        const enabled = box.checked;
+        row?.querySelector('[data-week-start]')?.toggleAttribute('disabled', !enabled);
+        row?.querySelector('[data-week-end]')?.toggleAttribute('disabled', !enabled);
+        const nameEl = row?.querySelector('[data-week-name]');
+        if (nameEl) {
+            const baseName = nameEl.dataset.baseName || nameEl.textContent.replace(/\s+—.*$/, '').trim();
+            nameEl.dataset.baseName = baseName;
+            nameEl.textContent = enabled ? baseName : `${baseName} — NÃO ATENDE`;
+        }
     });
 });
 
@@ -6106,8 +6025,15 @@ async function novoAgendamentoAdmin() {
             return { start, end };
         }).filter(x => Number.isFinite(x.start));
 
-        const startMinutes = timeToMinutes(settings.start_time.slice(0, 5));
-        const endMinutes = timeToMinutes(settings.end_time.slice(0, 5));
+        const daySchedule = scheduleForDate(date);
+        if (daySchedule.enabled === false) {
+            timeSelect.innerHTML = '<option value="">Não atende nesta data</option>';
+            if (info) info.textContent = 'A barbearia não atende neste dia.';
+            return;
+        }
+
+        const startMinutes = timeToMinutes(String(daySchedule.start || settings.start_time).slice(0, 5));
+        const endMinutes = timeToMinutes(String(daySchedule.end || settings.end_time).slice(0, 5));
         const interval = Number(settings.slot_interval) || 30;
         const options = [];
 
@@ -6144,7 +6070,14 @@ async function novoAgendamentoAdmin() {
         const button = $('#saveAdminBooking');
 
         if (!clientId || !serviceId || !professionalId || !date || !time) {
-            toast('Selecione cliente, serviço, profissional, data e horário.');
+            alert('Selecione cliente, serviço, profissional, data e horário antes de confirmar o agendamento.');
+            return;
+        }
+
+        const daySchedule = scheduleForDate(date);
+        if (daySchedule.enabled === false) {
+            alert('A barbearia não atende nesta data. Escolha outro dia.');
+            await carregarHorariosAdmin();
             return;
         }
 
@@ -7120,6 +7053,11 @@ async function boot() {
             today();
 
     }
+
+    if ($('#financeMonth')) {
+        $('#financeMonth').value = today().slice(0, 7);
+    }
+    updateFinanceMonthControl();
 
 }
 
