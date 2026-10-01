@@ -50,7 +50,24 @@ const digits = value =>
     (value || '').replace(/\D/g, '');
 
 function getWeeklySchedule(){
-    const fallback = {0:{enabled:false,start:'08:00',end:'18:00'},1:{enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'},2:{enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'},3:{enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'},4:{enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'},5:{enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'},6:{enabled:false,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'}};
+    const fallbackDay = (enabled, start, end) => ({
+        enabled,
+        start,
+        end,
+        lunch_start: '',
+        lunch_end: ''
+    });
+    const start = settings.start_time?.slice(0,5) || '08:00';
+    const end = settings.end_time?.slice(0,5) || '18:00';
+    const fallback = {
+        0: fallbackDay(false, start, end),
+        1: fallbackDay(true, start, end),
+        2: fallbackDay(true, start, end),
+        3: fallbackDay(true, start, end),
+        4: fallbackDay(true, start, end),
+        5: fallbackDay(true, start, end),
+        6: fallbackDay(false, start, end)
+    };
     const current = settings.weekly_schedule && typeof settings.weekly_schedule === 'object' ? settings.weekly_schedule : {};
     return Object.fromEntries(Object.keys(fallback).map(k => [k, {...fallback[k], ...(current[k] || {})}]));
 }
@@ -589,12 +606,18 @@ async function loadSettings() {
         const enabled = row.querySelector('[data-week-enabled]');
         const start = row.querySelector('[data-week-start]');
         const end = row.querySelector('[data-week-end]');
+        const lunchStart = row.querySelector('[data-week-lunch-start]');
+        const lunchEnd = row.querySelector('[data-week-lunch-end]');
         const isEnabled = cfg.enabled !== false;
         if (enabled) enabled.checked = isEnabled;
         if (start) start.value = cfg.start || settings.start_time?.slice(0,5) || '08:00';
         if (end) end.value = cfg.end || settings.end_time?.slice(0,5) || '18:00';
+        if (lunchStart) lunchStart.value = cfg.lunch_start || '';
+        if (lunchEnd) lunchEnd.value = cfg.lunch_end || '';
         if (start) start.disabled = !isEnabled;
         if (end) end.disabled = !isEnabled;
+        if (lunchStart) lunchStart.disabled = !isEnabled;
+        if (lunchEnd) lunchEnd.disabled = !isEnabled;
         const nameEl = row.querySelector('[data-week-name]');
         if (nameEl) {
             const baseName = nameEl.dataset.baseName || nameEl.textContent.replace(/\s+—.*$/, '').trim();
@@ -3517,6 +3540,10 @@ async function loadClientTimes() {
         if (date === today() && start <= currentMinutes) continue;
 
         const end = start + duration;
+        const lunchStart = timeToMinutes(String(daySchedule.lunch_start || '').slice(0, 5));
+        const lunchEnd = timeToMinutes(String(daySchedule.lunch_end || '').slice(0, 5));
+        const inLunch = Number.isFinite(lunchStart) && Number.isFinite(lunchEnd) && lunchEnd > lunchStart && start < lunchEnd && end > lunchStart;
+        if (inLunch) continue;
         const conflict = occupied.some(booked => start < booked.end && end > booked.start);
         if (conflict) continue;
 
@@ -3683,6 +3710,14 @@ async function createBooking() {
 
     if (selectedMinutes < opening || selectedMinutes + duration > closing) {
         alert('O horário escolhido está fora do horário de atendimento configurado para este dia.');
+        await loadClientTimes();
+        return;
+    }
+
+    const lunchStart = timeToMinutes(String(daySchedule.lunch_start || '').slice(0, 5));
+    const lunchEnd = timeToMinutes(String(daySchedule.lunch_end || '').slice(0, 5));
+    if (Number.isFinite(lunchStart) && Number.isFinite(lunchEnd) && lunchEnd > lunchStart && selectedMinutes < lunchEnd && selectedMinutes + duration > lunchStart) {
+        alert('O horário escolhido está dentro do intervalo reservado para almoço. Escolha outro horário.');
         await loadClientTimes();
         return;
     }
@@ -5543,6 +5578,8 @@ $$('[data-week-enabled]').forEach(box => {
         const enabled = box.checked;
         row?.querySelector('[data-week-start]')?.toggleAttribute('disabled', !enabled);
         row?.querySelector('[data-week-end]')?.toggleAttribute('disabled', !enabled);
+        row?.querySelector('[data-week-lunch-start]')?.toggleAttribute('disabled', !enabled);
+        row?.querySelector('[data-week-lunch-end]')?.toggleAttribute('disabled', !enabled);
         const nameEl = row?.querySelector('[data-week-name]');
         if (nameEl) {
             const baseName = nameEl.dataset.baseName || nameEl.textContent.replace(/\s+—.*$/, '').trim();
@@ -5613,7 +5650,9 @@ if ($('#saveSettings')) {
                     return [row.dataset.weekday, {
                         enabled,
                         start: row.querySelector('[data-week-start]')?.value || '08:00',
-                        end: row.querySelector('[data-week-end]')?.value || '18:00'
+                        end: row.querySelector('[data-week-end]')?.value || '18:00',
+                        lunch_start: row.querySelector('[data-week-lunch-start]')?.value || '',
+                        lunch_end: row.querySelector('[data-week-lunch-end]')?.value || ''
                     }];
                 }))
 
@@ -6052,8 +6091,11 @@ async function novoAgendamentoAdmin() {
             const hour = String(Math.floor(current / 60)).padStart(2, '0');
             const minute = String(current % 60).padStart(2, '0');
             const time = `${hour}:${minute}`;
+            const lunchStart = timeToMinutes(String(daySchedule.lunch_start || '').slice(0, 5));
+            const lunchEnd = timeToMinutes(String(daySchedule.lunch_end || '').slice(0, 5));
+            const inLunch = Number.isFinite(lunchStart) && Number.isFinite(lunchEnd) && lunchEnd > lunchStart && current < lunchEnd && current + duration > lunchStart;
             const conflict = busy.some(b => current < b.end && current + duration > b.start);
-            if (!conflict) options.push(`<option value="${time}">${time}</option>`);
+            if (!inLunch && !conflict) options.push(`<option value="${time}">${time}</option>`);
         }
 
         timeSelect.innerHTML = options.length
@@ -6090,6 +6132,19 @@ async function novoAgendamentoAdmin() {
             alert('A barbearia não atende nesta data. Escolha outro dia.');
             await carregarHorariosAdmin();
             return;
+        }
+
+        const selectedMinutes = timeToMinutes(time);
+        const lunchStart = timeToMinutes(String(daySchedule.lunch_start || '').slice(0, 5));
+        const lunchEnd = timeToMinutes(String(daySchedule.lunch_end || '').slice(0, 5));
+        if (Number.isFinite(lunchStart) && Number.isFinite(lunchEnd) && lunchEnd > lunchStart && Number.isFinite(selectedMinutes) && selectedMinutes < lunchEnd) {
+            const selectedService = activeServices.find(s => s.id === serviceId);
+            const selectedDuration = Number(selectedService?.duration) || 30;
+            if (selectedMinutes + selectedDuration > lunchStart) {
+                alert('O horário escolhido está dentro do intervalo reservado para almoço. Escolha outro horário.');
+                await carregarHorariosAdmin();
+                return;
+            }
         }
 
         if (button) {
