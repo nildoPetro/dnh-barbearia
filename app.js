@@ -48,6 +48,8 @@ const money = value =>
 const digits = value =>
     (value || '').replace(/\D/g, '');
 
+const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#039;');
+
 
 /* =========================================================
    CONTROLE DE ACESSO
@@ -1283,10 +1285,14 @@ async function dashboard() {
     }
 
 
+    const safeBookings = Array.isArray(bookings) ? bookings : [];
+    const safeFinance = Array.isArray(finance) ? finance : [];
+    const safeClients = Array.isArray(clients) ? clients : [];
+
     if ($('#kToday')) {
 
         $('#kToday').textContent =
-            bookings.filter(
+            safeBookings.filter(
                 x =>
                     x.status ===
                     'confirmed'
@@ -1306,7 +1312,7 @@ async function dashboard() {
     if ($('#kRevenue')) {
 
         const revenue =
-            finance
+            safeFinance
                 .filter(
                     x =>
                         x.type ===
@@ -1339,7 +1345,7 @@ async function dashboard() {
         today().slice(5, 7);
 
     const birthdays =
-        (Array.isArray(clients) ? clients : [])
+        safeClients
             .filter(client => {
 
                 if (!client?.birth) {
@@ -4465,219 +4471,96 @@ async function loadClients() {
 
 
 function renderClients(data) {
-
-    if (!isAdmin()) {
-        return;
-    }
-
+    if (!isAdmin()) return;
     const box = $('#clientList');
-
-    if (!box) {
+    if (!box) return;
+    const rows = Array.isArray(data) ? data : [];
+    const search = ($('#clientSearch')?.value || '').trim().toLowerCase();
+    const filtered = rows.filter(c =>
+        [c?.name, c?.phone, c?.email].map(v => String(v || '')).join(' ').toLowerCase().includes(search)
+    );
+    if (!filtered.length) {
+        box.innerHTML = '<p class="muted">Nenhum cliente cadastrado.</p>';
         return;
     }
-
-    if (!data || !data.length) {
-        box.innerHTML = `
-            <p class="muted">
-                Nenhum cliente cadastrado.
-            </p>
-        `;
-        return;
-    }
-
     box.innerHTML = `
         <div style="overflow-x:auto;width:100%;">
             <table class="table">
-                <thead>
-                    <tr>
-                        <th>Nome</th>
-                        <th>WhatsApp</th>
-                        <th>Nascimento</th>
-                        <th>E-mail</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
+                <thead><tr>
+                    <th>Nome</th><th>WhatsApp</th><th>Nascimento</th><th>E-mail</th><th>Ações</th>
+                </tr></thead>
                 <tbody>
-                    ${data.map(c => `
+                    ${filtered.map(c => `
                         <tr>
                             <td>${esc(c.name || '-')}</td>
                             <td>${esc(c.phone || '-')}</td>
-                            <td>
-                                ${c.birth
-                                    ? new Date(c.birth + 'T12:00:00').toLocaleDateString('pt-BR')
-                                    : '-'}
-                            </td>
+                            <td>${c.birth ? fmtDate(String(c.birth).slice(0,10)) : '-'}</td>
                             <td>${esc(c.email || '-')}</td>
                             <td>
                                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                                    <button
-                                        type="button"
-                                        class="btn secondary"
-                                        data-client-edit="${esc(c.id)}"
-                                    >
-                                        ✏️ Editar
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="btn secondary"
-                                        data-client-bookings="${esc(c.id)}"
-                                    >
-                                        📅 Agenda
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="btn secondary"
-                                        data-client-delete="${esc(c.id)}"
-                                    >
-                                        🗑️ Excluir
-                                    </button>
+                                    <button type="button" class="btn secondary" data-client-edit="${esc(c.id)}">✏️ Editar</button>
+                                    <button type="button" class="btn secondary" data-client-bookings="${esc(c.id)}">📅 Agenda</button>
+                                    <button type="button" class="btn secondary" data-client-delete="${esc(c.id)}">🗑️ Excluir</button>
                                 </div>
                             </td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
-        </div>
-    `;
+        </div>`;
 }
-
-
-/* =========================================================
-   EDITAR CLIENTE
-   ========================================================= */
 
 async function editarCliente(clientId) {
-
-    if (!isAdmin()) {
-        return;
-    }
-
-    const client = (window.allClients || [])
-        .find(item => String(item.id) === String(clientId));
-
-    if (!client) {
-        alert('Cliente não encontrado.');
-        return;
-    }
-
+    if (!isAdmin()) return;
+    const client = (window.allClients || []).find(c => String(c.id) === String(clientId));
+    if (!client) { toast('Cliente não encontrado.'); return; }
     const name = prompt('Nome:', client.name || '');
     if (name === null) return;
-
     const phone = prompt('WhatsApp:', client.phone || '');
     if (phone === null) return;
-
-    const birth = prompt(
-        'Nascimento (AAAA-MM-DD):',
-        client.birth || ''
-    );
-    if (birth === null) return;
-
     const email = prompt('E-mail:', client.email || '');
     if (email === null) return;
-
-    const { error } = await sb
-        .from('profiles')
-        .update({
-            name: name.trim(),
-            phone: phone.trim(),
-            birth: birth.trim() || null,
-            email: email.trim()
-        })
-        .eq('id', clientId);
-
+    const birth = prompt('Nascimento (AAAA-MM-DD):', client.birth || '');
+    if (birth === null) return;
+    const { error } = await sb.from('profiles').update({
+        name: name.trim(), phone: phone.trim(), email: email.trim(), birth: birth.trim() || null
+    }).eq('id', clientId).eq('role', 'client');
     if (error) {
         console.error('EDITAR CLIENTE:', error);
-        alert('Não foi possível atualizar o cliente.');
+        toast(error.message || 'Não foi possível editar o cliente.');
         return;
     }
-
-    alert('Cliente atualizado com sucesso.');
+    toast('Cliente atualizado com sucesso.');
     await loadClients();
 }
-
-
-/* =========================================================
-   EXCLUIR CLIENTE
-   ========================================================= */
-
-async function excluirCliente(clientId) {
-
-    if (!isAdmin()) {
-        return;
-    }
-
-    const client = (window.allClients || [])
-        .find(item => String(item.id) === String(clientId));
-
-    if (!client) {
-        alert('Cliente não encontrado.');
-        return;
-    }
-
-    const nome = client.name || client.email || 'este cliente';
-
-    const confirmed = confirm(
-        `Excluir o cliente "${nome}" da lista?\n\n` +
-        'Os dados do perfil serão removidos. A conta de login do Supabase não será excluída por esta ação.'
-    );
-
-    if (!confirmed) {
-        return;
-    }
-
-    const { error } = await sb
-        .from('profiles')
-        .delete()
-        .eq('id', clientId)
-        .eq('role', 'client');
-
-    if (error) {
-        console.error('EXCLUIR CLIENTE:', error);
-        alert('Não foi possível excluir o cliente.');
-        return;
-    }
-
-    alert('Cliente excluído com sucesso.');
-    await loadClients();
-}
-
-
-/* =========================================================
-   AGENDAMENTOS DO CLIENTE
-   ========================================================= */
 
 async function visualizarAgendamentosCliente(clientId) {
-
-    if (!isAdmin()) {
-        return;
-    }
-
-    const { data, error } = await sb
-        .from('bookings')
-        .select('*')
-        .eq('user_id', clientId)
-        .order('date')
-        .order('time');
-
+    if (!isAdmin()) return;
+    const { data, error } = await sb.from('bookings').select('*').eq('user_id', clientId).order('booking_date').order('booking_time');
     if (error) {
-        console.error('AGENDAMENTOS CLIENTE:', error);
-        alert('Não foi possível consultar os agendamentos.');
+        console.error('AGENDA CLIENTE:', error);
+        toast('Não foi possível consultar os agendamentos.');
         return;
     }
-
-    if (!data || !data.length) {
-        alert('Este cliente não possui agendamentos.');
-        return;
-    }
-
-    alert(
-        data.map(b =>
-            `${fmtDate(b.date)} ${String(b.time || '').slice(0, 5)} — ` +
-            `${serviceName(b.service_id)} — ${b.status || ''}`
-        ).join('\n')
-    );
+    const rows = Array.isArray(data) ? data : [];
+    if (!rows.length) { alert('Este cliente não possui agendamentos.'); return; }
+    alert(rows.map(b => `${b.booking_date || b.date || '-'} ${String(b.booking_time || b.time || '').slice(0,5)} — ${b.status || ''}`).join('\n'));
 }
 
+async function excluirCliente(clientId) {
+    if (!isAdmin()) return;
+    const client = (window.allClients || []).find(c => String(c.id) === String(clientId));
+    if (!client) { toast('Cliente não encontrado.'); return; }
+    if (!confirm(`Deseja excluir ${client.name || client.email || 'este cliente'}?\n\nO cadastro será removido da lista de clientes.`)) return;
+    const { error } = await sb.from('profiles').delete().eq('id', clientId).eq('role', 'client');
+    if (error) {
+        console.error('EXCLUIR CLIENTE:', error);
+        toast(error.message || 'Não foi possível excluir o cliente.');
+        return;
+    }
+    toast('Cliente excluído.');
+    await loadClients();
+}
 
 /* =========================================================
    ESTOQUE
@@ -6321,6 +6204,24 @@ document.addEventListener(
     'click',
     async e => {
 
+        const clientDelete = e.target.closest('[data-client-delete]');
+        if (clientDelete) {
+            await excluirCliente(clientDelete.dataset.clientDelete);
+            return;
+        }
+
+        const clientEdit = e.target.closest('[data-client-edit]');
+        if (clientEdit) {
+            await editarCliente(clientEdit.dataset.clientEdit);
+            return;
+        }
+
+        const clientBookings = e.target.closest('[data-client-bookings]');
+        if (clientBookings) {
+            await visualizarAgendamentosCliente(clientBookings.dataset.clientBookings);
+            return;
+        }
+
         /* -------------------------
            NOVO AGENDAMENTO ADMIN
            ------------------------- */
@@ -6691,38 +6592,6 @@ document.addEventListener(
         /* -------------------------
            CANCELAMENTO CLIENTE
            ------------------------- */
-
-        const clientDelete =
-            e.target.closest(
-                '[data-client-delete]'
-            );
-
-        if (clientDelete) {
-            if (!isAdmin()) {
-                toast('Acesso restrito ao administrador.');
-                return;
-            }
-            await excluirCliente(
-                clientDelete.dataset.clientDelete
-            );
-            return;
-        }
-
-        const clientEdit =
-            e.target.closest(
-                '[data-client-edit]'
-            );
-
-        if (clientEdit) {
-            if (!isAdmin()) {
-                toast('Acesso restrito ao administrador.');
-                return;
-            }
-            await editarCliente(
-                clientEdit.dataset.clientEdit
-            );
-            return;
-        }
 
         const clientCancel =
             e.target.closest(
