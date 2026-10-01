@@ -5868,42 +5868,76 @@ if ($('#clientSearch')) {
    FILTRO ANIVERSARIANTES
    ========================================================= */
 
+function normalizarNascimento(value) {
+
+    if (!value) {
+        return '';
+    }
+
+    const text = String(value).trim();
+
+    /* Supabase normalmente retorna YYYY-MM-DD.
+       Mantemos apenas os 10 primeiros caracteres para
+       evitar problemas com timestamp/timezone. */
+    const iso = text.slice(0, 10);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        return iso;
+    }
+
+    /* Compatibilidade com datas no formato DD/MM/YYYY. */
+    const br = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+    if (br) {
+        return `${br[3]}-${br[2]}-${br[1]}`;
+    }
+
+    return '';
+}
+
+async function mostrarAniversariantesDoMes() {
+
+    if (!isAdmin()) {
+        return;
+    }
+
+    /* Se a lista de clientes ainda não foi carregada,
+       busca os dados antes de aplicar o filtro. */
+    if (!Array.isArray(window.allClients)) {
+        await loadClients();
+    }
+
+    const month = today().slice(5, 7);
+
+    const birthdays = (window.allClients || [])
+        .filter(client => {
+            const birth = normalizarNascimento(client.birth);
+            return birth && birth.slice(5, 7) === month;
+        })
+        .sort((a, b) => {
+            const birthA = normalizarNascimento(a.birth);
+            const birthB = normalizarNascimento(b.birth);
+            return Number(birthA.slice(8, 10)) - Number(birthB.slice(8, 10));
+        });
+
+    renderClients(birthdays);
+
+    /* Garante que o administrador veja claramente o resultado. */
+    if ($('#clientList')) {
+        if (!birthdays.length) {
+            $('#clientList').innerHTML =
+                '<p class=\"muted\">Nenhum aniversariante neste mês.</p>';
+        }
+    }
+
+    const button = $('#birthdayOnly');
+    if (button) {
+        button.textContent = `🎂 Aniversariantes (${birthdays.length})`;
+    }
+}
+
 if ($('#birthdayOnly')) {
-
-    $('#birthdayOnly').onclick =
-        () => {
-
-            if (!isAdmin()) {
-                return;
-            }
-
-
-            const month =
-                today().slice(
-                    5,
-                    7
-                );
-
-
-            renderClients(
-
-                (
-                    window.allClients ||
-                    []
-                ).filter(
-
-                    c =>
-                        c.birth &&
-                        c.birth.slice(
-                            5,
-                            7
-                        ) === month
-
-                )
-
-            );
-
-        };
+    $('#birthdayOnly').onclick = mostrarAniversariantesDoMes;
 }
 
 
