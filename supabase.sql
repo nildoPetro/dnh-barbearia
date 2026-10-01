@@ -266,3 +266,82 @@ using (exists (
 -- ============================================================
 -- FIM V17
 -- ============================================================
+
+-- ============================================================
+-- V18 - ESTOQUE COM ENTRADAS/SAÍDAS + EXCLUSÃO DE CLIENTE
+-- ============================================================
+
+-- Movimentações do estoque
+create table if not exists public.inventory_movements (
+    id uuid primary key default gen_random_uuid(),
+    inventory_id uuid not null references public.inventory(id) on delete cascade,
+    type text not null check (type in ('in','out')),
+    quantity numeric not null check (quantity > 0),
+    created_at timestamptz not null default now()
+);
+
+create index if not exists inventory_movements_inventory_idx
+on public.inventory_movements (inventory_id, created_at desc);
+
+alter table public.inventory_movements enable row level security;
+
+drop policy if exists inventory_movements_admin_select on public.inventory_movements;
+drop policy if exists inventory_movements_admin_insert on public.inventory_movements;
+drop policy if exists inventory_movements_admin_delete on public.inventory_movements;
+
+create policy inventory_movements_admin_select
+on public.inventory_movements for select to authenticated
+using (exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin'
+));
+
+create policy inventory_movements_admin_insert
+on public.inventory_movements for insert to authenticated
+with check (exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin'
+));
+
+create policy inventory_movements_admin_delete
+on public.inventory_movements for delete to authenticated
+using (exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin'
+));
+
+-- Políticas administrativas para exclusão de clientes e seus agendamentos.
+alter table public.bookings enable row level security;
+
+drop policy if exists bookings_admin_delete on public.bookings;
+create policy bookings_admin_delete
+on public.bookings for delete to authenticated
+using (exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin'
+));
+
+create or replace function public.dnh_is_admin()
+returns boolean
+language sql
+security definer
+set search_path to public, pg_temp
+as $function$
+    select exists (
+        select 1 from public.profiles
+        where id = auth.uid() and role = 'admin'
+    );
+$function$;
+
+grant execute on function public.dnh_is_admin() to authenticated;
+
+alter table public.profiles enable row level security;
+
+drop policy if exists profiles_admin_delete_clients on public.profiles;
+create policy profiles_admin_delete_clients
+on public.profiles for delete to authenticated
+using (role = 'client' and public.dnh_is_admin());
+
+-- ============================================================
+-- FIM V18
+-- ============================================================
