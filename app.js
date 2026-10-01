@@ -5958,9 +5958,42 @@ async function mostrarAniversariantesDoMes() {
     }
 }
 
+/* =========================================================
+   BOTÃO ANIVERSARIANTES — EVENTO ROBUSTO
+   ========================================================= */
+
 if ($('#birthdayOnly')) {
-    $('#birthdayOnly').onclick = mostrarAniversariantesDoMes;
+    $('#birthdayOnly').onclick = async () => {
+        console.log('ANIVERSARIANTES: botão clicado');
+        await mostrarAniversariantesDoMes();
+    };
 }
+
+/* Fallback por delegação: funciona mesmo se a página for
+   reconstruída dinamicamente depois do carregamento. */
+document.addEventListener('click', async event => {
+    const birthdayButton = event.target.closest('#birthdayOnly');
+
+    if (!birthdayButton) {
+        return;
+    }
+
+    if (birthdayButton.dataset.busy === '1') {
+        return;
+    }
+
+    birthdayButton.dataset.busy = '1';
+
+    try {
+        console.log('ANIVERSARIANTES: carregando...');
+        await mostrarAniversariantesDoMes();
+    } catch (error) {
+        console.error('Erro ao mostrar aniversariantes:', error);
+        toast('Não foi possível carregar os aniversariantes.');
+    } finally {
+        delete birthdayButton.dataset.busy;
+    }
+});
 
 
 
