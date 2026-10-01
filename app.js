@@ -4470,104 +4470,212 @@ function renderClients(data) {
         return;
     }
 
+    const box = $('#clientList');
 
-    if (!$('#clientList')) {
+    if (!box) {
         return;
     }
 
+    if (!data || !data.length) {
+        box.innerHTML = `
+            <p class="muted">
+                Nenhum cliente cadastrado.
+            </p>
+        `;
+        return;
+    }
 
-    $('#clientList').innerHTML =
-        data.length
-
-            ? `
-
-                <table class="table">
-
-                    <thead>
-
+    box.innerHTML = `
+        <div style="overflow-x:auto;width:100%;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>WhatsApp</th>
+                        <th>Nascimento</th>
+                        <th>E-mail</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.map(c => `
                         <tr>
-
-                            <th>
-                                Nome
-                            </th>
-
-                            <th>
-                                WhatsApp
-                            </th>
-
-                            <th>
-                                Nascimento
-                            </th>
-
-                            <th>
-                                E-mail
-                            </th>
-
-                            <th>
-                                Ações
-                            </th>
-
+                            <td>${esc(c.name || '-')}</td>
+                            <td>${esc(c.phone || '-')}</td>
+                            <td>
+                                ${c.birth
+                                    ? new Date(c.birth + 'T12:00:00').toLocaleDateString('pt-BR')
+                                    : '-'}
+                            </td>
+                            <td>${esc(c.email || '-')}</td>
+                            <td>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <button
+                                        type="button"
+                                        class="btn secondary"
+                                        data-client-edit="${esc(c.id)}"
+                                    >
+                                        ✏️ Editar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn secondary"
+                                        data-client-bookings="${esc(c.id)}"
+                                    >
+                                        📅 Agenda
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn secondary"
+                                        data-client-delete="${esc(c.id)}"
+                                    >
+                                        🗑️ Excluir
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
 
-                    </thead>
 
-                    <tbody>
+/* =========================================================
+   EDITAR CLIENTE
+   ========================================================= */
 
-                        ${data.map(c => `
+async function editarCliente(clientId) {
 
-                            <tr>
+    if (!isAdmin()) {
+        return;
+    }
 
-                                <td>
-                                    ${c.name || '-'}
-                                </td>
+    const client = (window.allClients || [])
+        .find(item => String(item.id) === String(clientId));
 
-                                <td>
-                                    ${c.phone || '-'}
-                                </td>
+    if (!client) {
+        alert('Cliente não encontrado.');
+        return;
+    }
 
-                                <td>
+    const name = prompt('Nome:', client.name || '');
+    if (name === null) return;
 
-                                    ${
-                                        c.birth
-                                            ? new Date(
-                                                c.birth +
-                                                'T12:00'
-                                            ).toLocaleDateString(
-                                                'pt-BR'
-                                            )
-                                            : '-'
-                                    }
+    const phone = prompt('WhatsApp:', client.phone || '');
+    if (phone === null) return;
 
-                                </td>
+    const birth = prompt(
+        'Nascimento (AAAA-MM-DD):',
+        client.birth || ''
+    );
+    if (birth === null) return;
 
-                                <td>
-                                    ${c.email || '-'}
-                                </td>
+    const email = prompt('E-mail:', client.email || '');
+    if (email === null) return;
 
-                                <td>
-                                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                                        <button type="button" class="btn secondary" data-client-edit="${c.id}">✏️ Editar</button>
-                                        <button type="button" class="btn secondary" data-client-delete="${c.id}" style="color:#c62828;">🗑️ Excluir</button>
-                                    </div>
-                                </td>
+    const { error } = await sb
+        .from('profiles')
+        .update({
+            name: name.trim(),
+            phone: phone.trim(),
+            birth: birth.trim() || null,
+            email: email.trim()
+        })
+        .eq('id', clientId);
 
-                            </tr>
+    if (error) {
+        console.error('EDITAR CLIENTE:', error);
+        alert('Não foi possível atualizar o cliente.');
+        return;
+    }
 
-                        `).join('')}
+    alert('Cliente atualizado com sucesso.');
+    await loadClients();
+}
 
-                    </tbody>
 
-                </table>
+/* =========================================================
+   EXCLUIR CLIENTE
+   ========================================================= */
 
-            `
+async function excluirCliente(clientId) {
 
-            : `
+    if (!isAdmin()) {
+        return;
+    }
 
-                <p class="muted">
-                    Nenhum cliente cadastrado.
-                </p>
+    const client = (window.allClients || [])
+        .find(item => String(item.id) === String(clientId));
 
-            `;
+    if (!client) {
+        alert('Cliente não encontrado.');
+        return;
+    }
+
+    const nome = client.name || client.email || 'este cliente';
+
+    const confirmed = confirm(
+        `Excluir o cliente "${nome}" da lista?\n\n` +
+        'Os dados do perfil serão removidos. A conta de login do Supabase não será excluída por esta ação.'
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    const { error } = await sb
+        .from('profiles')
+        .delete()
+        .eq('id', clientId)
+        .eq('role', 'client');
+
+    if (error) {
+        console.error('EXCLUIR CLIENTE:', error);
+        alert('Não foi possível excluir o cliente.');
+        return;
+    }
+
+    alert('Cliente excluído com sucesso.');
+    await loadClients();
+}
+
+
+/* =========================================================
+   AGENDAMENTOS DO CLIENTE
+   ========================================================= */
+
+async function visualizarAgendamentosCliente(clientId) {
+
+    if (!isAdmin()) {
+        return;
+    }
+
+    const { data, error } = await sb
+        .from('bookings')
+        .select('*')
+        .eq('user_id', clientId)
+        .order('date')
+        .order('time');
+
+    if (error) {
+        console.error('AGENDAMENTOS CLIENTE:', error);
+        alert('Não foi possível consultar os agendamentos.');
+        return;
+    }
+
+    if (!data || !data.length) {
+        alert('Este cliente não possui agendamentos.');
+        return;
+    }
+
+    alert(
+        data.map(b =>
+            `${fmtDate(b.date)} ${String(b.time || '').slice(0, 5)} — ` +
+            `${serviceName(b.service_id)} — ${b.status || ''}`
+        ).join('\n')
+    );
 }
 
 
@@ -5817,141 +5925,6 @@ if ($('#shareBtn')) {
 
 
 /* =========================================================
-   EDITAR CLIENTE
-   ========================================================= */
-
-async function editarCliente(clientId) {
-
-    if (!isAdmin()) {
-        toast('Acesso restrito ao administrador.');
-        return;
-    }
-
-    const client = (window.allClients || []).find(
-        c => String(c.id) === String(clientId)
-    );
-
-    if (!client) {
-        toast('Cliente não encontrado.');
-        return;
-    }
-
-    $('#editClientModal')?.remove();
-
-    const modal = document.createElement('div');
-    modal.id = 'editClientModal';
-    modal.style.cssText = `
-        position:fixed;inset:0;background:rgba(0,0,0,.68);
-        display:flex;align-items:center;justify-content:center;
-        z-index:9999;padding:20px;
-    `;
-
-    modal.innerHTML = `
-        <div style="background:#fff;color:#222;width:100%;max-width:500px;border-radius:14px;padding:24px;box-sizing:border-box;box-shadow:0 20px 60px rgba(0,0,0,.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-                <h2 style="margin:0;">Editar Cliente</h2>
-                <button type="button" id="closeEditClientModal">✕</button>
-            </div>
-
-            <div style="display:grid;gap:12px;">
-                <label>Nome<input id="editClientName" type="text" value="${String(client.name || '').replace(/"/g,'&quot;')}"></label>
-                <label>WhatsApp<input id="editClientPhone" type="text" value="${String(client.phone || '').replace(/"/g,'&quot;')}"></label>
-                <label>E-mail<input id="editClientEmail" type="email" value="${String(client.email || '').replace(/"/g,'&quot;')}"></label>
-                <label>Data de nascimento<input id="editClientBirth" type="date" value="${client.birth || ''}"></label>
-                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
-                    <button type="button" id="cancelEditClient">Cancelar</button>
-                    <button type="button" class="btn gold" id="saveEditClient">Salvar alterações</button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    const close = () => modal.remove();
-    $('#closeEditClientModal').onclick = close;
-    $('#cancelEditClient').onclick = close;
-
-    $('#saveEditClient').onclick = async () => {
-        const button = $('#saveEditClient');
-        const name = $('#editClientName').value.trim();
-        const phone = $('#editClientPhone').value.trim();
-        const email = $('#editClientEmail').value.trim();
-        const birth = $('#editClientBirth').value || null;
-
-        if (!name || !email) {
-            toast('Informe pelo menos nome e e-mail.');
-            return;
-        }
-
-        button.disabled = true;
-        button.textContent = 'Salvando...';
-
-        const { error } = await sb
-            .from('profiles')
-            .update({ name, phone, email, birth })
-            .eq('id', clientId)
-            .eq('role', 'client');
-
-        if (error) {
-            console.error('ERRO AO EDITAR CLIENTE:', error);
-            button.disabled = false;
-            button.textContent = 'Salvar alterações';
-            toast(error.message || 'Não foi possível atualizar o cliente.');
-            return;
-        }
-
-        close();
-        toast('Cliente atualizado com sucesso.');
-        await loadClients();
-    };
-}
-
-
-/* =========================================================
-   EXCLUIR CLIENTE
-   ========================================================= */
-
-async function excluirCliente(clientId) {
-
-    if (!isAdmin()) {
-        toast('Acesso restrito ao administrador.');
-        return;
-    }
-
-    const client = (window.allClients || []).find(
-        c => String(c.id) === String(clientId)
-    );
-
-    if (!client) {
-        toast('Cliente não encontrado.');
-        return;
-    }
-
-    const nome = client.name || client.email || 'este cliente';
-
-    if (!confirm(`Tem certeza que deseja excluir ${nome}?\n\nEssa ação remove o cadastro do cliente.`)) {
-        return;
-    }
-
-    const { error } = await sb
-        .from('profiles')
-        .delete()
-        .eq('id', clientId)
-        .eq('role', 'client');
-
-    if (error) {
-        console.error('ERRO AO EXCLUIR CLIENTE:', error);
-        toast(error.message || 'Não foi possível excluir o cliente.');
-        return;
-    }
-
-    toast('Cliente excluído com sucesso.');
-    await loadClients();
-}
-
-
-/* =========================================================
    PESQUISA DE CLIENTES
    ========================================================= */
 
@@ -6349,34 +6322,6 @@ document.addEventListener(
     async e => {
 
         /* -------------------------
-           EDITAR CLIENTE
-           ------------------------- */
-
-        const editClient = e.target.closest('[data-client-edit]');
-        if (editClient) {
-            if (!isAdmin()) {
-                toast('Acesso restrito ao administrador.');
-                return;
-            }
-            await editarCliente(editClient.dataset.clientEdit);
-            return;
-        }
-
-        /* -------------------------
-           EXCLUIR CLIENTE
-           ------------------------- */
-
-        const deleteClient = e.target.closest('[data-client-delete]');
-        if (deleteClient) {
-            if (!isAdmin()) {
-                toast('Acesso restrito ao administrador.');
-                return;
-            }
-            await excluirCliente(deleteClient.dataset.clientDelete);
-            return;
-        }
-
-        /* -------------------------
            NOVO AGENDAMENTO ADMIN
            ------------------------- */
 
@@ -6746,6 +6691,38 @@ document.addEventListener(
         /* -------------------------
            CANCELAMENTO CLIENTE
            ------------------------- */
+
+        const clientDelete =
+            e.target.closest(
+                '[data-client-delete]'
+            );
+
+        if (clientDelete) {
+            if (!isAdmin()) {
+                toast('Acesso restrito ao administrador.');
+                return;
+            }
+            await excluirCliente(
+                clientDelete.dataset.clientDelete
+            );
+            return;
+        }
+
+        const clientEdit =
+            e.target.closest(
+                '[data-client-edit]'
+            );
+
+        if (clientEdit) {
+            if (!isAdmin()) {
+                toast('Acesso restrito ao administrador.');
+                return;
+            }
+            await editarCliente(
+                clientEdit.dataset.clientEdit
+            );
+            return;
+        }
 
         const clientCancel =
             e.target.closest(
