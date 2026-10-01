@@ -4494,7 +4494,7 @@ function renderClients(data) {
                         <tr>
                             <td>${esc(c.name || '-')}</td>
                             <td>${esc(c.phone || '-')}</td>
-                            <td>${c.birth ? fmtDate(String(c.birth).slice(0,10)) : '-'}</td>
+                            <td>${c.birth ? formatDate(String(c.birth).slice(0,10)) : '-'}</td>
                             <td>${esc(c.email || '-')}</td>
                             <td>
                                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
