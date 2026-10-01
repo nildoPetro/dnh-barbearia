@@ -20,7 +20,9 @@ as $function$
 declare
     new_duration integer;
 begin
-    if new.status = 'cancelled' then
+    -- Ao concluir um atendimento, apenas damos baixa no agendamento.
+    -- Nao devemos executar a validacao de conflito de horario novamente.
+    if new.status in ('cancelled', 'completed') then
         return new;
     end if;
 
@@ -344,4 +346,81 @@ using (role = 'client' and public.dnh_is_admin());
 
 -- ============================================================
 -- FIM V18
+-- ============================================================
+
+-- ============================================================
+-- V19 - CORREÇÃO DE LOGIN/PERFIL + POLÍTICAS RLS DE PROFILES
+-- ============================================================
+-- O V18 passou a habilitar RLS em profiles. Estas políticas garantem:
+-- 1) o próprio usuário consegue consultar seu perfil;
+-- 2) o administrador consegue consultar os perfis;
+-- 3) um cliente consegue criar/atualizar somente seu próprio perfil;
+-- 4) cliente nunca consegue alterar seu role para admin.
+
+alter table public.profiles enable row level security;
+
+create or replace function public.dnh_is_admin()
+returns boolean
+language sql
+security definer
+set search_path to public, pg_temp
+as $function$
+    select exists (
+        select 1
+        from public.profiles
+        where id = auth.uid()
+          and role = 'admin'
+    );
+$function$;
+
+grant execute on function public.dnh_is_admin() to authenticated;
+
+drop policy if exists profiles_self_select on public.profiles;
+drop policy if exists profiles_admin_select on public.profiles;
+drop policy if exists profiles_self_insert_client on public.profiles;
+drop policy if exists profiles_self_update_client on public.profiles;
+
+
+create policy profiles_self_select
+on public.profiles
+for select to authenticated
+using (id = auth.uid());
+
+create policy profiles_admin_select
+on public.profiles
+for select to authenticated
+using (public.dnh_is_admin());
+
+create policy profiles_self_insert_client
+on public.profiles
+for insert to authenticated
+with check (
+    id = auth.uid()
+    and role = 'client'
+);
+
+create policy profiles_self_update_client
+on public.profiles
+for update to authenticated
+using (
+    id = auth.uid()
+    and role = 'client'
+)
+with check (
+    id = auth.uid()
+    and role = 'client'
+);
+
+-- Mantém a exclusão de clientes pelo administrador.
+drop policy if exists profiles_admin_delete_clients on public.profiles;
+create policy profiles_admin_delete_clients
+on public.profiles
+for delete to authenticated
+using (
+    role = 'client'
+    and public.dnh_is_admin()
+);
+
+-- ============================================================
+-- FIM V21
 -- ============================================================
