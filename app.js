@@ -1328,21 +1328,51 @@ async function dashboard() {
     }
 
 
+    /* ---------------------------------------------------------
+       ANIVERSARIANTES DO MÊS
+       Normaliza a data para YYYY-MM-DD antes do filtro.
+       Isso evita problemas caso o Supabase devolva a data
+       como string em outro formato/representação.
+       --------------------------------------------------------- */
+
+    const currentMonth =
+        today().slice(5, 7);
+
     const birthdays =
-        clients
-            .filter(
-                x =>
-                    x.birth &&
-                    x.birth.slice(5, 7) ===
-                    month.slice(5, 7)
-            )
-            .sort(
-                (a, b) =>
-                    a.birth.slice(8)
-                        .localeCompare(
-                            b.birth.slice(8)
-                        )
-            );
+        (Array.isArray(clients) ? clients : [])
+            .filter(client => {
+
+                if (!client?.birth) {
+                    return false;
+                }
+
+                const birth =
+                    String(client.birth)
+                        .trim()
+                        .slice(0, 10);
+
+                return (
+                    /^\d{4}-\d{2}-\d{2}$/.test(birth) &&
+                    birth.slice(5, 7) === currentMonth
+                );
+            })
+            .sort((a, b) => {
+
+                const dayA = Number(
+                    String(a.birth).slice(8, 10)
+                );
+
+                const dayB = Number(
+                    String(b.birth).slice(8, 10)
+                );
+
+                return dayA - dayB;
+            });
+
+    console.log(
+        'ANIVERSARIANTES DO MÊS:',
+        birthdays
+    );
 
 
     if ($('#kBirthdays')) {
@@ -1410,7 +1440,24 @@ async function dashboard() {
         $('#birthdayList').innerHTML =
             birthdays
                 .slice(0, 6)
-                .map(c => `
+                .map(c => {
+
+                    const birth =
+                        String(c.birth)
+                            .trim()
+                            .slice(0, 10);
+
+                    const day =
+                        birth.slice(8, 10);
+
+                    const birthMonth =
+                        birth.slice(5, 7);
+
+                    const isToday =
+                        birth.slice(5, 10) ===
+                        today().slice(5, 10);
+
+                    return `
 
                     <div class="list-row">
 
@@ -1422,7 +1469,7 @@ async function dashboard() {
                             </b>
 
                             <small>
-                                ${c.birth.slice(8, 10)}/${c.birth.slice(5, 7)}
+                                ${day}/${birthMonth}
                                 •
                                 ${c.phone || ''}
                             </small>
@@ -1430,19 +1477,13 @@ async function dashboard() {
                         </div>
 
                         <span>
-
-                            ${
-                                c.birth.slice(8, 10) ===
-                                today().slice(8, 10)
-                                    ? 'Hoje'
-                                    : ''
-                            }
-
+                            ${isToday ? 'Hoje' : ''}
                         </span>
 
                     </div>
 
-                `)
+                `;
+                })
                 .join('')
 
             ||
