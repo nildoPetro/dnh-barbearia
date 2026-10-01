@@ -1,28 +1,163 @@
-create extension if not exists pgcrypto;
-create table if not exists public.profiles(id uuid primary key references auth.users(id) on delete cascade,email text,name text not null default '',phone text,birth date,role text not null default 'client' check(role in ('client','admin')),created_at timestamptz default now());
-create table if not exists public.services(id uuid primary key default gen_random_uuid(),name text not null,price numeric(10,2) not null default 0,duration integer not null default 30,active boolean not null default true,created_at timestamptz default now());
-create table if not exists public.professionals(id uuid primary key default gen_random_uuid(),name text not null,phone text,active boolean not null default true,created_at timestamptz default now());
-create table if not exists public.settings(id integer primary key default 1,name text not null default 'DNH BARBEARIA',whatsapp text default '',start_time time default '08:00',end_time time default '18:00',slot_interval integer default 30,logo_url text default 'dnh-logo.png');
-insert into public.settings(id) values(1) on conflict(id) do nothing;
-create table if not exists public.bookings(id uuid primary key default gen_random_uuid(),user_id uuid references public.profiles(id) on delete cascade,service_id uuid references public.services(id),professional_id uuid references public.professionals(id),booking_date date not null,booking_time time not null,status text not null default 'confirmed' check(status in ('confirmed','cancelled')),created_at timestamptz default now());
-create unique index if not exists bookings_unique_slot on public.bookings(booking_date,booking_time,professional_id) where status='confirmed';
-create table if not exists public.inventory(id uuid primary key default gen_random_uuid(),name text not null,quantity numeric(10,2) not null default 0,min_quantity numeric(10,2) not null default 1,created_at timestamptz default now());
-create table if not exists public.cash_entries(id uuid primary key default gen_random_uuid(),type text not null check(type in ('income','expense')),description text not null,amount numeric(10,2) not null,entry_date date not null default current_date,created_by uuid references auth.users(id),created_at timestamptz default now());
-create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$ begin insert into public.profiles(id,email,name,phone,birth) values(new.id,new.email,coalesce(new.raw_user_meta_data->>'name',''),new.raw_user_meta_data->>'phone',nullif(new.raw_user_meta_data->>'birth','')::date) on conflict(id) do update set email=excluded.email,name=excluded.name,phone=excluded.phone,birth=excluded.birth; return new; end; $$;
-drop trigger if exists on_auth_user_created on auth.users; create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
-create or replace function public.is_admin() returns boolean language sql stable security definer set search_path=public as $$ select exists(select 1 from public.profiles where id=auth.uid() and role='admin'); $$;
-alter table public.profiles enable row level security; alter table public.services enable row level security; alter table public.professionals enable row level security; alter table public.settings enable row level security; alter table public.bookings enable row level security; alter table public.inventory enable row level security; alter table public.cash_entries enable row level security;
-drop policy if exists profiles_self on public.profiles; create policy profiles_self on public.profiles for select using(id=auth.uid() or public.is_admin());
-drop policy if exists profiles_update_self on public.profiles; create policy profiles_update_self on public.profiles for update using(id=auth.uid() or public.is_admin());
-drop policy if exists services_read on public.services; create policy services_read on public.services for select using(active=true or public.is_admin());
-drop policy if exists services_admin on public.services; create policy services_admin on public.services for all using(public.is_admin()) with check(public.is_admin());
-drop policy if exists professionals_read on public.professionals; create policy professionals_read on public.professionals for select using(active=true or public.is_admin());
-drop policy if exists professionals_admin on public.professionals; create policy professionals_admin on public.professionals for all using(public.is_admin()) with check(public.is_admin());
-drop policy if exists settings_read on public.settings; create policy settings_read on public.settings for select using(true); drop policy if exists settings_admin on public.settings; create policy settings_admin on public.settings for all using(public.is_admin()) with check(public.is_admin());
-drop policy if exists bookings_client on public.bookings; create policy bookings_client on public.bookings for select using(user_id=auth.uid() or public.is_admin());
-drop policy if exists bookings_insert on public.bookings; create policy bookings_insert on public.bookings for insert with check(user_id=auth.uid() or public.is_admin());
-drop policy if exists bookings_update on public.bookings; create policy bookings_update on public.bookings for update using(user_id=auth.uid() or public.is_admin()) with check(user_id=auth.uid() or public.is_admin());
-drop policy if exists inventory_admin on public.inventory; create policy inventory_admin on public.inventory for all using(public.is_admin()) with check(public.is_admin());
-drop policy if exists cash_admin on public.cash_entries; create policy cash_admin on public.cash_entries for all using(public.is_admin()) with check(public.is_admin());
--- Depois de criar sua conta, torne-a administradora:
--- update public.profiles set role='admin' where email='SEU_EMAIL_ADMIN';
+-- DNH BARBEARIA - proteção de conflitos de agendamento e escala semanal
+-- Execute este arquivo no SQL Editor do Supabase.
+
+-- 1) Permite salvar horários diferentes por dia da semana.
+alter table public.settings
+add column if not exists weekly_schedule jsonb;
+
+-- 2) Impede dois agendamentos ativos exatamente no mesmo horário/profissional/data.
+create unique index if not exists bookings_unique_active_slot
+on public.bookings (professional_id, booking_date, booking_time)
+where status <> 'cancelled';
+
+-- 3) Impede sobreposição de duração (ex.: serviço de 60 min às 10:00
+--    não poderá coexistir com outro às 10:30 para o mesmo profissional).
+create or replace function public.prevent_booking_overlap()
+returns trigger
+language plpgsql
+as $$
+declare
+    new_duration integer;
+begin
+    if new.status = 'cancelled' then
+        return new;
+    end if;
+
+    select coalesce(s.duration, 30)
+      into new_duration
+      from public.services s
+     where s.id = new.service_id;
+
+    new_duration := coalesce(new_duration, 30);
+
+    if exists (
+        select 1
+          from public.bookings b
+          left join public.services bs on bs.id = b.service_id
+         where b.id <> new.id
+           and b.professional_id = new.professional_id
+           and b.booking_date = new.booking_date
+           and b.status <> 'cancelled'
+           and new.booking_time::time < (b.booking_time::time + make_interval(mins => coalesce(bs.duration, 30)))
+           and b.booking_time::time < (new.booking_time::time + make_interval(mins => new_duration))
+    ) then
+        raise exception 'HORARIO_CONFLITANTE: o profissional já possui um agendamento nesse intervalo.';
+    end if;
+
+    return new;
+end;
+$$;
+
+drop trigger if exists trg_prevent_booking_overlap on public.bookings;
+
+create trigger trg_prevent_booking_overlap
+before insert or update of professional_id, booking_date, booking_time, service_id, status
+on public.bookings
+for each row
+execute function public.prevent_booking_overlap();
+
+
+-- =========================================================
+-- V15 - CONCLUSÃO DE ATENDIMENTO -> FINANCEIRO
+-- =========================================================
+-- O campo booking_id é interno e não altera os campos que o admin
+-- utiliza manualmente no menu Financeiro.
+alter table public.cash_entries
+add column if not exists booking_id uuid references public.bookings(id) on delete set null;
+
+-- Um agendamento só pode gerar um lançamento automático.
+create unique index if not exists cash_entries_unique_booking
+on public.cash_entries (booking_id)
+where booking_id is not null;
+
+-- Conclui o atendimento e cria a entrada financeira em uma única transação.
+-- O admin continua podendo inserir lançamentos manuais normalmente.
+create or replace function public.complete_booking_and_register_finance(p_booking_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_booking public.bookings%rowtype;
+    v_service_name text;
+    v_service_price numeric;
+    v_existing_id uuid;
+begin
+    -- Somente administrador pode concluir atendimento e gerar faturamento.
+    if not exists (
+        select 1
+          from public.profiles p
+         where p.id = auth.uid()
+           and p.role = 'admin'
+    ) then
+        raise exception 'ACESSO_NEGADO: somente administrador pode concluir atendimento.';
+    end if;
+
+    select b.*, s.name, coalesce(s.price, 0)
+      into v_booking, v_service_name, v_service_price
+      from public.bookings b
+      left join public.services s on s.id = b.service_id
+     where b.id = p_booking_id
+     for update;
+
+    if not found then
+        raise exception 'AGENDAMENTO_NAO_ENCONTRADO: agendamento não encontrado.';
+    end if;
+
+    -- Idempotência: se já existe lançamento para este booking, não cria outro.
+    select ce.id
+      into v_existing_id
+      from public.cash_entries ce
+     where ce.booking_id = p_booking_id
+     limit 1;
+
+    if v_existing_id is not null then
+        if v_booking.status <> 'completed' then
+            update public.bookings
+               set status = 'completed'
+             where id = p_booking_id;
+        end if;
+
+        return jsonb_build_object(
+            'success', true,
+            'already_completed', true,
+            'booking_id', p_booking_id,
+            'cash_entry_id', v_existing_id,
+            'description', coalesce(v_service_name, 'Serviço'),
+            'amount', v_service_price
+        );
+    end if;
+
+    update public.bookings
+       set status = 'completed',
+           updated_at = now()
+     where id = p_booking_id;
+
+    insert into public.cash_entries (
+        type,
+        description,
+        amount,
+        entry_date,
+        booking_id
+    ) values (
+        'income',
+        coalesce(v_service_name, 'Serviço'),
+        v_service_price,
+        v_booking.booking_date,
+        p_booking_id
+    )
+    returning id into v_existing_id;
+
+    return jsonb_build_object(
+        'success', true,
+        'already_completed', false,
+        'booking_id', p_booking_id,
+        'cash_entry_id', v_existing_id,
+        'description', coalesce(v_service_name, 'Serviço'),
+        'amount', v_service_price
+    );
+end;
+$$;
+
+grant execute on function public.complete_booking_and_register_finance(uuid) to authenticated;
