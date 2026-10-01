@@ -1,4 +1,4 @@
-const CACHE_NAME='dnh-v12';
+const CACHE_NAME='dnh-v13';
 const APP_FILES=['./','./index.html','./style.css','./app.js','./config.js','./manifest.json','./dnh-logo.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(APP_FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
