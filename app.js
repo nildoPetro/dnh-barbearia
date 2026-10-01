@@ -1231,8 +1231,21 @@ async function dashboard() {
     }
 
 
+    /*
+       FINANCEIRO
+       Usa o primeiro dia do mês atual e o primeiro dia do mês seguinte.
+       Isso evita datas inválidas como 2026-09-31.
+    */
+    const [year, monthNumber] =
+        month.split('-').map(Number);
+
+    const nextMonth =
+        monthNumber === 12
+            ? `${year + 1}-01`
+            : `${year}-${String(monthNumber + 1).padStart(2, '0')}`;
+
     const {
-        data: finance = [],
+        data: financeData,
         error: financeError
     } = await sb
         .from('cash_entries')
@@ -1241,10 +1254,19 @@ async function dashboard() {
             'entry_date',
             month + '-01'
         )
-        .lte(
+        .lt(
             'entry_date',
-            month + '-31'
+            nextMonth + '-01'
         );
+
+    /*
+       Se houver erro na consulta, mantém o Dashboard funcionando
+       com uma lista vazia, em vez de tentar executar .filter() em null.
+    */
+    const finance =
+        Array.isArray(financeData)
+            ? financeData
+            : [];
 
 
     if (financeError) {
