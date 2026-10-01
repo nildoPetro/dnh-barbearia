@@ -50,6 +50,15 @@ const digits = value =>
 
 const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#039;');
 
+// Formata datas para a lista de clientes (YYYY-MM-DD -> DD/MM/YYYY).
+const formatDateClient = value => {
+    if (!value) return '-';
+    const raw = String(value).slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return String(value);
+    const [year, month, day] = raw.split('-');
+    return `${day}/${month}/${year}`;
+};
+
 
 /* =========================================================
    CONTROLE DE ACESSO
@@ -4494,7 +4503,7 @@ function renderClients(data) {
                         <tr>
                             <td>${esc(c.name || '-')}</td>
                             <td>${esc(c.phone || '-')}</td>
-                            <td>${c.birth ? formatDate(String(c.birth).slice(0,10)) : '-'}</td>
+                            <td>${c.birth ? formatDateClient(String(c.birth).slice(0,10)) : '-'}</td>
                             <td>${esc(c.email || '-')}</td>
                             <td>
                                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
