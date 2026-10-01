@@ -55,7 +55,6 @@ const digits = value =>
 
 const ADMIN_PAGES = [
     'dashboard',
-    'agenda',
     'services',
     'clients',
     'stock',
@@ -87,7 +86,7 @@ function canAccessPage(page) {
     }
 
     if (isAdmin()) {
-        return ADMIN_PAGES.includes(page);
+        return true;
     }
 
     return CLIENT_PAGES.includes(page);
@@ -129,6 +128,22 @@ function toast(message) {
 }
 
 
+function showActionMessage(message, type = 'success') {
+    let el = document.querySelector('#actionMessage');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'actionMessage';
+        el.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:10001;padding:12px 16px;border-radius:10px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.25);max-width:420px;';
+        document.body.appendChild(el);
+    }
+    el.style.background = type === 'error' ? '#7f1d1d' : '#166534';
+    el.style.color = '#fff';
+    el.textContent = message;
+    el.style.display = 'block';
+    clearTimeout(window.__actionMessageTimer);
+    window.__actionMessageTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
 function configured() {
 
     return !!(
@@ -138,400 +153,6 @@ function configured() {
 }
 
 
-const WEEK_DAYS = [
-    { key: '0', label: 'Domingo' },
-    { key: '1', label: 'Segunda-feira' },
-    { key: '2', label: 'Terça-feira' },
-    { key: '3', label: 'Quarta-feira' },
-    { key: '4', label: 'Quinta-feira' },
-    { key: '5', label: 'Sexta-feira' },
-    { key: '6', label: 'Sábado' }
-];
-
-const WEEKLY_STORAGE_KEY = 'dnh_weekly_schedule_v1';
-
-function defaultWeeklySchedule() {
-    return WEEK_DAYS.reduce((acc, day) => {
-        acc[day.key] = {
-            enabled: true,
-            start_time: settings.start_time?.slice(0, 5) || '08:00',
-            end_time: settings.end_time?.slice(0, 5) || '18:00'
-        };
-        return acc;
-    }, {});
-}
-
-function getWeeklySchedule() {
-    const fallback = defaultWeeklySchedule();
-    let parsed = null;
-    try {
-        if (settings?.weekly_schedule) {
-            parsed = typeof settings.weekly_schedule === 'string'
-                ? JSON.parse(settings.weekly_schedule)
-                : settings.weekly_schedule;
-        }
-    } catch (error) {
-        console.warn('Não foi possível interpretar a escala semanal salva no banco:', error);
-    }
-    if (!parsed) {
-        try {
-            const raw = localStorage.getItem(WEEKLY_STORAGE_KEY);
-            parsed = raw ? JSON.parse(raw) : null;
-        } catch (error) {
-            console.warn('Não foi possível ler a escala semanal:', error);
-        }
-    }
-    if (!parsed || typeof parsed !== 'object') return fallback;
-    WEEK_DAYS.forEach(day => {
-        if (parsed[day.key]) {
-            fallback[day.key] = {
-                ...fallback[day.key],
-                ...parsed[day.key]
-            };
-        }
-    });
-    return fallback;
-}
-
-function saveWeeklySchedule(schedule) {
-    try {
-        localStorage.setItem(WEEKLY_STORAGE_KEY, JSON.stringify(schedule));
-    } catch (error) {
-        console.warn('Não foi possível salvar a escala semanal localmente:', error);
-    }
-}
-
-function dateToLocalObject(dateString) {
-    const [y, m, d] = String(dateString).split('-').map(Number);
-    return new Date(y, (m || 1) - 1, d || 1);
-}
-
-function formatLocalDate(date) {
-    return [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, '0'),
-        String(date.getDate()).padStart(2, '0')
-    ].join('-');
-}
-
-function getScheduleForDate(dateString) {
-    const schedule = getWeeklySchedule();
-    const date = dateToLocalObject(dateString);
-    const key = String(date.getDay());
-    return {
-        date: dateString,
-        dayKey: key,
-        ...(schedule[key] || {
-            enabled: true,
-            start_time: settings.start_time?.slice(0, 5) || '08:00',
-            end_time: settings.end_time?.slice(0, 5) || '18:00'
-        })
-    };
-}
-
-function isWithinWorkingHours(dateString, now = new Date()) {
-    const schedule = getScheduleForDate(dateString);
-    if (!schedule.enabled) return false;
-    const start = timeToMinutes(schedule.start_time);
-    const end = timeToMinutes(schedule.end_time);
-    const current = now.getHours() * 60 + now.getMinutes();
-    return current >= start && current < end;
-}
-
-function nextWorkingDate(fromDateString) {
-    const schedule = getWeeklySchedule();
-    let date = dateToLocalObject(fromDateString);
-    for (let i = 0; i < 8; i++) {
-        date.setDate(date.getDate() + (i === 0 ? 1 : 1));
-        const key = String(date.getDay());
-        if (schedule[key]?.enabled !== false) {
-            return formatLocalDate(date);
-        }
-    }
-    return formatLocalDate(dateToLocalObject(fromDateString));
-}
-
-function getInitialBookingDate() {
-    const currentDate = today();
-    const schedule = getScheduleForDate(currentDate);
-    if (schedule.enabled !== false && !isWithinWorkingHours(currentDate)) {
-        const now = new Date();
-        const end = timeToMinutes(schedule.end_time);
-        const current = now.getHours() * 60 + now.getMinutes();
-        const start = timeToMinutes(schedule.start_time);
-        if (current < start) return currentDate;
-        if (current >= end) return nextWorkingDate(currentDate);
-    }
-    if (schedule.enabled !== false) return currentDate;
-    return nextWorkingDate(currentDate);
-}
-
-function ensureServiceDurationOptions() {
-    const select = $('#serviceDuration');
-    if (!select) return;
-    const existing = new Set([...select.options].map(o => String(o.value)));
-    [30, 60, 90, 120].forEach(value => {
-        if (!existing.has(String(value))) {
-            const option = document.createElement('option');
-            option.value = String(value);
-            option.textContent = `${value} minutos`;
-            select.appendChild(option);
-        }
-    });
-}
-
-function ensureAdminBookingButtons() {
-    if (!isAdmin()) return;
-
-    const dashboardPage = $('#page-dashboard');
-    if (dashboardPage && !dashboardPage.querySelector('[data-admin-new-booking]')) {
-        const header = dashboardPage.querySelector('.page-header');
-        if (header) {
-            const wrap = document.createElement('div');
-            wrap.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
-            wrap.innerHTML = '<button type="button" class="btn gold" data-admin-new-booking>+ Novo agendamento</button>';
-            header.appendChild(wrap);
-        }
-    }
-
-    $$('[data-page="consultar"]').forEach(el => {
-        el.style.display = 'none';
-    });
-}
-
-function ensureFinanceControls() {
-    if (!isAdmin()) return;
-    const list = $('#financeList');
-    if (!list || $('#financePeriodControls')) return;
-    const wrap = document.createElement('div');
-    wrap.id = 'financePeriodControls';
-    wrap.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 16px;';
-    wrap.innerHTML = `
-        <label style="display:flex;align-items:center;gap:6px;">
-            <strong>Período:</strong>
-            <select id="financePeriodFilter">
-                <option value="month">Mês</option>
-                <option value="week">Semana</option>
-                <option value="day">Dia</option>
-            </select>
-        </label>
-        <button type="button" id="financeRefreshFilter">Atualizar</button>
-        <button type="button" class="btn gold" id="financeOpenAll">Ver todos os lançamentos</button>
-    `;
-    list.parentNode.insertBefore(wrap, list);
-    $('#financePeriodFilter').onchange = loadFinance;
-    $('#financeRefreshFilter').onclick = loadFinance;
-    $('#financeOpenAll').onclick = abrirTodosLancamentosFinanceiros;
-}
-
-async function abrirTodosLancamentosFinanceiros() {
-    if (!isAdmin()) return;
-
-    const { data = [], error } = await sb
-        .from('cash_entries')
-        .select('*')
-        .order('entry_date', { ascending: false })
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        console.error('Erro ao carregar todos os lançamentos:', error);
-        toast(error.message || 'Não foi possível carregar os lançamentos.');
-        return;
-    }
-
-    let modal = $('#financeAllModal');
-    if (modal) modal.remove();
-
-    modal = document.createElement('div');
-    modal.id = 'financeAllModal';
-    modal.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.68);display:flex;align-items:center;justify-content:center;padding:18px;';
-
-    const rows = Array.isArray(data) ? data : [];
-    modal.innerHTML = `
-        <div style="width:min(1100px,100%);max-height:92vh;overflow:hidden;background:var(--card,#fff);color:inherit;border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;">
-                <div>
-                    <h3 style="margin:0 0 4px;">Todos os lançamentos financeiros</h3>
-                    <small class="muted">Registros automáticos e lançamentos inseridos manualmente.</small>
-                </div>
-                <button type="button" id="closeFinanceAll">✕</button>
-            </div>
-            <div style="overflow:auto;flex:1;">
-                ${rows.length ? `
-                <div style="display:grid;gap:8px;">
-                    ${rows.map(x => `
-                        <div class="list-row" style="gap:12px;align-items:center;">
-                            <div style="min-width:0;flex:1;">
-                                <b>${escapeHtml(x.description || 'Lançamento')}</b>
-                                <small>${x.entry_date ? new Date(x.entry_date + 'T12:00').toLocaleDateString('pt-BR') : '-'} • ${x.type === 'income' ? 'Entrada' : 'Saída'}${x.booking_id ? ' • Atendimento agendado' : ' • Manual'}</small>
-                            </div>
-                            <strong>${money(x.amount)}</strong>
-                            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                                <button type="button" data-finance-edit="${x.id}">Editar</button>
-                                <button type="button" class="danger" data-finance-delete="${x.id}">Excluir</button>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>` : '<p class="muted">Nenhum lançamento cadastrado.</p>'}
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    const close = () => modal.remove();
-    $('#closeFinanceAll')?.addEventListener('click', close);
-    modal.addEventListener('click', e => { if (e.target === modal) close(); });
-
-    modal.querySelectorAll('[data-finance-edit]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            await editarLancamentoFinanceiro(btn.dataset.financeEdit);
-        });
-    });
-
-    modal.querySelectorAll('[data-finance-delete]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            await excluirLancamentoFinanceiro(btn.dataset.financeDelete);
-        });
-    });
-}
-
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-async function editarLancamentoFinanceiro(id) {
-    if (!isAdmin()) return;
-
-    const { data: item, error } = await sb
-        .from('cash_entries')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
-
-    if (error || !item) {
-        toast(error?.message || 'Lançamento não encontrado.');
-        return;
-    }
-
-    const modal = document.createElement('div');
-    modal.id = 'editFinanceModal';
-    modal.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.68);display:flex;align-items:center;justify-content:center;padding:18px;';
-    modal.innerHTML = `
-        <div style="width:min(500px,100%);background:var(--card,#fff);color:inherit;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-                <h3 style="margin:0;">Editar lançamento</h3>
-                <button type="button" id="closeEditFinance">✕</button>
-            </div>
-            <form id="editFinanceForm">
-                <label>Tipo</label>
-                <select id="editFinanceType" style="width:100%;box-sizing:border-box;margin:6px 0 14px;">
-                    <option value="income" ${item.type === 'income' ? 'selected' : ''}>Entrada</option>
-                    <option value="expense" ${item.type === 'expense' ? 'selected' : ''}>Saída</option>
-                </select>
-                <label>Descrição</label>
-                <input id="editFinanceDesc" type="text" value="${escapeHtml(item.description || '')}" required style="width:100%;box-sizing:border-box;margin:6px 0 14px;">
-                <label>Valor</label>
-                <input id="editFinanceAmount" type="number" min="0" step="0.01" value="${Number(item.amount || 0).toFixed(2)}" required style="width:100%;box-sizing:border-box;margin:6px 0 14px;">
-                <label>Data</label>
-                <input id="editFinanceDate" type="date" value="${item.entry_date || today()}" required style="width:100%;box-sizing:border-box;margin:6px 0 20px;">
-                <div style="display:flex;justify-content:flex-end;gap:8px;">
-                    <button type="button" id="cancelEditFinance">Cancelar</button>
-                    <button type="submit" class="btn gold">Salvar alterações</button>
-                </div>
-            </form>
-        </div>
-    `;
-    document.body.appendChild(modal);
-
-    const close = () => modal.remove();
-    $('#closeEditFinance')?.addEventListener('click', close);
-    $('#cancelEditFinance')?.addEventListener('click', close);
-    modal.addEventListener('click', e => { if (e.target === modal) close(); });
-
-    $('#editFinanceForm')?.addEventListener('submit', async e => {
-        e.preventDefault();
-        const type = $('#editFinanceType').value;
-        const description = $('#editFinanceDesc').value.trim();
-        const amount = Number($('#editFinanceAmount').value);
-        const entry_date = $('#editFinanceDate').value;
-        if (!['income', 'expense'].includes(type) || !description || !Number.isFinite(amount) || amount < 0 || !entry_date) {
-            toast('Informe tipo, descrição, valor e data válidos.');
-            return;
-        }
-        const { error: saveError } = await sb
-            .from('cash_entries')
-            .update({ type, description, amount, entry_date })
-            .eq('id', id);
-        if (saveError) {
-            toast(saveError.message || 'Não foi possível editar o lançamento.');
-            return;
-        }
-        close();
-        toast('Lançamento atualizado.');
-        await loadFinance();
-        await abrirTodosLancamentosFinanceiros();
-    });
-}
-
-async function excluirLancamentoFinanceiro(id) {
-    if (!isAdmin()) return;
-
-    const { data: item, error: findError } = await sb
-        .from('cash_entries')
-        .select('id, description, booking_id')
-        .eq('id', id)
-        .maybeSingle();
-    if (findError || !item) {
-        toast(findError?.message || 'Lançamento não encontrado.');
-        return;
-    }
-
-    const confirmText = item.booking_id
-        ? 'Este lançamento foi gerado por um atendimento agendado. Excluir o lançamento financeiro não exclui o agendamento. Deseja continuar?'
-        : 'Excluir este lançamento financeiro?';
-    if (!confirm(confirmText)) return;
-
-    const { error } = await sb.from('cash_entries').delete().eq('id', id);
-    if (error) {
-        toast(error.message || 'Não foi possível excluir o lançamento.');
-        return;
-    }
-
-    toast('Lançamento excluído.');
-    await loadFinance();
-    await abrirTodosLancamentosFinanceiros();
-}
-
-function ensureFinanceChart() {
-    if (!$('#financeChart')) {
-        const list = $('#financeList');
-        if (!list) return;
-        const chart = document.createElement('div');
-        chart.id = 'financeChart';
-        chart.style.cssText = 'margin:18px 0;padding:16px;border:1px solid rgba(128,128,128,.25);border-radius:14px;';
-        list.parentNode.insertBefore(chart, list);
-    }
-}
-
-
-
-if (!document.getElementById('dnh-v14-styles')) {
-    const style = document.createElement('style');
-    style.id = 'dnh-v14-styles';
-    style.textContent = `
-        .time-option.selected { background:#22c55e !important; color:#fff !important; border-color:#22c55e !important; transform:scale(1.02); }
-        .time-option:hover { transform:translateY(-1px); }
-        #financeChart { overflow-x:auto; }
-    `;
-    document.head.appendChild(style);
-}
-
 /* =========================================================
    APLICAR PERMISSÕES NA INTERFACE
    ========================================================= */
@@ -540,32 +161,62 @@ function aplicarPermissoesUI() {
 
     const admin = isAdmin();
 
+
+    /* -------------------------
+       ELEMENTOS ADMIN
+       ------------------------- */
+
     $$('.admin-only').forEach(el => {
-        el.style.display = admin ? '' : 'none';
+
+        el.style.display =
+            admin ? '' : 'none';
+
     });
+
+
+    /* -------------------------
+       PÁGINAS ADMIN
+       ------------------------- */
 
     ADMIN_PAGES.forEach(page => {
-        const pageElement = $('#page-' + page);
-        if (!pageElement) return;
-        if (!admin) pageElement.classList.remove('active');
+
+        const pageElement =
+            $('#page-' + page);
+
+        if (!pageElement) {
+            return;
+        }
+
+        if (!admin) {
+
+            pageElement.classList.remove(
+                'active'
+            );
+
+        }
+
     });
+
+
+    /* -------------------------
+       BOTÕES DATA-PAGE ADMIN
+       ------------------------- */
 
     $$('[data-page]').forEach(button => {
-        const page = button.dataset.page;
-        if (ADMIN_PAGES.includes(page)) {
-            button.style.display = admin ? '' : 'none';
+
+        const page =
+            button.dataset.page;
+
+        if (
+            ADMIN_PAGES.includes(page)
+        ) {
+
+            button.style.display =
+                admin ? '' : 'none';
+
         }
-        if (admin && page === 'consultar') {
-            button.style.display = 'none';
-        }
+
     });
-
-    if (admin) {
-        $('#page-consultar')?.classList.remove('active');
-    }
-
-    ensureServiceDurationOptions();
-    ensureAdminBookingButtons();
 }
 
 
@@ -812,74 +463,116 @@ function go(page) {
    ========================================================= */
 
 async function loadSettings() {
-    const { data, error } = await sb
+
+    const {
+        data,
+        error
+    } = await sb
         .from('settings')
         .select('*')
         .eq('id', 1)
         .maybeSingle();
 
+
     if (error) {
-        console.error('Erro ao carregar configurações:', error);
+
+        console.error(
+            'Erro ao carregar configurações:',
+            error
+        );
+
         return;
     }
 
+
     if (data) {
-        settings = { ...settings, ...data };
-    }
 
-    if ($('#setName')) $('#setName').value = settings.name || 'DNH BARBEARIA';
-    if ($('#setWhatsapp')) $('#setWhatsapp').value = settings.whatsapp || '';
-    if ($('#setStart')) $('#setStart').value = settings.start_time?.slice(0, 5) || '08:00';
-    if ($('#setEnd')) $('#setEnd').value = settings.end_time?.slice(0, 5) || '18:00';
-    if ($('#setInterval')) $('#setInterval').value = settings.slot_interval || 30;
-    if ($('#setLogoUrl')) $('#setLogoUrl').value = settings.logo_url || 'dnh-logo.png';
-    if ($('#shareUrl')) $('#shareUrl').textContent = location.href.split('?')[0];
-    if ($('#brandName')) $('#brandName').textContent = settings.name || 'DNH BARBEARIA';
-    if ($('#brandLogo')) $('#brandLogo').src = settings.logo_url || 'dnh-logo.png';
-
-    renderWeeklyScheduleSettings();
-}
-
-function renderWeeklyScheduleSettings() {
-    if (!isAdmin() || !$('#saveSettings')) return;
-    let box = $('#weeklyScheduleSettings');
-    if (!box) {
-        box = document.createElement('div');
-        box.id = 'weeklyScheduleSettings';
-        box.style.cssText = 'margin:18px 0;padding:16px;border:1px solid rgba(128,128,128,.25);border-radius:14px;';
-        const save = $('#saveSettings');
-        save.parentNode.insertBefore(box, save);
-    }
-    const schedule = getWeeklySchedule();
-    box.innerHTML = `
-        <h3 style="margin:0 0 12px;">Horários por dia da semana</h3>
-        <p class="muted" style="margin:0 0 14px;">Marque os dias sem expediente e defina horários diferentes para cada dia.</p>
-        <div style="display:grid;gap:10px;">
-            ${WEEK_DAYS.map(day => {
-                const row = schedule[day.key] || {};
-                return `
-                    <div style="display:grid;grid-template-columns:minmax(140px,1fr) auto minmax(110px,150px) minmax(110px,150px);gap:8px;align-items:center;">
-                        <strong>${day.label}</strong>
-                        <label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" data-week-enabled="${day.key}" ${row.enabled !== false ? 'checked' : ''}> Expediente</label>
-                        <input type="time" data-week-start="${day.key}" value="${row.start_time || settings.start_time?.slice(0,5) || '08:00'}">
-                        <input type="time" data-week-end="${day.key}" value="${row.end_time || settings.end_time?.slice(0,5) || '18:00'}">
-                    </div>
-                `;
-            }).join('')}
-        </div>
-    `;
-}
-
-function collectWeeklySchedule() {
-    const schedule = {};
-    WEEK_DAYS.forEach(day => {
-        schedule[day.key] = {
-            enabled: !!$(`[data-week-enabled="${day.key}"]`)?.checked,
-            start_time: $(`[data-week-start="${day.key}"]`)?.value || '08:00',
-            end_time: $(`[data-week-end="${day.key}"]`)?.value || '18:00'
+        settings = {
+            ...settings,
+            ...data
         };
-    });
-    return schedule;
+
+    }
+
+
+    if ($('#setName')) {
+
+        $('#setName').value =
+            settings.name ||
+            'DNH BARBEARIA';
+
+    }
+
+
+    if ($('#setWhatsapp')) {
+
+        $('#setWhatsapp').value =
+            settings.whatsapp ||
+            '';
+
+    }
+
+
+    if ($('#setStart')) {
+
+        $('#setStart').value =
+            settings.start_time?.slice(0, 5) ||
+            '08:00';
+
+    }
+
+
+    if ($('#setEnd')) {
+
+        $('#setEnd').value =
+            settings.end_time?.slice(0, 5) ||
+            '18:00';
+
+    }
+
+
+    if ($('#setInterval')) {
+
+        $('#setInterval').value =
+            settings.slot_interval ||
+            30;
+
+    }
+
+
+    if ($('#setLogoUrl')) {
+
+        $('#setLogoUrl').value =
+            settings.logo_url ||
+            'dnh-logo.png';
+
+    }
+
+
+    if ($('#shareUrl')) {
+
+        $('#shareUrl').textContent =
+            location.href.split('?')[0];
+
+    }
+
+
+    if ($('#brandName')) {
+
+        $('#brandName').textContent =
+            settings.name ||
+            'DNH BARBEARIA';
+
+    }
+
+
+    if ($('#brandLogo')) {
+
+        $('#brandLogo').src =
+            settings.logo_url ||
+            'dnh-logo.png';
+
+    }
 }
 
 
@@ -1065,6 +758,45 @@ async function loadServices() {
     }
 }
 
+
+async function excluirServico(serviceId) {
+    if (!isAdmin()) return;
+    const service = services.find(s => String(s.id) === String(serviceId));
+    if (!service) { toast('Serviço não encontrado.'); return; }
+    if (!confirm(`Excluir o serviço "${service.name || 'Serviço'}"?`)) return;
+
+    const { count, error: checkError } = await sb
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('service_id', serviceId);
+
+    if (checkError) {
+        console.error('Erro ao verificar agendamentos do serviço:', checkError);
+        toast('Não foi possível verificar o uso do serviço.');
+        showActionMessage('Não foi possível excluir o serviço.', 'error');
+        return;
+    }
+
+    if (Number(count || 0) > 0) {
+        const msg = 'Este serviço possui agendamentos vinculados e não pode ser excluído. Use Desativar para retirá-lo de novos agendamentos.';
+        toast(msg);
+        showActionMessage(msg, 'error');
+        return;
+    }
+
+    const { error } = await sb.from('services').delete().eq('id', serviceId);
+    if (error) {
+        console.error('Erro ao excluir serviço:', error);
+        const msg = error.code === '23503' ? 'Serviço possui registros vinculados e não pode ser excluído.' : (error.message || 'Não foi possível excluir o serviço.');
+        toast(msg);
+        showActionMessage(msg, 'error');
+        return;
+    }
+
+    toast('Serviço excluído com sucesso.');
+    showActionMessage('Serviço excluído com sucesso.');
+    await loadServices();
+}
 
 /* =========================================================
    EDITAR SERVIÇO
@@ -1507,7 +1239,7 @@ async function dashboard() {
 
 
     const {
-        data: bookingsData,
+        data: bookings = [],
         error: bookingError
     } = await sb
         .from('bookings')
@@ -1563,7 +1295,7 @@ async function dashboard() {
 
 
     const {
-        data: financeData,
+        data: finance = [],
         error: financeError
     } = await sb
         .from('cash_entries')
@@ -1589,7 +1321,7 @@ async function dashboard() {
 
 
     const {
-        data: clientsData,
+        data: clients = [],
         error: birthdayError
     } = await sb
         .from('profiles')
@@ -1613,10 +1345,6 @@ async function dashboard() {
         }
     }
 
-
-    const bookings = Array.isArray(bookingsData) ? bookingsData : [];
-    const finance = Array.isArray(financeData) ? financeData : [];
-    const clients = Array.isArray(clientsData) ? clientsData : [];
 
     if ($('#kToday')) {
 
@@ -1831,21 +1559,67 @@ async function dashboard() {
    HORÁRIOS
    ========================================================= */
 
-function slots(schedule = null) {
-    const activeSchedule = schedule || {
-        start_time: settings.start_time,
-        end_time: settings.end_time
-    };
+function slots() {
+
     const result = [];
-    const [hour, minute] = String(activeSchedule.start_time || '08:00').slice(0, 5).split(':').map(Number);
-    const [endHour, endMinute] = String(activeSchedule.end_time || '18:00').slice(0, 5).split(':').map(Number);
-    let current = hour * 60 + minute;
-    const end = endHour * 60 + endMinute;
-    const interval = Number(settings.slot_interval) || 30;
+
+
+    let [
+        hour,
+        minute
+    ] =
+        settings.start_time
+            .slice(0, 5)
+            .split(':')
+            .map(Number);
+
+
+    const [
+        endHour,
+        endMinute
+    ] =
+        settings.end_time
+            .slice(0, 5)
+            .split(':')
+            .map(Number);
+
+
+    let current =
+        hour * 60 + minute;
+
+
+    const end =
+        endHour * 60 +
+        endMinute;
+
+
+    const interval =
+        Number(
+            settings.slot_interval
+        ) || 30;
+
+
     while (current < end) {
-        result.push(String(Math.floor(current / 60)).padStart(2, '0') + ':' + String(current % 60).padStart(2, '0'));
+
+        result.push(
+            String(
+                Math.floor(
+                    current / 60
+                )
+            ).padStart(2, '0')
+            +
+            ':'
+            +
+            String(
+                current % 60
+            ).padStart(2, '0')
+        );
+
+
         current += interval;
     }
+
+
     return result;
 }
 
@@ -1914,8 +1688,6 @@ async function agenda() {
                     </p>
 
                 </div>
-
-                <button type="button" class="btn gold" data-admin-new-booking>+ Novo agendamento</button>
 
             </div>
 
@@ -3592,12 +3364,22 @@ async function agenda() {
    ========================================================= */
 
 function initClientBooking() {
-    const date = $('#clientDate');
-    if (!date) return;
-    const initial = getInitialBookingDate();
-    date.value = initial;
-    date.min = today();
-    loadClientTimes();
+
+    const date =
+        $('#clientDate');
+
+
+    if (!date) {
+        return;
+    }
+
+
+    date.value =
+        today();
+
+
+    date.min =
+        today();
 }
 
 
@@ -3606,83 +3388,256 @@ function initClientBooking() {
    ========================================================= */
 
 async function loadClientTimes() {
-    const serviceId = $('#clientService')?.value;
-    const professionalId = $('#clientProfessional')?.value;
-    const date = $('#clientDate')?.value;
-    const grid = $('#clientTimeGrid');
-    if (!grid) return;
 
-    if (!serviceId || !professionalId || !date) {
-        grid.innerHTML = '<p class="muted">Selecione serviço, profissional e data.</p>';
-        $('#bookingSummary')?.classList.add('hidden');
+    const serviceId =
+        $('#clientService')?.value;
+
+
+    const professionalId =
+        $('#clientProfessional')?.value;
+
+
+    const date =
+        $('#clientDate')?.value;
+
+
+    const grid =
+        $('#clientTimeGrid');
+
+
+    if (!grid) {
         return;
     }
 
-    const daySchedule = getScheduleForDate(date);
-    if (daySchedule.enabled === false) {
-        grid.innerHTML = '<p class="muted">Não há expediente neste dia. Escolha outra data.</p>';
-        $('#bookingSummary')?.classList.add('hidden');
-        return;
-    }
 
-    const service = services.find(s => s.id === serviceId);
-    if (!service) {
-        grid.innerHTML = '<p class="muted">Serviço não encontrado.</p>';
-        return;
-    }
+    if (
+        !serviceId ||
+        !professionalId ||
+        !date
+    ) {
 
-    const duration = Number(service.duration) || 30;
-    const { data: bookings = [], error } = await sb
-        .from('bookings')
-        .select('id,booking_time,status,service_id')
-        .eq('professional_id', professionalId)
-        .eq('booking_date', date)
-        .neq('status', 'cancelled');
+        grid.innerHTML =
+            '<p class="muted">Selecione serviço, profissional e data.</p>';
 
-    if (error) {
-        console.error('Erro ao carregar horários:', error);
-        grid.innerHTML = '<p class="muted">Não foi possível carregar os horários.</p>';
-        return;
-    }
 
-    const bookingRows = Array.isArray(bookings) ? bookings : [];
-    const occupied = bookingRows.map(booking => {
-        const start = timeToMinutes(String(booking.booking_time || '').slice(0, 5));
-        const bookedService = services.find(s => s.id === booking.service_id);
-        const bookedDuration = Number(bookedService?.duration) || 30;
-        return { start, end: start + bookedDuration };
-    }).filter(x => Number.isFinite(x.start));
+        if ($('#bookingSummary')) {
 
-    const available = slots(daySchedule).filter(time => {
-        const start = timeToMinutes(time);
-        const end = start + duration;
-        const closing = timeToMinutes(daySchedule.end_time);
-        if (end > closing) return false;
+            $('#bookingSummary')
+                .classList
+                .add('hidden');
 
-        if (date === today()) {
-            const now = new Date();
-            const current = now.getHours() * 60 + now.getMinutes();
-            if (current >= timeToMinutes(daySchedule.end_time) || start <= current) return false;
         }
 
-        return !occupied.some(booked => start < booked.end && end > booked.start);
-    });
-
-    if (!available.length) {
-        grid.innerHTML = '<p class="muted">Nenhum horário disponível para esta data.</p>';
-        $('#bookingSummary')?.classList.add('hidden');
         return;
     }
 
-    grid.innerHTML = available.map(time => `
-        <button type="button" class="time-option" data-booking-time="${time}" style="transition:.15s;">${time}</button>
-    `).join('');
 
-    const selectedTime = $('#summaryTime')?.textContent?.trim();
-    if (selectedTime && available.includes(selectedTime)) {
-        const selected = grid.querySelector(`[data-booking-time="${selectedTime}"]`);
-        selected?.classList.add('selected');
+    const service =
+        services.find(
+            s =>
+                s.id === serviceId
+        );
+
+
+    if (!service) {
+
+        grid.innerHTML =
+            '<p class="muted">Serviço não encontrado.</p>';
+
+        return;
     }
+
+
+    const duration =
+        Number(
+            service.duration
+        ) || 30;
+
+
+    const {
+        data: bookings = [],
+        error
+    } = await sb
+        .from('bookings')
+        .select(`
+            booking_time,
+            status,
+            service_id
+        `)
+        .eq(
+            'professional_id',
+            professionalId
+        )
+        .eq(
+            'booking_date',
+            date
+        )
+        .neq(
+            'status',
+            'cancelled'
+        );
+
+
+    if (error) {
+
+        console.error(
+            'Erro ao carregar horários:',
+            error
+        );
+
+
+        grid.innerHTML =
+            '<p class="muted">Não foi possível carregar os horários.</p>';
+
+        return;
+    }
+
+
+    const occupied =
+        [];
+
+
+    for (
+        const booking of bookings
+    ) {
+
+        if (!booking.booking_time) {
+            continue;
+        }
+
+
+        const start =
+            timeToMinutes(
+                booking.booking_time
+                    .slice(0, 5)
+            );
+
+
+        const bookedService =
+            services.find(
+                s =>
+                    s.id ===
+                    booking.service_id
+            );
+
+
+        const bookedDuration =
+            Number(
+                bookedService?.duration
+            ) || 30;
+
+
+        const end =
+            start +
+            bookedDuration;
+
+
+        occupied.push({
+            start,
+            end
+        });
+    }
+
+
+    const [
+        closingHour,
+        closingMinute
+    ] =
+        settings.end_time
+            .slice(0, 5)
+            .split(':')
+            .map(Number);
+
+
+    const closing =
+        closingHour * 60 +
+        closingMinute;
+
+
+    const available =
+        slots().filter(time => {
+
+            const start =
+                timeToMinutes(time);
+
+
+            const end =
+                start +
+                duration;
+
+
+            if (end > closing) {
+                return false;
+            }
+
+
+            if (date === today()) {
+
+                const now =
+                    new Date();
+
+
+                const current =
+                    now.getHours() * 60 +
+                    now.getMinutes();
+
+
+                if (start <= current) {
+                    return false;
+                }
+            }
+
+
+            const conflict =
+                occupied.some(
+                    booked => {
+
+                        return (
+                            start <
+                                booked.end &&
+                            end >
+                                booked.start
+                        );
+
+                    }
+                );
+
+
+            return !conflict;
+
+        });
+
+
+    if (!available.length) {
+
+        grid.innerHTML =
+            '<p class="muted">Nenhum horário disponível para esta data.</p>';
+
+
+        if ($('#bookingSummary')) {
+
+            $('#bookingSummary')
+                .classList
+                .add('hidden');
+
+        }
+
+        return;
+    }
+
+
+    grid.innerHTML =
+        available.map(time => `
+
+            <button
+                type="button"
+                class="time-option"
+                data-booking-time="${time}"
+            >
+                ${time}
+            </button>
+
+        `).join('');
 }
 
 
@@ -3787,102 +3742,230 @@ function atualizarResumoAgendamento(time) {
    ========================================================= */
 
 async function createBooking() {
-    if (!isClient()) { toast('Somente clientes podem realizar este agendamento.'); return; }
 
-    const serviceId = $('#clientService')?.value;
-    const professionalId = $('#clientProfessional')?.value;
-    const date = $('#clientDate')?.value;
-    const time = $('#summaryTime')?.textContent?.trim();
+    if (!isClient()) {
 
-    if (!serviceId || !professionalId || !date || !time) {
-        toast('Selecione serviço, profissional, data e horário.');
+        toast(
+            'Somente clientes podem realizar este agendamento.'
+        );
+
         return;
     }
 
-    if (date < today()) {
-        toast('Não é permitido agendar em uma data passada.');
-        await loadClientTimes();
+
+    const serviceId =
+        $('#clientService')?.value;
+
+
+    const professionalId =
+        $('#clientProfessional')?.value;
+
+
+    const date =
+        $('#clientDate')?.value;
+
+
+    const time =
+        $('#summaryTime')?.textContent;
+
+
+    if (
+        !serviceId ||
+        !professionalId ||
+        !date ||
+        !time
+    ) {
+
+        toast(
+            'Selecione serviço, profissional, data e horário.'
+        );
+
         return;
     }
 
-    const daySchedule = getScheduleForDate(date);
-    if (daySchedule.enabled === false) {
-        toast('Não há expediente nesta data.');
-        await loadClientTimes();
-        return;
-    }
 
-    if (date === today()) {
-        const current = new Date().getHours() * 60 + new Date().getMinutes();
-        if (timeToMinutes(time) <= current) {
-            toast('Este horário já passou. Escolha outro.');
-            await loadClientTimes();
-            return;
+    const {
+        data: {
+            user: authUser
         }
+    } =
+        await sb.auth.getUser();
+
+
+    if (!authUser) {
+
+        toast(
+            'Faça login para realizar o agendamento.'
+        );
+
+        return;
     }
 
-    const authResult = await sb.auth.getUser();
-    const authUser = authResult?.data?.user;
-    if (!authUser) { toast('Faça login para realizar o agendamento.'); return; }
 
-    const service = services.find(s => s.id === serviceId);
-    const duration = Number(service?.duration) || 30;
-    const requestedStart = timeToMinutes(time);
-    const requestedEnd = requestedStart + duration;
-
-    const { data: existingBookings = [], error: checkError } = await sb
+    const {
+        data: existing,
+        error: checkError
+    } = await sb
         .from('bookings')
-        .select('id,booking_time,service_id,status')
-        .eq('professional_id', professionalId)
-        .eq('booking_date', date)
-        .neq('status', 'cancelled');
+        .select('id')
+        .eq(
+            'professional_id',
+            professionalId
+        )
+        .eq(
+            'booking_date',
+            date
+        )
+        .eq(
+            'booking_time',
+            time + ':00'
+        )
+        .neq(
+            'status',
+            'cancelled'
+        )
+        .limit(1)
+        .maybeSingle();
+
 
     if (checkError) {
-        console.error('Erro ao verificar horário:', checkError);
-        toast('Não foi possível verificar o horário.');
+
+        console.error(
+            'Erro ao verificar horário:',
+            checkError
+        );
+
+
+        toast(
+            'Não foi possível verificar o horário.'
+        );
+
         return;
     }
 
-    const conflict = (Array.isArray(existingBookings) ? existingBookings : []).some(b => {
-        const start = timeToMinutes(String(b.booking_time || '').slice(0, 5));
-        const bookedService = services.find(s => s.id === b.service_id);
-        const bookedDuration = Number(bookedService?.duration) || 30;
-        return requestedStart < start + bookedDuration && requestedEnd > start;
-    });
 
-    if (conflict) {
-        toast('Este horário conflita com outro agendamento. Escolha outro.');
+    if (existing) {
+
+        toast(
+            'Esse horário acabou de ser ocupado. Escolha outro.'
+        );
+
+
         await loadClientTimes();
+
         return;
     }
 
-    const { error } = await sb.from('bookings').insert({
-        user_id: authUser.id,
-        service_id: serviceId,
-        professional_id: professionalId,
-        booking_date: date,
-        booking_time: time + ':00',
-        status: 'confirmed',
-        notes: null
-    });
+
+    const {
+        error
+    } = await sb
+        .from('bookings')
+        .insert({
+
+            user_id:
+                authUser.id,
+
+            service_id:
+                serviceId,
+
+            professional_id:
+                professionalId,
+
+            booking_date:
+                date,
+
+            booking_time:
+                time + ':00',
+
+            status:
+                'confirmed',
+
+            notes:
+                null
+
+        });
+
 
     if (error) {
-        console.error('Erro ao criar agendamento:', error);
-        if (error.code === '23505') {
-            toast('Este horário acabou de ser reservado por outro cliente. Escolha outro horário.');
+
+        console.error(
+            'Erro ao criar agendamento:',
+            error
+        );
+
+
+        if (
+            error.code ===
+            '23505'
+        ) {
+
+            toast(
+                'Este horário acabou de ser reservado por outro cliente. Escolha outro horário.'
+            );
+
+
             await loadClientTimes();
+
             return;
         }
-        toast(error.message || 'Não foi possível realizar o agendamento.');
+
+
+        toast(
+            error.message ||
+            'Não foi possível realizar o agendamento.'
+        );
+
         return;
     }
 
-    toast('Agendamento confirmado!');
-    $('#bookingSummary')?.classList.add('hidden');
-    if ($('#clientService')) $('#clientService').value = '';
-    if ($('#clientProfessional')) $('#clientProfessional').value = '';
-    if ($('#clientTimeGrid')) $('#clientTimeGrid').innerHTML = '<p class="muted">Selecione serviço, profissional e data.</p>';
-    if ($('#summaryTime')) $('#summaryTime').textContent = '';
+
+    toast(
+        'Agendamento confirmado!'
+    );
+
+
+    if ($('#bookingSummary')) {
+
+        $('#bookingSummary')
+            .classList
+            .add('hidden');
+
+    }
+
+
+    if ($('#clientService')) {
+
+        $('#clientService').value =
+            '';
+
+    }
+
+
+    if ($('#clientProfessional')) {
+
+        $('#clientProfessional').value =
+            '';
+
+    }
+
+
+    if ($('#clientTimeGrid')) {
+
+        $('#clientTimeGrid').innerHTML =
+            '<p class="muted">Selecione serviço, profissional e data.</p>';
+
+    }
+
+
+    if ($('#summaryTime')) {
+
+        $('#summaryTime').textContent =
+            '';
+
+    }
+
+
     await consultarAgenda();
 }
 
@@ -3892,10 +3975,6 @@ async function createBooking() {
    ========================================================= */
 
 async function consultarAgenda() {
-
-    if (isClient()) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
 
     const list =
         $('#clientBookingsList');
@@ -3949,6 +4028,7 @@ async function consultarAgenda() {
             status,
             service_id,
             professional_id,
+            notes
         `)
         .eq(
             'user_id',
@@ -3957,13 +4037,13 @@ async function consultarAgenda() {
         .order(
             'booking_date',
             {
-                ascending: true
+                ascending: false
             }
         )
         .order(
             'booking_time',
             {
-                ascending: true
+                ascending: false
             }
         );
 
@@ -3995,18 +4075,6 @@ async function consultarAgenda() {
         return;
     }
 
-
-    if (bookings.length) {
-        const nowKey = `${today()} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`;
-        bookings.sort((a, b) => {
-            const aKey = `${a.booking_date || ''} ${String(a.booking_time || '').slice(0, 5)}`;
-            const bKey = `${b.booking_date || ''} ${String(b.booking_time || '').slice(0, 5)}`;
-            const aUpcoming = aKey >= nowKey;
-            const bUpcoming = bKey >= nowKey;
-            if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
-            return aUpcoming ? aKey.localeCompare(bKey) : bKey.localeCompare(aKey);
-        });
-    }
 
     if (!bookings.length) {
 
@@ -4319,12 +4387,6 @@ async function consultarAgenda() {
             `;
 
         }).join('');
-
-    if (isClient()) {
-        requestAnimationFrame(() => {
-            list.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    }
 }
 
 
@@ -4423,66 +4485,76 @@ async function cancelarMeuAgendamento(
    ========================================================= */
 
 async function loadClients() {
-    if (!isAdmin()) return;
-    const { data = [], error } = await sb
+
+    if (!isAdmin()) {
+        return;
+    }
+
+
+    const {
+        data = [],
+        error
+    } = await sb
         .from('profiles')
         .select('*')
-        .eq('role', 'client')
-        .order('name');
+        .eq(
+            'role',
+            'client'
+        )
+        .order(
+            'name'
+        );
+
+
     if (error) {
-        console.error('Erro ao carregar clientes:', error);
-        toast('Não foi possível carregar os clientes.');
-        return;
-    }
-    window.allClients = Array.isArray(data) ? data : [];
-    renderClients(window.allClients);
-}
 
-async function excluirCliente(clientId) {
-    if (!isAdmin() || !clientId) return;
-    const client = (window.allClients || []).find(c => c.id === clientId);
-    const nome = client?.name || client?.email || 'este cliente';
-    if (!confirm(`O cliente "${nome}" será excluído do cadastro. Os agendamentos deste cliente também serão removidos. Deseja continuar?`)) return;
+        console.error(
+            'Erro ao carregar clientes:',
+            error
+        );
 
-    const { error: bookingError } = await sb.from('bookings').delete().eq('user_id', clientId);
-    if (bookingError) {
-        console.error('Erro ao excluir agendamentos do cliente:', bookingError);
-        toast('Não foi possível excluir os agendamentos vinculados ao cliente.');
         return;
     }
 
-    const { error } = await sb.from('profiles').delete().eq('id', clientId).eq('role', 'client');
-    if (error) {
-        console.error('Erro ao excluir cliente:', error);
-        toast(error.message || 'Não foi possível excluir o cliente.');
-        return;
-    }
-    toast('Cliente excluído do cadastro.');
-    await loadClients();
+
+    window.allClients =
+        data || [];
+
+
+    renderClients(
+        data || []
+    );
 }
 
 
 function renderClients(data) {
     if (!isAdmin() || !$('#clientList')) return;
-    const rows = Array.isArray(data) ? data : [];
-    $('#clientList').innerHTML = rows.length ? `
-        <div style="overflow:auto;">
-        <table class="table">
-            <thead><tr><th>Nome</th><th>WhatsApp</th><th>Nascimento</th><th>E-mail</th><th>Ações</th></tr></thead>
-            <tbody>
-                ${rows.map(c => `
-                    <tr>
-                        <td>${c.name || '-'}</td>
-                        <td>${c.phone || '-'}</td>
-                        <td>${c.birth ? new Date(c.birth + 'T12:00').toLocaleDateString('pt-BR') : '-'}</td>
-                        <td>${c.email || '-'}</td>
-                        <td><button type="button" class="danger" data-client-delete="${c.id}">Excluir</button></td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        </div>
-    ` : '<p class="muted">Nenhum cliente cadastrado.</p>';
+    if (!data || !data.length) {
+        $('#clientList').innerHTML = '<p class="muted">Nenhum cliente cadastrado.</p>';
+        return;
+    }
+    $('#clientList').innerHTML = `
+        <div style="overflow-x:auto;width:100%;">
+            <table class="table">
+                <thead><tr><th>Nome</th><th>WhatsApp</th><th>Nascimento</th><th>E-mail</th><th>Ações</th></tr></thead>
+                <tbody>
+                    ${data.map(c => `
+                        <tr>
+                            <td>${c.name || '-'}</td>
+                            <td>${c.phone || '-'}</td>
+                            <td>${c.birth ? new Date(c.birth + 'T12:00').toLocaleDateString('pt-BR') : '-'}</td>
+                            <td>${c.email || '-'}</td>
+                            <td>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <button type="button" data-client-edit="${c.id}">Editar</button>
+                                    <button type="button" data-client-bookings="${c.id}">Agendamentos</button>
+                                    <button type="button" class="danger" data-client-delete="${c.id}">Excluir</button>
+                                </div>
+                            </td>
+                        </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>`;
 }
 
 
@@ -4491,65 +4563,88 @@ function renderClients(data) {
    ========================================================= */
 
 async function loadStock() {
-    if (!isAdmin()) return;
-    const { data = [], error } = await sb.from('inventory').select('*').order('name');
-    if (error) {
-        console.error('Erro ao carregar estoque:', error);
-        if ($('#stockList')) $('#stockList').innerHTML = `<p class="muted">${error.message || 'Não foi possível carregar o estoque.'}</p>`;
+
+    if (!isAdmin()) {
         return;
     }
-    const stockData = Array.isArray(data) ? data : [];
-    if (!$('#stockList')) return;
-    $('#stockList').innerHTML = stockData.length ? stockData.map(x => `
-        <div class="list-row">
-            <div><b>${x.name || 'Produto'}</b><small>Atual: ${Number(x.quantity) || 0} • mínimo: ${Number(x.min_quantity) || 0}</small></div>
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                <span class="${Number(x.quantity) <= Number(x.min_quantity) ? 'cancel' : 'ok'}">${Number(x.quantity) <= Number(x.min_quantity) ? 'Baixo' : 'OK'}</span>
-                <button type="button" data-stock-adjust="${x.id}" data-stock-delta="1">+1</button>
-                <button type="button" data-stock-adjust="${x.id}" data-stock-delta="-1">-1</button>
-                <button type="button" data-stock-edit="${x.id}">Editar</button>
-                <button type="button" class="danger" data-stock-delete="${x.id}">Excluir</button>
-            </div>
-        </div>
-    `).join('') : '<p class="muted">Nenhum produto.</p>';
-}
 
-async function editarEstoque(id) {
-    if (!isAdmin()) return;
-    const { data: item, error } = await sb.from('inventory').select('*').eq('id', id).maybeSingle();
-    if (error || !item) { toast('Produto não encontrado.'); return; }
-    const name = prompt('Nome do produto:', item.name || '');
-    if (name === null) return;
-    const quantityText = prompt('Quantidade atual:', String(item.quantity ?? 0));
-    if (quantityText === null) return;
-    const minText = prompt('Estoque mínimo:', String(item.min_quantity ?? 0));
-    if (minText === null) return;
-    const quantity = Number(quantityText);
-    const min_quantity = Number(minText);
-    if (!name.trim() || !Number.isFinite(quantity) || !Number.isFinite(min_quantity) || quantity < 0 || min_quantity < 0) { toast('Informe valores válidos.'); return; }
-    const { error: saveError } = await sb.from('inventory').update({ name: name.trim(), quantity, min_quantity }).eq('id', id);
-    if (saveError) { toast(saveError.message || 'Não foi possível editar o produto.'); return; }
-    toast('Produto atualizado.');
-    await loadStock();
-}
 
-async function ajustarEstoque(id, delta) {
-    if (!isAdmin()) return;
-    const { data: item, error } = await sb.from('inventory').select('quantity').eq('id', id).maybeSingle();
-    if (error || !item) { toast('Produto não encontrado.'); return; }
-    const quantity = Math.max(0, Number(item.quantity || 0) + Number(delta || 0));
-    const { error: saveError } = await sb.from('inventory').update({ quantity }).eq('id', id);
-    if (saveError) { toast(saveError.message || 'Não foi possível atualizar o estoque.'); return; }
-    await loadStock();
-}
+    const {
+        data = [],
+        error
+    } = await sb
+        .from('inventory')
+        .select('*')
+        .order(
+            'name'
+        );
 
-async function excluirEstoque(id) {
-    if (!isAdmin()) return;
-    if (!confirm('Excluir este produto do estoque?')) return;
-    const { error } = await sb.from('inventory').delete().eq('id', id);
-    if (error) { toast(error.message || 'Não foi possível excluir o produto.'); return; }
-    toast('Produto excluído.');
-    await loadStock();
+
+    if (error) {
+
+        console.error(
+            'Erro ao carregar estoque:',
+            error
+        );
+
+        return;
+    }
+
+
+    if (!$('#stockList')) {
+        return;
+    }
+
+
+    $('#stockList').innerHTML =
+        data.length
+
+            ? data.map(x => `
+
+                <div class="list-row">
+
+                    <div>
+
+                        <b>
+                            ${x.name}
+                        </b>
+
+                        <small>
+                            Atual:
+                            ${x.quantity}
+                            • mínimo:
+                            ${x.min_quantity}
+                        </small>
+
+                    </div>
+
+                    <span
+                        class="${
+                            Number(x.quantity) <=
+                            Number(x.min_quantity)
+                                ? 'cancel'
+                                : 'ok'
+                        }"
+                    >
+                        ${
+                            Number(x.quantity) <=
+                            Number(x.min_quantity)
+                                ? 'Baixo'
+                                : 'OK'
+                        }
+                    </span>
+
+                </div>
+
+            `).join('')
+
+            : `
+
+                <p class="muted">
+                    Nenhum produto.
+                </p>
+
+            `;
 }
 
 
@@ -4559,72 +4654,124 @@ async function excluirEstoque(id) {
 
 async function loadFinance() {
     if (!isAdmin()) return;
-    ensureFinanceControls();
-    ensureFinanceChart();
 
-    const period = $('#financePeriodFilter')?.value || 'month';
-    const reference = today();
-    let startDate = reference;
-    let endDate = reference;
+    const month = today().slice(0, 7);
+    const { data = [], error } = await sb
+        .from('cash_entries')
+        .select('*')
+        .gte('entry_date', month + '-01')
+        .lte('entry_date', month + '-31')
+        .order('entry_date', { ascending: false });
 
-    if (period === 'month') {
-        const d = dateToLocalObject(reference);
-        startDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
-        const last = new Date(d.getFullYear(), d.getMonth()+1, 0);
-        endDate = formatLocalDate(last);
-    } else if (period === 'week') {
-        const d = dateToLocalObject(reference);
-        const day = d.getDay();
-        d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-        startDate = formatLocalDate(d);
-        d.setDate(d.getDate() + 6);
-        endDate = formatLocalDate(d);
-    }
-
-    const { data = [], error } = await sb.from('cash_entries').select('*').gte('entry_date', startDate).lte('entry_date', endDate).order('entry_date', { ascending: true });
     if (error) {
         console.error('Erro ao carregar financeiro:', error);
-        if ($('#financeList')) $('#financeList').innerHTML = `<p class="muted">${error.message || 'Não foi possível carregar o financeiro.'}</p>`;
+        toast('Não foi possível carregar o financeiro.');
         return;
     }
 
-    const financeRows = Array.isArray(data) ? data : [];
-    const income = financeRows.filter(x => x.type === 'income').reduce((t,x) => t + Number(x.amount || 0), 0);
-    const expense = financeRows.filter(x => x.type === 'expense').reduce((t,x) => t + Number(x.amount || 0), 0);
+    const income = data.filter(x => x.type === 'income').reduce((total, x) => total + Number(x.amount || 0), 0);
+    const expense = data.filter(x => x.type === 'expense').reduce((total, x) => total + Number(x.amount || 0), 0);
+
     if ($('#sumIncome')) $('#sumIncome').textContent = money(income);
     if ($('#sumExpense')) $('#sumExpense').textContent = money(expense);
     if ($('#sumBalance')) $('#sumBalance').textContent = money(income - expense);
 
     if ($('#financeList')) {
-        $('#financeList').innerHTML = financeRows.slice().reverse().slice(0, 30).map(x => `
-            <div class="list-row"><div><b>${x.description || 'Lançamento'}</b><small>${x.entry_date ? new Date(x.entry_date + 'T12:00').toLocaleDateString('pt-BR') : ''}</small></div><span class="${x.type === 'income' ? 'ok' : 'cancel'}">${x.type === 'income' ? '+' : '-'} ${money(x.amount)}</span></div>
-        `).join('') || '<p class="muted">Nenhum lançamento no período.</p>';
+        $('#financeList').innerHTML = data.length
+            ? data.slice(0, 12).map(x => `
+                <div class="list-row">
+                    <div>
+                        <b>${x.description || 'Lançamento'}</b>
+                        <small>${new Date(x.entry_date + 'T12:00').toLocaleDateString('pt-BR')} • ${x.booking_id ? 'Sistema' : 'Manual'}</small>
+                    </div>
+                    <span class="${x.type === 'income' ? 'ok' : 'cancel'}">${x.type === 'income' ? '+' : '-'} ${money(x.amount)}</span>
+                </div>
+            `).join('')
+            : '<p class="muted">Nenhum lançamento no mês.</p>';
     }
 
-    const chart = $('#financeChart');
-    if (chart) {
-        const groups = new Map();
-        financeRows.forEach(x => {
-            const key = period === 'day' ? (x.entry_date || reference) : (period === 'week' ? (x.entry_date || '').slice(5) : (x.entry_date || '').slice(8,10));
-            if (!key) return;
-            if (!groups.has(key)) groups.set(key, { income: 0, expense: 0 });
-            groups.get(key)[x.type === 'income' ? 'income' : 'expense'] += Number(x.amount || 0);
-        });
-        const entries = [...groups.entries()];
-        const max = Math.max(1, ...entries.flatMap(([,v]) => [v.income, v.expense]));
-        chart.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;"><strong>Gráfico — ${period === 'day' ? 'dia' : period === 'week' ? 'semana' : 'mês'}</strong><span class="muted">${new Date(startDate + 'T12:00').toLocaleDateString('pt-BR')} a ${new Date(endDate + 'T12:00').toLocaleDateString('pt-BR')}</span></div>
-            <div style="display:flex;gap:8px;align-items:flex-end;min-height:180px;overflow:auto;padding:10px 0;">
-                ${entries.length ? entries.map(([key,v]) => `
-                    <div style="min-width:54px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:160px;gap:4px;">
-                        <div title="Entradas ${money(v.income)}" style="width:18px;height:${Math.max(2, v.income/max*130)}px;background:#22c55e;border-radius:4px 4px 0 0;"></div>
-                        <div title="Saídas ${money(v.expense)}" style="width:18px;height:${Math.max(2, v.expense/max*130)}px;background:#ef4444;border-radius:4px 4px 0 0;"></div>
-                        <small>${key}</small>
-                    </div>
-                `).join('') : '<p class="muted">Sem dados para o período.</p>'}
-            </div>
-        `;
+    if (!$('#financeAllButton')) {
+        const btn = document.createElement('button');
+        btn.id = 'financeAllButton';
+        btn.type = 'button';
+        btn.className = 'btn secondary';
+        btn.textContent = 'Ver todos os lançamentos';
+        btn.style.marginTop = '12px';
+        $('#financeList')?.parentElement?.appendChild(btn);
+        btn.addEventListener('click', abrirTodosFinanceiros);
     }
+}
+
+async function abrirTodosFinanceiros() {
+    if (!isAdmin()) return;
+    const { data = [], error } = await sb.from('cash_entries').select('*').order('entry_date', { ascending: false }).order('created_at', { ascending: false });
+    if (error) {
+        console.error('Erro ao carregar todos os lançamentos:', error);
+        toast('Não foi possível carregar todos os lançamentos.');
+        return;
+    }
+    const old = $('#allFinanceModal');
+    if (old) old.remove();
+    const modal = document.createElement('div');
+    modal.id = 'allFinanceModal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+    modal.innerHTML = `
+        <div style="width:min(900px,100%);max-height:90vh;overflow:auto;background:var(--card,#151515);border-radius:18px;padding:22px;box-sizing:border-box;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;">
+                <div><span class="eyebrow">FINANCEIRO</span><h2 style="margin:4px 0 0;">Todos os lançamentos</h2></div>
+                <button type="button" id="closeAllFinance">✕</button>
+            </div>
+            <div style="display:grid;gap:8px;">
+                ${data.length ? data.map(x => `
+                    <div class="list-row" style="gap:12px;">
+                        <div style="flex:1;min-width:180px;">
+                            <b>${x.description || 'Lançamento'}</b>
+                            <small>${new Date(x.entry_date + 'T12:00').toLocaleDateString('pt-BR')} • ${x.booking_id ? 'Sistema / Agendamento' : 'Manual'}</small>
+                        </div>
+                        <span class="${x.type === 'income' ? 'ok' : 'cancel'}">${x.type === 'income' ? '+' : '-'} ${money(x.amount)}</span>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button type="button" data-finance-edit="${x.id}">Editar</button>
+                            <button type="button" class="danger" data-finance-delete="${x.id}">Excluir</button>
+                        </div>
+                    </div>
+                `).join('') : '<p class="muted">Nenhum lançamento cadastrado.</p>'}
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    $('#closeAllFinance')?.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+async function editarLancamentoFinanceiro(id) {
+    if (!isAdmin()) return;
+    const { data: item, error: fetchError } = await sb.from('cash_entries').select('*').eq('id', id).maybeSingle();
+    if (fetchError || !item) { toast('Lançamento não encontrado.'); return; }
+    const type = prompt('Tipo: income para Entrada ou expense para Saída:', item.type || 'income');
+    if (type === null) return;
+    if (!['income','expense'].includes(type)) { toast('Tipo inválido. Use income ou expense.'); return; }
+    const description = prompt('Descrição:', item.description || '');
+    if (description === null) return;
+    const amountText = prompt('Valor:', String(item.amount ?? 0).replace('.', ','));
+    if (amountText === null) return;
+    const amount = Number(String(amountText).replace(',', '.'));
+    const entryDate = prompt('Data (AAAA-MM-DD):', item.entry_date || today());
+    if (entryDate === null) return;
+    if (!Number.isFinite(amount) || amount < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) { toast('Valor ou data inválidos.'); return; }
+    const { error } = await sb.from('cash_entries').update({ type, description: description.trim(), amount, entry_date: entryDate }).eq('id', id);
+    if (error) { console.error('Erro ao editar lançamento:', error); toast(error.message || 'Não foi possível editar.'); return; }
+    toast('Lançamento atualizado.');
+    await loadFinance();
+    await abrirTodosFinanceiros();
+}
+
+async function excluirLancamentoFinanceiro(id) {
+    if (!isAdmin()) return;
+    if (!confirm('Excluir este lançamento financeiro?')) return;
+    const { error } = await sb.from('cash_entries').delete().eq('id', id);
+    if (error) { console.error('Erro ao excluir lançamento:', error); toast(error.message || 'Não foi possível excluir.'); return; }
+    toast('Lançamento excluído.');
+    await loadFinance();
+    await abrirTodosFinanceiros();
 }
 
 
@@ -4634,86 +4781,119 @@ async function loadFinance() {
 
 async function loadTeam() {
     if (!isAdmin()) return;
-    const { data = [], error } = await sb.from('professionals').select('*').order('name');
+
+    const { data = [], error } = await sb
+        .from('professionals')
+        .select('*')
+        .order('name');
+
     if (error) {
         console.error('Erro ao carregar equipe:', error);
         toast('Não foi possível carregar a equipe.');
         return;
     }
-    const teamData = Array.isArray(data) ? data : [];
+
     if (!$('#teamList')) return;
-    const localStatus = (() => { try { return JSON.parse(localStorage.getItem('dnh_professional_status_v1') || '{}'); } catch { return {}; } })();
-    $('#teamList').innerHTML = teamData.length ? teamData.map(x => {
-        const status = x.status || localStatus[x.id] || (x.active ? 'active' : 'inactive');
-        const label = status === 'vacation' ? 'Férias' : status === 'active' ? 'Ativo' : 'Inativo';
+
+    $('#teamList').innerHTML = data.length ? data.map(x => {
+        const status = x.work_status || (x.active ? 'active' : 'inactive');
+        const statusText = status === 'vacation' ? 'Férias' : status === 'inactive' ? 'Inativo' : 'Ativo';
+        const statusClass = status === 'active' ? 'ok' : 'cancel';
         return `
             <div class="list-row">
-                <div><b>${x.name || 'Profissional'}</b><small>${x.phone || ''}</small></div>
+                <div>
+                    <b>${x.name || 'Profissional'}</b>
+                    <small>${x.phone || ''}</small>
+                </div>
                 <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-                    <span class="${status === 'active' ? 'ok' : 'cancel'}">${label}</span>
+                    <span class="${statusClass}">${statusText}</span>
                     <button type="button" data-team-edit="${x.id}">Editar</button>
-                    <button type="button" data-team-status="${x.id}" data-team-new-status="active">Ativo</button>
-                    <button type="button" data-team-status="${x.id}" data-team-new-status="vacation">Férias</button>
-                    <button type="button" data-team-status="${x.id}" data-team-new-status="inactive">Inativo</button>
+                    <button type="button" data-team-vacation="${x.id}">Férias</button>
+                    <button type="button" data-team-active="${x.id}">Ativo</button>
+                    <button type="button" data-team-inactive="${x.id}">Inativo</button>
                     <button type="button" class="danger" data-team-delete="${x.id}">Excluir</button>
                 </div>
             </div>`;
     }).join('') : '<p class="muted">Nenhum profissional.</p>';
 }
 
-async function editarProfissional(id) {
+async function alterarStatusEquipe(professionalId, status) {
     if (!isAdmin()) return;
-    const { data: item, error } = await sb.from('professionals').select('*').eq('id', id).maybeSingle();
-    if (error || !item) { toast('Profissional não encontrado.'); return; }
-    const name = prompt('Nome do profissional:', item.name || '');
-    if (name === null) return;
-    const phone = prompt('Telefone/WhatsApp:', item.phone || '');
-    if (phone === null) return;
-    if (!name.trim()) { toast('Informe o nome.'); return; }
-    const { error: saveError } = await sb.from('professionals').update({ name: name.trim(), phone: phone.trim() }).eq('id', id);
-    if (saveError) { toast(saveError.message || 'Não foi possível editar o profissional.'); return; }
-    toast('Profissional atualizado.');
-    await loadProfessionals();
-    await loadTeam();
-}
-
-async function alterarStatusProfissional(id, status) {
-    if (!isAdmin()) return;
-    let localStatus = {};
-    try { localStatus = JSON.parse(localStorage.getItem('dnh_professional_status_v1') || '{}'); } catch {}
-    const active = status === 'active';
-    const patch = { active };
-    if (status === 'vacation') patch.status = 'vacation';
-    else if (status === 'inactive') patch.status = 'inactive';
-    else patch.status = 'active';
-
-    const { error } = await sb.from('professionals').update(patch).eq('id', id);
+    const patch = { work_status: status, active: status === 'active' };
+    const { error } = await sb.from('professionals').update(patch).eq('id', professionalId);
     if (error) {
-        // Compatibilidade com tabelas antigas que ainda não possuem a coluna status.
-        if (status === 'vacation') {
-            const fallback = await sb.from('professionals').update({ active: false }).eq('id', id);
-            if (fallback.error) { toast(fallback.error.message || 'Não foi possível alterar o status.'); return; }
-            localStatus[id] = 'vacation';
-        } else {
-            const fallback = await sb.from('professionals').update({ active }).eq('id', id);
-            if (fallback.error) { toast(fallback.error.message || 'Não foi possível alterar o status.'); return; }
-            localStatus[id] = status;
-        }
-    } else {
-        localStatus[id] = status;
+        console.error('Erro ao alterar status da equipe:', error);
+        toast(error.message || 'Não foi possível alterar o status.');
+        showActionMessage('Não foi possível alterar o status.', 'error');
+        return;
     }
-    localStorage.setItem('dnh_professional_status_v1', JSON.stringify(localStatus));
-    toast(status === 'vacation' ? 'Profissional colocado em férias.' : status === 'active' ? 'Profissional ativo.' : 'Profissional inativo.');
+    const labels = { active: 'Ativo', vacation: 'Férias', inactive: 'Inativo' };
+    toast(`Profissional marcado como ${labels[status]}.`);
+    showActionMessage(`Status alterado para ${labels[status]}.`);
     await loadProfessionals();
     await loadTeam();
 }
 
-async function excluirProfissional(id) {
+async function editarProfissional(professionalId) {
     if (!isAdmin()) return;
-    if (!confirm('Excluir este profissional? Agendamentos existentes não serão excluídos automaticamente.')) return;
-    const { error } = await sb.from('professionals').delete().eq('id', id);
-    if (error) { toast(error.message || 'Não foi possível excluir o profissional.'); return; }
-    toast('Profissional excluído.');
+    let professional = professionals.find(p => String(p.id) === String(professionalId));
+    if (!professional) {
+        const { data, error } = await sb.from('professionals').select('*').eq('id', professionalId).maybeSingle();
+        if (error || !data) { toast('Profissional não encontrado.'); return; }
+        professional = data;
+    }
+    const name = prompt('Nome do profissional:', professional.name || '');
+    if (name === null) return;
+    const phone = prompt('Telefone/WhatsApp:', professional.phone || '');
+    if (phone === null) return;
+    const { error } = await sb.from('professionals').update({ name: name.trim(), phone: phone.trim() }).eq('id', professionalId);
+    if (error) {
+        console.error('Erro ao editar profissional:', error);
+        toast(error.message || 'Não foi possível editar o profissional.');
+        return;
+    }
+    toast('Profissional atualizado.');
+    showActionMessage('Profissional atualizado com sucesso.');
+    await loadProfessionals();
+    await loadTeam();
+}
+
+async function excluirProfissional(professionalId) {
+    if (!isAdmin()) return;
+    let professional = professionals.find(p => String(p.id) === String(professionalId));
+    if (!professional) {
+        const { data, error } = await sb.from('professionals').select('*').eq('id', professionalId).maybeSingle();
+        if (error || !data) { toast('Profissional não encontrado.'); return; }
+        professional = data;
+    }
+    if (!confirm(`Excluir o profissional \"${professional.name || 'Profissional'}\"?`)) return;
+
+    const { count, error: checkError } = await sb
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('professional_id', professionalId);
+
+    if (checkError) {
+        console.error('Erro ao verificar agendamentos do profissional:', checkError);
+        toast('Não foi possível verificar os agendamentos do profissional.');
+        return;
+    }
+    if (Number(count || 0) > 0) {
+        const msg = 'Este profissional possui agendamentos vinculados. Use Inativo ou Férias para preservar o histórico.';
+        toast(msg);
+        showActionMessage(msg, 'error');
+        return;
+    }
+
+    const { error } = await sb.from('professionals').delete().eq('id', professionalId);
+    if (error) {
+        console.error('Erro ao excluir profissional:', error);
+        toast(error.message || 'Não foi possível excluir o profissional.');
+        showActionMessage('Não foi possível excluir o profissional.', 'error');
+        return;
+    }
+    toast('Profissional excluído com sucesso.');
+    showActionMessage('Profissional excluído com sucesso.');
     await loadProfessionals();
     await loadTeam();
 }
@@ -4725,11 +4905,18 @@ async function excluirProfissional(id) {
 
 $$('[data-page]').forEach(button => {
 
-    button.onclick = () => {
+    button.onclick = async event => {
 
-        go(
-            button.dataset.page
-        );
+        if (button.hasAttribute('data-admin-new-booking')) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (isAdmin()) {
+                await novoAgendamentoAdmin();
+            }
+            return;
+        }
+
+        go(button.dataset.page);
 
     };
 
@@ -5422,42 +5609,99 @@ if ($('#teamForm')) {
    ========================================================= */
 
 if ($('#saveSettings')) {
-    $('#saveSettings').onclick = async () => {
-        if (!isAdmin()) { toast('Acesso restrito ao administrador.'); return; }
 
-        const patch = {
-            name: $('#setName')?.value.trim() || 'DNH BARBEARIA',
-            whatsapp: digits($('#setWhatsapp')?.value || ''),
-            start_time: $('#setStart')?.value || '08:00',
-            end_time: $('#setEnd')?.value || '18:00',
-            slot_interval: Number($('#setInterval')?.value || 30),
-            logo_url: $('#setLogoUrl')?.value.trim() || 'dnh-logo.png'
-        };
+    $('#saveSettings').onclick =
+        async () => {
 
-        const schedule = collectWeeklySchedule();
-        for (const day of WEEK_DAYS) {
-            const row = schedule[day.key];
-            if (row.enabled && timeToMinutes(row.end_time) <= timeToMinutes(row.start_time)) {
-                toast(`Horário inválido em ${day.label}: o fim deve ser depois do início.`);
+            if (!isAdmin()) {
+
+                toast(
+                    'Acesso restrito ao administrador.'
+                );
+
                 return;
             }
-        }
 
-        if (Object.prototype.hasOwnProperty.call(settings, 'weekly_schedule')) {
-            patch.weekly_schedule = schedule;
-        }
-        const { error } = await sb.from('settings').update(patch).eq('id', 1);
-        if (error) {
-            console.error('Erro ao salvar configurações:', error);
-            toast(error.message || 'Não foi possível salvar as configurações.');
-            return;
-        }
 
-        saveWeeklySchedule(schedule);
-        settings = { ...settings, ...patch };
-        await loadSettings();
-        toast('Configurações e horários semanais salvos.');
-    };
+            const patch = {
+
+                name:
+                    $('#setName')
+                        .value
+                        .trim()
+                    ||
+                    'DNH BARBEARIA',
+
+
+                whatsapp:
+                    digits(
+                        $('#setWhatsapp')
+                            .value
+                    ),
+
+
+                start_time:
+                    $('#setStart')
+                        .value,
+
+
+                end_time:
+                    $('#setEnd')
+                        .value,
+
+
+                slot_interval:
+                    Number(
+                        $('#setInterval')
+                            .value
+                    ),
+
+
+                logo_url:
+                    $('#setLogoUrl')
+                        .value
+                        .trim()
+                    ||
+                    'dnh-logo.png'
+
+            };
+
+
+            const {
+                error
+            } =
+                await sb
+                    .from('settings')
+                    .update(patch)
+                    .eq('id', 1);
+
+
+            if (error) {
+
+                toast(
+                    error.message
+                );
+
+            } else {
+
+                settings = {
+
+                    ...settings,
+
+                    ...patch
+
+                };
+
+
+                await loadSettings();
+
+
+                toast('Configurações salvas com sucesso.');
+                showActionMessage('Configurações salvas com sucesso.');
+
+            }
+
+        };
 }
 
 
@@ -5757,7 +6001,7 @@ async function novoAgendamentoAdmin() {
                     </select>
                 </label>
 
-                 <label>Observação (opcional)
+                <label>Observação (opcional)
                     <textarea id="adminBookingNotes" rows="3" placeholder="Observação do atendimento" style="width:100%;box-sizing:border-box;resize:vertical;"></textarea>
                 </label>
 
@@ -5804,12 +6048,6 @@ async function novoAgendamentoAdmin() {
 
         const service = activeServices.find(s => s.id === serviceId);
         const duration = Number(service?.duration) || 30;
-        const daySchedule = getScheduleForDate(date);
-        if (daySchedule.enabled === false) {
-            timeSelect.innerHTML = '<option value="">Sem expediente nesta data</option>';
-            if (info) info.textContent = 'Este dia está marcado como folga.';
-            return;
-        }
 
         const { data: bookings = [], error } = await sb
             .from('bookings')
@@ -5825,8 +6063,7 @@ async function novoAgendamentoAdmin() {
             return;
         }
 
-        const bookingRows = Array.isArray(bookings) ? bookings : [];
-        const serviceIds = [...new Set(bookingRows.map(b => b.service_id).filter(Boolean))];
+        const serviceIds = [...new Set(bookings.map(b => b.service_id).filter(Boolean))];
         const durationMap = new Map(activeServices.map(s => [s.id, Number(s.duration) || 30]));
 
         if (serviceIds.length) {
@@ -5840,24 +6077,21 @@ async function novoAgendamentoAdmin() {
             }
         }
 
-        const busy = bookingRows.map(b => {
+        const busy = bookings.map(b => {
             const start = timeToMinutes(String(b.booking_time || '').slice(0, 5));
             const end = start + (durationMap.get(b.service_id) || 30);
             return { start, end };
         }).filter(x => Number.isFinite(x.start));
 
-        const startMinutes = timeToMinutes(daySchedule.start_time.slice(0, 5));
-        const endMinutes = timeToMinutes(daySchedule.end_time.slice(0, 5));
+        const startMinutes = timeToMinutes(settings.start_time.slice(0, 5));
+        const endMinutes = timeToMinutes(settings.end_time.slice(0, 5));
         const interval = Number(settings.slot_interval) || 30;
         const options = [];
-        const now = new Date();
-        const currentNow = now.getHours() * 60 + now.getMinutes();
 
         for (let current = startMinutes; current + duration <= endMinutes; current += interval) {
             const hour = String(Math.floor(current / 60)).padStart(2, '0');
             const minute = String(current % 60).padStart(2, '0');
             const time = `${hour}:${minute}`;
-            if (date === today() && current <= currentNow) continue;
             const conflict = busy.some(b => current < b.end && current + duration > b.start);
             if (!conflict) options.push(`<option value="${time}">${time}</option>`);
         }
@@ -5896,17 +6130,15 @@ async function novoAgendamentoAdmin() {
             button.textContent = 'Agendando...';
         }
 
-        const service = activeServices.find(s => s.id === serviceId);
-        const requestedStart = timeToMinutes(time);
-        const requestedDuration = Number(service?.duration) || 30;
-        const requestedEnd = requestedStart + requestedDuration;
-
-        const { data: existingBookings = [], error: checkError } = await sb
+        const { data: existing, error: checkError } = await sb
             .from('bookings')
-            .select('id,booking_time,service_id,status')
+            .select('id')
             .eq('professional_id', professionalId)
             .eq('booking_date', date)
-            .neq('status', 'cancelled');
+            .eq('booking_time', time + ':00')
+            .neq('status', 'cancelled')
+            .limit(1)
+            .maybeSingle();
 
         if (checkError) {
             console.error('Erro ao verificar horário:', checkError);
@@ -5915,14 +6147,8 @@ async function novoAgendamentoAdmin() {
             return;
         }
 
-        const durationMap = new Map(activeServices.map(s => [s.id, Number(s.duration) || 30]));
-        const conflict = (Array.isArray(existingBookings) ? existingBookings : []).some(b => {
-            const start = timeToMinutes(String(b.booking_time || '').slice(0, 5));
-            const bookedEnd = start + (durationMap.get(b.service_id) || 30);
-            return requestedStart < bookedEnd && requestedEnd > start;
-        });
-        if (conflict) {
-            toast('Esse horário conflita com outro agendamento. Escolha outro.');
+        if (existing) {
+            toast('Esse horário já foi ocupado. Escolha outro.');
             await carregarHorariosAdmin();
             if (button) { button.disabled = false; button.textContent = 'Confirmar agendamento'; }
             return;
@@ -5940,12 +6166,7 @@ async function novoAgendamentoAdmin() {
 
         if (error) {
             console.error('Erro ao criar agendamento pelo administrador:', error);
-            if (error.code === '23505') {
-                toast('Este horário acabou de ser reservado por outro agendamento. Escolha outro.');
-                await carregarHorariosAdmin();
-            } else {
-                toast(error.message || 'Não foi possível realizar o agendamento.');
-            }
+            toast(error.message || 'Não foi possível realizar o agendamento.');
             if (button) { button.disabled = false; button.textContent = 'Confirmar agendamento'; }
             return;
         }
@@ -5966,26 +6187,59 @@ document.addEventListener(
     'click',
     async e => {
 
-        /* -------------------------
-           NOVO AGENDAMENTO ADMIN
-           ------------------------- */
-
-        const newAdminBooking =
-            e.target.closest(
-                '[data-admin-new-booking]'
-            );
-
-        if (newAdminBooking) {
-
-            if (!isAdmin()) {
-                toast('Acesso restrito ao administrador.');
-                return;
-            }
-
-            await novoAgendamentoAdmin();
+        const financeEdit = e.target.closest('[data-finance-edit]');
+        if (financeEdit) {
+            await editarLancamentoFinanceiro(financeEdit.dataset.financeEdit);
             return;
         }
 
+        const financeDelete = e.target.closest('[data-finance-delete]');
+        if (financeDelete) {
+            await excluirLancamentoFinanceiro(financeDelete.dataset.financeDelete);
+            return;
+        }
+
+        const clientDelete = e.target.closest('[data-client-delete]');
+        if (clientDelete) {
+            await excluirCliente(clientDelete.dataset.clientDelete);
+            return;
+        }
+
+        const serviceDelete = e.target.closest('[data-service-delete]');
+        if (serviceDelete) {
+            await excluirServico(serviceDelete.dataset.serviceDelete);
+            return;
+        }
+
+        const teamEdit = e.target.closest('[data-team-edit]');
+        if (teamEdit) {
+            await editarProfissional(teamEdit.dataset.teamEdit);
+            return;
+        }
+
+        const teamVacation = e.target.closest('[data-team-vacation]');
+        if (teamVacation) {
+            await alterarStatusEquipe(teamVacation.dataset.teamVacation, 'vacation');
+            return;
+        }
+
+        const teamActive = e.target.closest('[data-team-active]');
+        if (teamActive) {
+            await alterarStatusEquipe(teamActive.dataset.teamActive, 'active');
+            return;
+        }
+
+        const teamInactive = e.target.closest('[data-team-inactive]');
+        if (teamInactive) {
+            await alterarStatusEquipe(teamInactive.dataset.teamInactive, 'inactive');
+            return;
+        }
+
+        const teamDelete = e.target.closest('[data-team-delete]');
+        if (teamDelete) {
+            await excluirProfissional(teamDelete.dataset.teamDelete);
+            return;
+        }
 
         /* -------------------------
            EDITAR SERVIÇO
@@ -6103,24 +6357,6 @@ document.addEventListener(
 
 
         /* -------------------------
-           EXCLUIR SERVIÇO
-           ------------------------- */
-
-        const serviceDelete = e.target.closest('[data-service-delete]');
-        if (serviceDelete) {
-            if (!isAdmin()) { toast('Acesso restrito ao administrador.'); return; }
-            const id = serviceDelete.dataset.serviceDelete;
-            const service = services.find(s => s.id === id);
-            if (!service) return;
-            if (!confirm(`Excluir o serviço "${service.name || 'Serviço'}"?`)) return;
-            const { error } = await sb.from('services').delete().eq('id', id);
-            if (error) { toast(error.message || 'Não foi possível excluir o serviço. Se houver agendamentos vinculados, desative-o.'); return; }
-            toast('Serviço excluído.');
-            await loadServices();
-            return;
-        }
-
-        /* -------------------------
            HORÁRIO DO CLIENTE
            ------------------------- */
 
@@ -6224,55 +6460,6 @@ document.addEventListener(
                 statusText =
                     'Concluído';
 
-            }
-
-
-            /*
-               Conclusão de atendimento: o Supabase executa a alteração
-               do status e o lançamento financeiro na mesma transação.
-               O serviço fornece descrição e preço; o tipo será sempre
-               entrada. O booking_id impede duplicidade.
-            */
-            if (newStatus === 'completed') {
-
-                const {
-                    data: completionData,
-                    error: completionError
-                } = await sb.rpc(
-                    'complete_booking_and_register_finance',
-                    {
-                        p_booking_id: bookingId
-                    }
-                );
-
-                if (completionError) {
-
-                    console.error(
-                        'Erro ao concluir atendimento e registrar financeiro:',
-                        completionError
-                    );
-
-                    toast(
-                        completionError.message?.includes('function')
-                            ? 'Execute o SQL da V15 no Supabase para ativar o lançamento automático.'
-                            : (completionError.message || 'Não foi possível concluir o atendimento.')
-                    );
-
-                    return;
-                }
-
-                const alreadyCompleted =
-                    completionData?.already_completed === true;
-
-                toast(
-                    alreadyCompleted
-                        ? 'Atendimento já estava concluído e o financeiro já foi registrado.'
-                        : 'Atendimento concluído e lançado no financeiro como entrada.'
-                );
-
-                await agenda();
-
-                return;
             }
 
 
@@ -6432,31 +6619,6 @@ document.addEventListener(
         }
 
 
-        const clientDelete = e.target.closest('[data-client-delete]');
-        if (clientDelete) {
-            if (!isAdmin()) { toast('Acesso restrito ao administrador.'); return; }
-            await excluirCliente(clientDelete.dataset.clientDelete);
-            return;
-        }
-
-        const stockEdit = e.target.closest('[data-stock-edit]');
-        if (stockEdit) { await editarEstoque(stockEdit.dataset.stockEdit); return; }
-
-        const stockDelete = e.target.closest('[data-stock-delete]');
-        if (stockDelete) { await excluirEstoque(stockDelete.dataset.stockDelete); return; }
-
-        const stockAdjust = e.target.closest('[data-stock-adjust]');
-        if (stockAdjust) { await ajustarEstoque(stockAdjust.dataset.stockAdjust, Number(stockAdjust.dataset.stockDelta || 0)); return; }
-
-        const teamEdit = e.target.closest('[data-team-edit]');
-        if (teamEdit) { await editarProfissional(teamEdit.dataset.teamEdit); return; }
-
-        const teamStatus = e.target.closest('[data-team-status]');
-        if (teamStatus) { await alterarStatusProfissional(teamStatus.dataset.teamStatus, teamStatus.dataset.teamNewStatus); return; }
-
-        const teamDelete = e.target.closest('[data-team-delete]');
-        if (teamDelete) { await excluirProfissional(teamDelete.dataset.teamDelete); return; }
-
         /* -------------------------
            WHATSAPP
            ------------------------- */
@@ -6545,18 +6707,19 @@ if ($('#clientDate')) {
 
     $('#clientDate').onchange =
         async () => {
-            if (!isClient()) return;
-            const selected = $('#clientDate').value;
-            if (selected < today()) {
-                $('#clientDate').value = getInitialBookingDate();
-                toast('Não é permitido selecionar uma data passada.');
+
+            if (!isClient()) {
+                return;
             }
-            const schedule = getScheduleForDate($('#clientDate').value);
-            if (schedule.enabled === false) {
-                toast('Este dia está sem expediente.');
-            }
-            atualizarResumoAgendamento('');
+
+
+            atualizarResumoAgendamento(
+                ''
+            );
+
+
             await loadClientTimes();
+
         };
 }
 
@@ -6790,8 +6953,6 @@ async function boot() {
 
 
         await loadSettings();
-        ensureServiceDurationOptions();
-        ensureAdminBookingButtons();
 
 
         if (
