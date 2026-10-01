@@ -1557,13 +1557,21 @@ async function agenda() {
         await loadProfessionals();
 
         const page = $('#page-agenda');
+        const clientAgenda = $('#clientAgenda');
+        const adminAgenda = $('#adminAgenda');
 
-        if (!page) {
+        if (!page || !adminAgenda) {
             return;
         }
 
+        if (clientAgenda) {
+            clientAgenda.classList.add('hidden');
+        }
 
-        page.innerHTML = `
+        adminAgenda.classList.remove('hidden');
+
+
+        adminAgenda.innerHTML = `
 
             <div class="page-header">
 
@@ -2653,31 +2661,599 @@ async function agenda() {
 
 
     /* =========================================================
-       CLIENTE — SOMENTE FLUXO DE AGENDAMENTO
+       CLIENTE
        ========================================================= */
 
-    if (isClient()) {
+    const clientAgenda = $('#clientAgenda');
+    const adminAgenda = $('#adminAgenda');
 
-        const clientAgenda = $('#clientAgenda');
-        const adminAgenda = $('#adminAgenda');
-
-        if (clientAgenda) {
-            clientAgenda.classList.remove('hidden');
-            clientAgenda.style.display = '';
-        }
-
-        if (adminAgenda) {
-            adminAgenda.classList.add('hidden');
-            adminAgenda.style.display = 'none';
-        }
-
-        await loadSettings();
-        await loadServices();
-        await loadProfessionals();
-        initClientBooking();
-        await loadClientTimes();
+    if (clientAgenda) {
+        clientAgenda.classList.remove('hidden');
     }
+
+    if (adminAgenda) {
+        adminAgenda.classList.add('hidden');
+    }
+
+    await loadSettings();
+    await loadServices();
+    await loadProfessionals();
+    initClientBooking();
+    await loadClientTimes();
+
+    return;
+
+
+    /* Código legado de agenda do cliente mantido abaixo para preservar a versão original. */
+
+    await loadSettings();
+
+    await loadProfessionals();
+
+
+    const date =
+        $('#agendaDate')?.value ||
+        today();
+
+
+    if ($('#agendaDate')) {
+
+        $('#agendaDate').value =
+            date;
+
+    }
+
+
+    const professionalId =
+        $('#agendaProfessional')?.value ||
+        '';
+
+
+    let query =
+        sb
+            .from('bookings')
+            .select(`
+                id,
+                booking_time,
+                status,
+                professional_id,
+                service_id,
+                user_id
+            `)
+            .eq(
+                'booking_date',
+                date
+            )
+            .order(
+                'booking_time'
+            );
+
+
+    if (professionalId) {
+
+        query =
+            query.eq(
+                'professional_id',
+                professionalId
+            );
+
+    }
+
+
+    const {
+        data: bookings = [],
+        error
+    } = await query;
+
+
+    if (error) {
+
+        console.error(
+            'Erro ao carregar agenda:',
+            error
+        );
+
+
+        if ($('#agendaGrid')) {
+
+            $('#agendaGrid').innerHTML =
+                '<p class="muted">Não foi possível carregar a agenda.</p>';
+
+        }
+
+        return;
+    }
+
+
+    const serviceIds =
+        [
+            ...new Set(
+                bookings
+                    .map(
+                        b =>
+                            b.service_id
+                    )
+                    .filter(Boolean)
+            )
+        ];
+
+
+    let serviceMap =
+        new Map();
+
+
+    if (serviceIds.length) {
+
+        const {
+            data: serviceData = []
+        } = await sb
+            .from('services')
+            .select(
+                'id,name,duration,price'
+            )
+            .in(
+                'id',
+                serviceIds
+            );
+
+
+        serviceMap =
+            new Map(
+                serviceData.map(
+                    s => [
+                        s.id,
+                        s
+                    ]
+                )
+            );
+    }
+
+
+    const userIds =
+        [
+            ...new Set(
+                bookings
+                    .map(
+                        b =>
+                            b.user_id
+                    )
+                    .filter(Boolean)
+            )
+        ];
+
+
+    let profileMap =
+        new Map();
+
+
+    if (userIds.length) {
+
+        const {
+            data: profileData = []
+        } = await sb
+            .from('profiles')
+            .select(
+                'id,name,phone'
+            )
+            .in(
+                'id',
+                userIds
+            );
+
+
+        profileMap =
+            new Map(
+                profileData.map(
+                    p => [
+                        p.id,
+                        p
+                    ]
+                )
+            );
+    }
+
+
+    const bookingsByStart =
+        new Map();
+
+
+    bookings.forEach(b => {
+
+        if (!b.booking_time) {
+            return;
+        }
+
+
+        const start =
+            b.booking_time.slice(
+                0,
+                5
+            );
+
+
+        bookingsByStart.set(
+            start,
+            b
+        );
+
+    });
+
+
+    function statusInfo(status) {
+
+        switch (status) {
+
+            case 'in_progress':
+
+                return {
+                    text: 'Em atendimento',
+                    className: 'progress'
+                };
+
+
+            case 'completed':
+
+                return {
+                    text: 'Concluído',
+                    className: 'ok'
+                };
+
+
+            case 'cancelled':
+
+                return {
+                    text: 'Cancelado',
+                    className: 'cancel'
+                };
+
+
+            default:
+
+                return {
+                    text: 'Confirmado',
+                    className: 'ok'
+                };
+        }
+    }
+
+
+    const schedule =
+        slots();
+
+
+    if (!$('#agendaGrid')) {
+        return;
+    }
+
+
+    $('#agendaGrid').innerHTML =
+        schedule.map(time => {
+
+            const booking =
+                bookingsByStart.get(
+                    time
+                );
+
+
+            if (!booking) {
+
+                const current =
+                    timeToMinutes(time);
+
+
+                const occupying =
+                    bookings.find(b => {
+
+                        if (
+                            !b.booking_time ||
+                            b.status ===
+                                'cancelled'
+                        ) {
+
+                            return false;
+                        }
+
+
+                        const start =
+                            timeToMinutes(
+                                b.booking_time
+                                    .slice(0, 5)
+                            );
+
+
+                        const service =
+                            serviceMap.get(
+                                b.service_id
+                            );
+
+
+                        const duration =
+                            Number(
+                                service?.duration
+                            ) || 30;
+
+
+                        const end =
+                            start +
+                            duration;
+
+
+                        return (
+                            current >
+                                start &&
+                            current <
+                                end
+                        );
+                    });
+
+
+                if (occupying) {
+
+                    const service =
+                        serviceMap.get(
+                            occupying.service_id
+                        );
+
+
+                    return `
+
+                        <div class="slot-card busy">
+
+                            <div class="time">
+                                ${time}
+                            </div>
+
+                            <div class="client">
+
+                                <small>
+                                    Horário ocupado
+                                </small>
+
+                                <b>
+                                    ${
+                                        service?.name ||
+                                        'Serviço'
+                                    }
+                                </b>
+
+                            </div>
+
+                        </div>
+
+                    `;
+                }
+
+
+                return `
+
+                    <div class="slot-card">
+
+                        <div class="time">
+                            ${time}
+                        </div>
+
+                        <small class="muted">
+                            Livre
+                        </small>
+
+                    </div>
+
+                `;
+            }
+
+
+            const service =
+                serviceMap.get(
+                    booking.service_id
+                );
+
+
+            const client =
+                profileMap.get(
+                    booking.user_id
+                );
+
+
+            const info =
+                statusInfo(
+                    booking.status
+                );
+
+
+            const serviceName =
+                service?.name ||
+                'Serviço';
+
+
+            const duration =
+                Number(
+                    service?.duration
+                ) || 30;
+
+
+            const price =
+                money(
+                    service?.price
+                );
+
+
+            const clientName =
+                client?.name ||
+                'Cliente';
+
+
+            const phone =
+                client?.phone ||
+                '';
+
+
+            const isCancelled =
+                booking.status ===
+                'cancelled';
+
+
+            return `
+
+                <div
+                    class="slot-card busy"
+                    style="
+                        border-left:4px solid currentColor;
+                    "
+                >
+
+                    <div class="time">
+
+                        ${time}
+
+                        <small>
+                            ${duration} min
+                        </small>
+
+                    </div>
+
+
+                    <div class="client">
+
+                        <b>
+                            ${clientName}
+                        </b>
+
+                        <small>
+                            ${serviceName}
+                        </small>
+
+                        <small>
+                            ${price}
+                        </small>
+
+                        ${
+                            phone
+                                ? `
+                                    <small>
+                                        📱 ${phone}
+                                    </small>
+                                `
+                                : ''
+                        }
+
+                    </div>
+
+
+                    <div
+                        style="
+                            margin-top:8px;
+                            display:flex;
+                            align-items:center;
+                            gap:8px;
+                            flex-wrap:wrap;
+                        "
+                    >
+
+                        <span
+                            class="${info.className}"
+                        >
+                            ${info.text}
+                        </span>
+
+                    </div>
+
+
+                    ${
+                        !isCancelled
+                            ? `
+
+                        <div
+                            class="slot-actions"
+                            style="
+                                display:flex;
+                                gap:6px;
+                                flex-wrap:wrap;
+                                margin-top:10px;
+                            "
+                        >
+
+                            ${
+                                booking.status !==
+                                    'in_progress' &&
+                                booking.status !==
+                                    'completed'
+                                    ? `
+
+                                        <button
+                                            type="button"
+                                            data-status-booking="${booking.id}"
+                                            data-status="in_progress"
+                                        >
+                                            Iniciar
+                                        </button>
+
+                                    `
+                                    : ''
+                            }
+
+
+                            ${
+                                booking.status !==
+                                    'completed'
+                                    ? `
+
+                                        <button
+                                            type="button"
+                                            data-status-booking="${booking.id}"
+                                            data-status="completed"
+                                        >
+                                            Concluir
+                                        </button>
+
+                                    `
+                                    : ''
+                            }
+
+
+                            <button
+                                type="button"
+                                class="danger"
+                                data-cancel="${booking.id}"
+                            >
+                                Cancelar
+                            </button>
+
+
+                            ${
+                                phone
+                                    ? `
+
+                                        <button
+                                            type="button"
+                                            data-wa="${digits(phone)}"
+                                            data-msg="${encodeURIComponent(
+                                                'Olá ' +
+                                                clientName +
+                                                '! Seu agendamento na DNH Barbearia é hoje às ' +
+                                                time +
+                                                '.'
+                                            )}"
+                                        >
+                                            WhatsApp
+                                        </button>
+
+                                    `
+                                    : ''
+                            }
+
+                        </div>
+
+                    `
+                            : ''
+                    }
+
+                </div>
+
+            `;
+
+        }).join('');
 }
+
 
 /* =========================================================
    CLIENTE - INICIALIZAÇÃO
@@ -5290,6 +5866,293 @@ if ($('#birthdayOnly')) {
 }
 
 
+
+/* =========================================================
+   ADMINISTRADOR - NOVO AGENDAMENTO PARA CLIENTE
+   ========================================================= */
+
+async function novoAgendamentoAdmin() {
+
+    if (!isAdmin()) {
+        toast('Acesso restrito ao administrador.');
+        return;
+    }
+
+    await loadSettings();
+    await loadServices();
+    await loadProfessionals();
+
+    const {
+        data: clients = [],
+        error: clientsError
+    } = await sb
+        .from('profiles')
+        .select('id,name,phone,email,birth')
+        .eq('role', 'client')
+        .order('name', { ascending: true });
+
+    if (clientsError) {
+        console.error('Erro ao carregar clientes para novo agendamento:', clientsError);
+        toast('Não foi possível carregar os clientes.');
+        return;
+    }
+
+    const activeServices = (services || []).filter(s => s.active !== false);
+    const activeProfessionals = (professionals || []).filter(p => p.active !== false);
+
+    if (!clients.length) {
+        toast('Não há clientes cadastrados.');
+        return;
+    }
+
+    if (!activeServices.length) {
+        toast('Cadastre pelo menos um serviço ativo.');
+        return;
+    }
+
+    if (!activeProfessionals.length) {
+        toast('Cadastre pelo menos um profissional.');
+        return;
+    }
+
+    const oldModal = document.querySelector('#adminBookingModal');
+    if (oldModal) oldModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'adminBookingModal';
+    modal.style.cssText = `
+        position:fixed;
+        inset:0;
+        z-index:9999;
+        background:rgba(0,0,0,.72);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:20px;
+        box-sizing:border-box;
+    `;
+
+    modal.innerHTML = `
+        <div style="width:min(620px,100%);max-height:90vh;overflow:auto;background:var(--card,#151515);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:22px;box-sizing:border-box;box-shadow:0 20px 60px rgba(0,0,0,.45);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;">
+                <div>
+                    <span class="eyebrow">ADMINISTRADOR</span>
+                    <h2 style="margin:4px 0 0;">Novo agendamento</h2>
+                    <p class="muted" style="margin:4px 0 0;">Agende um serviço para um cliente cadastrado.</p>
+                </div>
+                <button type="button" id="closeAdminBooking" class="ghost">✕</button>
+            </div>
+
+            <div style="display:grid;gap:14px;">
+                <label>Cliente
+                    <select id="adminBookingClient" style="width:100%;box-sizing:border-box;">
+                        <option value="">Selecione o cliente</option>
+                        ${clients.map(c => `<option value="${c.id}">${(c.name || c.email || 'Cliente').replace(/&/g,'&amp;').replace(/</g,'&lt;')} ${c.phone ? '• ' + c.phone : ''}</option>`).join('')}
+                    </select>
+                </label>
+
+                <label>Serviço
+                    <select id="adminBookingService" style="width:100%;box-sizing:border-box;">
+                        <option value="">Selecione o serviço</option>
+                        ${activeServices.map(s => `<option value="${s.id}">${(s.name || 'Serviço').replace(/&/g,'&amp;').replace(/</g,'&lt;')} — ${money(s.price)} — ${Number(s.duration) || 30} min</option>`).join('')}
+                    </select>
+                </label>
+
+                <label>Profissional
+                    <select id="adminBookingProfessional" style="width:100%;box-sizing:border-box;">
+                        <option value="">Selecione o profissional</option>
+                        ${activeProfessionals.map(p => `<option value="${p.id}">${(p.name || 'Profissional').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</option>`).join('')}
+                    </select>
+                </label>
+
+                <label>Data
+                    <input id="adminBookingDate" type="date" value="${today()}" min="${today()}" style="width:100%;box-sizing:border-box;">
+                </label>
+
+                <label>Horário
+                    <select id="adminBookingTime" style="width:100%;box-sizing:border-box;">
+                        <option value="">Selecione serviço, profissional e data</option>
+                    </select>
+                </label>
+
+                <label>Observação (opcional)
+                    <textarea id="adminBookingNotes" rows="3" placeholder="Observação do atendimento" style="width:100%;box-sizing:border-box;resize:vertical;"></textarea>
+                </label>
+
+                <div id="adminBookingInfo" class="muted" style="font-size:13px;"></div>
+
+                <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                    <button type="button" id="cancelAdminBooking" class="secondary">Cancelar</button>
+                    <button type="button" id="saveAdminBooking" class="btn gold">Confirmar agendamento</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+    $('#closeAdminBooking')?.addEventListener('click', close);
+    $('#cancelAdminBooking')?.addEventListener('click', close);
+    modal.addEventListener('click', e => {
+        if (e.target === modal) close();
+    });
+
+    const clientSelect = $('#adminBookingClient');
+    const serviceSelect = $('#adminBookingService');
+    const professionalSelect = $('#adminBookingProfessional');
+    const dateInput = $('#adminBookingDate');
+    const timeSelect = $('#adminBookingTime');
+    const info = $('#adminBookingInfo');
+
+    async function carregarHorariosAdmin() {
+        if (!timeSelect) return;
+
+        const serviceId = serviceSelect?.value;
+        const professionalId = professionalSelect?.value;
+        const date = dateInput?.value;
+
+        timeSelect.innerHTML = '<option value="">Carregando horários...</option>';
+        if (info) info.textContent = '';
+
+        if (!serviceId || !professionalId || !date) {
+            timeSelect.innerHTML = '<option value="">Selecione serviço, profissional e data</option>';
+            return;
+        }
+
+        const service = activeServices.find(s => s.id === serviceId);
+        const duration = Number(service?.duration) || 30;
+
+        const { data: bookings = [], error } = await sb
+            .from('bookings')
+            .select('id,booking_time,status,service_id')
+            .eq('professional_id', professionalId)
+            .eq('booking_date', date)
+            .neq('status', 'cancelled');
+
+        if (error) {
+            console.error('Erro ao verificar horários do administrador:', error);
+            timeSelect.innerHTML = '<option value="">Erro ao carregar horários</option>';
+            if (info) info.textContent = error.message || '';
+            return;
+        }
+
+        const serviceIds = [...new Set(bookings.map(b => b.service_id).filter(Boolean))];
+        const durationMap = new Map(activeServices.map(s => [s.id, Number(s.duration) || 30]));
+
+        if (serviceIds.length) {
+            const missingIds = serviceIds.filter(id => !durationMap.has(id));
+            if (missingIds.length) {
+                const { data: otherServices = [] } = await sb
+                    .from('services')
+                    .select('id,duration')
+                    .in('id', missingIds);
+                otherServices.forEach(s => durationMap.set(s.id, Number(s.duration) || 30));
+            }
+        }
+
+        const busy = bookings.map(b => {
+            const start = timeToMinutes(String(b.booking_time || '').slice(0, 5));
+            const end = start + (durationMap.get(b.service_id) || 30);
+            return { start, end };
+        }).filter(x => Number.isFinite(x.start));
+
+        const startMinutes = timeToMinutes(settings.start_time.slice(0, 5));
+        const endMinutes = timeToMinutes(settings.end_time.slice(0, 5));
+        const interval = Number(settings.slot_interval) || 30;
+        const options = [];
+
+        for (let current = startMinutes; current + duration <= endMinutes; current += interval) {
+            const hour = String(Math.floor(current / 60)).padStart(2, '0');
+            const minute = String(current % 60).padStart(2, '0');
+            const time = `${hour}:${minute}`;
+            const conflict = busy.some(b => current < b.end && current + duration > b.start);
+            if (!conflict) options.push(`<option value="${time}">${time}</option>`);
+        }
+
+        timeSelect.innerHTML = options.length
+            ? '<option value="">Selecione o horário</option>' + options.join('')
+            : '<option value="">Nenhum horário disponível</option>';
+
+        if (info) {
+            info.textContent = options.length
+                ? `${options.length} horário(s) disponível(is) para este serviço.`
+                : 'Não há horários disponíveis para esta data, profissional e serviço.';
+        }
+    }
+
+    serviceSelect?.addEventListener('change', carregarHorariosAdmin);
+    professionalSelect?.addEventListener('change', carregarHorariosAdmin);
+    dateInput?.addEventListener('change', carregarHorariosAdmin);
+
+    $('#saveAdminBooking')?.addEventListener('click', async () => {
+        const clientId = clientSelect?.value;
+        const serviceId = serviceSelect?.value;
+        const professionalId = professionalSelect?.value;
+        const date = dateInput?.value;
+        const time = timeSelect?.value;
+        const notes = $('#adminBookingNotes')?.value.trim() || null;
+        const button = $('#saveAdminBooking');
+
+        if (!clientId || !serviceId || !professionalId || !date || !time) {
+            toast('Selecione cliente, serviço, profissional, data e horário.');
+            return;
+        }
+
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Agendando...';
+        }
+
+        const { data: existing, error: checkError } = await sb
+            .from('bookings')
+            .select('id')
+            .eq('professional_id', professionalId)
+            .eq('booking_date', date)
+            .eq('booking_time', time + ':00')
+            .neq('status', 'cancelled')
+            .limit(1)
+            .maybeSingle();
+
+        if (checkError) {
+            console.error('Erro ao verificar horário:', checkError);
+            toast('Não foi possível verificar o horário.');
+            if (button) { button.disabled = false; button.textContent = 'Confirmar agendamento'; }
+            return;
+        }
+
+        if (existing) {
+            toast('Esse horário já foi ocupado. Escolha outro.');
+            await carregarHorariosAdmin();
+            if (button) { button.disabled = false; button.textContent = 'Confirmar agendamento'; }
+            return;
+        }
+
+        const { error } = await sb.from('bookings').insert({
+            user_id: clientId,
+            service_id: serviceId,
+            professional_id: professionalId,
+            booking_date: date,
+            booking_time: time + ':00',
+            status: 'confirmed',
+            notes
+        });
+
+        if (error) {
+            console.error('Erro ao criar agendamento pelo administrador:', error);
+            toast(error.message || 'Não foi possível realizar o agendamento.');
+            if (button) { button.disabled = false; button.textContent = 'Confirmar agendamento'; }
+            return;
+        }
+
+        toast('Agendamento criado com sucesso!');
+        close();
+        await agenda();
+    });
+
+    await carregarHorariosAdmin();
+}
+
 /* =========================================================
    EVENTOS GERAIS
    ========================================================= */
@@ -5297,6 +6160,27 @@ if ($('#birthdayOnly')) {
 document.addEventListener(
     'click',
     async e => {
+
+        /* -------------------------
+           NOVO AGENDAMENTO ADMIN
+           ------------------------- */
+
+        const newAdminBooking =
+            e.target.closest(
+                '[data-admin-new-booking]'
+            );
+
+        if (newAdminBooking) {
+
+            if (!isAdmin()) {
+                toast('Acesso restrito ao administrador.');
+                return;
+            }
+
+            await novoAgendamentoAdmin();
+            return;
+        }
+
 
         /* -------------------------
            EDITAR SERVIÇO
