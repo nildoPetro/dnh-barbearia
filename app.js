@@ -1231,21 +1231,8 @@ async function dashboard() {
     }
 
 
-    /*
-       FINANCEIRO
-       Usa o primeiro dia do mês atual e o primeiro dia do mês seguinte.
-       Isso evita datas inválidas como 2026-09-31.
-    */
-    const [year, monthNumber] =
-        month.split('-').map(Number);
-
-    const nextMonth =
-        monthNumber === 12
-            ? `${year + 1}-01`
-            : `${year}-${String(monthNumber + 1).padStart(2, '0')}`;
-
     const {
-        data: financeData,
+        data: finance = [],
         error: financeError
     } = await sb
         .from('cash_entries')
@@ -1254,19 +1241,10 @@ async function dashboard() {
             'entry_date',
             month + '-01'
         )
-        .lt(
+        .lte(
             'entry_date',
-            nextMonth + '-01'
+            month + '-31'
         );
-
-    /*
-       Se houver erro na consulta, mantém o Dashboard funcionando
-       com uma lista vazia, em vez de tentar executar .filter() em null.
-    */
-    const finance =
-        Array.isArray(financeData)
-            ? financeData
-            : [];
 
 
     if (financeError) {
@@ -4525,6 +4503,10 @@ function renderClients(data) {
                                 E-mail
                             </th>
 
+                            <th>
+                                Ações
+                            </th>
+
                         </tr>
 
                     </thead>
@@ -4560,6 +4542,13 @@ function renderClients(data) {
 
                                 <td>
                                     ${c.email || '-'}
+                                </td>
+
+                                <td>
+                                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                        <button type="button" class="btn secondary" data-client-edit="${c.id}">✏️ Editar</button>
+                                        <button type="button" class="btn secondary" data-client-delete="${c.id}" style="color:#c62828;">🗑️ Excluir</button>
+                                    </div>
                                 </td>
 
                             </tr>
@@ -5828,6 +5817,141 @@ if ($('#shareBtn')) {
 
 
 /* =========================================================
+   EDITAR CLIENTE
+   ========================================================= */
+
+async function editarCliente(clientId) {
+
+    if (!isAdmin()) {
+        toast('Acesso restrito ao administrador.');
+        return;
+    }
+
+    const client = (window.allClients || []).find(
+        c => String(c.id) === String(clientId)
+    );
+
+    if (!client) {
+        toast('Cliente não encontrado.');
+        return;
+    }
+
+    $('#editClientModal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'editClientModal';
+    modal.style.cssText = `
+        position:fixed;inset:0;background:rgba(0,0,0,.68);
+        display:flex;align-items:center;justify-content:center;
+        z-index:9999;padding:20px;
+    `;
+
+    modal.innerHTML = `
+        <div style="background:#fff;color:#222;width:100%;max-width:500px;border-radius:14px;padding:24px;box-sizing:border-box;box-shadow:0 20px 60px rgba(0,0,0,.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+                <h2 style="margin:0;">Editar Cliente</h2>
+                <button type="button" id="closeEditClientModal">✕</button>
+            </div>
+
+            <div style="display:grid;gap:12px;">
+                <label>Nome<input id="editClientName" type="text" value="${String(client.name || '').replace(/"/g,'&quot;')}"></label>
+                <label>WhatsApp<input id="editClientPhone" type="text" value="${String(client.phone || '').replace(/"/g,'&quot;')}"></label>
+                <label>E-mail<input id="editClientEmail" type="email" value="${String(client.email || '').replace(/"/g,'&quot;')}"></label>
+                <label>Data de nascimento<input id="editClientBirth" type="date" value="${client.birth || ''}"></label>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+                    <button type="button" id="cancelEditClient">Cancelar</button>
+                    <button type="button" class="btn gold" id="saveEditClient">Salvar alterações</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+    $('#closeEditClientModal').onclick = close;
+    $('#cancelEditClient').onclick = close;
+
+    $('#saveEditClient').onclick = async () => {
+        const button = $('#saveEditClient');
+        const name = $('#editClientName').value.trim();
+        const phone = $('#editClientPhone').value.trim();
+        const email = $('#editClientEmail').value.trim();
+        const birth = $('#editClientBirth').value || null;
+
+        if (!name || !email) {
+            toast('Informe pelo menos nome e e-mail.');
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = 'Salvando...';
+
+        const { error } = await sb
+            .from('profiles')
+            .update({ name, phone, email, birth })
+            .eq('id', clientId)
+            .eq('role', 'client');
+
+        if (error) {
+            console.error('ERRO AO EDITAR CLIENTE:', error);
+            button.disabled = false;
+            button.textContent = 'Salvar alterações';
+            toast(error.message || 'Não foi possível atualizar o cliente.');
+            return;
+        }
+
+        close();
+        toast('Cliente atualizado com sucesso.');
+        await loadClients();
+    };
+}
+
+
+/* =========================================================
+   EXCLUIR CLIENTE
+   ========================================================= */
+
+async function excluirCliente(clientId) {
+
+    if (!isAdmin()) {
+        toast('Acesso restrito ao administrador.');
+        return;
+    }
+
+    const client = (window.allClients || []).find(
+        c => String(c.id) === String(clientId)
+    );
+
+    if (!client) {
+        toast('Cliente não encontrado.');
+        return;
+    }
+
+    const nome = client.name || client.email || 'este cliente';
+
+    if (!confirm(`Tem certeza que deseja excluir ${nome}?\n\nEssa ação remove o cadastro do cliente.`)) {
+        return;
+    }
+
+    const { error } = await sb
+        .from('profiles')
+        .delete()
+        .eq('id', clientId)
+        .eq('role', 'client');
+
+    if (error) {
+        console.error('ERRO AO EXCLUIR CLIENTE:', error);
+        toast(error.message || 'Não foi possível excluir o cliente.');
+        return;
+    }
+
+    toast('Cliente excluído com sucesso.');
+    await loadClients();
+}
+
+
+/* =========================================================
    PESQUISA DE CLIENTES
    ========================================================= */
 
@@ -5890,110 +6014,43 @@ if ($('#clientSearch')) {
    FILTRO ANIVERSARIANTES
    ========================================================= */
 
-function normalizarNascimento(value) {
-
-    if (!value) {
-        return '';
-    }
-
-    const text = String(value).trim();
-
-    /* Supabase normalmente retorna YYYY-MM-DD.
-       Mantemos apenas os 10 primeiros caracteres para
-       evitar problemas com timestamp/timezone. */
-    const iso = text.slice(0, 10);
-
-    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
-        return iso;
-    }
-
-    /* Compatibilidade com datas no formato DD/MM/YYYY. */
-    const br = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-
-    if (br) {
-        return `${br[3]}-${br[2]}-${br[1]}`;
-    }
-
-    return '';
-}
-
-async function mostrarAniversariantesDoMes() {
-
-    if (!isAdmin()) {
-        return;
-    }
-
-    /* Se a lista de clientes ainda não foi carregada,
-       busca os dados antes de aplicar o filtro. */
-    if (!Array.isArray(window.allClients)) {
-        await loadClients();
-    }
-
-    const month = today().slice(5, 7);
-
-    const birthdays = (window.allClients || [])
-        .filter(client => {
-            const birth = normalizarNascimento(client.birth);
-            return birth && birth.slice(5, 7) === month;
-        })
-        .sort((a, b) => {
-            const birthA = normalizarNascimento(a.birth);
-            const birthB = normalizarNascimento(b.birth);
-            return Number(birthA.slice(8, 10)) - Number(birthB.slice(8, 10));
-        });
-
-    renderClients(birthdays);
-
-    /* Garante que o administrador veja claramente o resultado. */
-    if ($('#clientList')) {
-        if (!birthdays.length) {
-            $('#clientList').innerHTML =
-                '<p class=\"muted\">Nenhum aniversariante neste mês.</p>';
-        }
-    }
-
-    const button = $('#birthdayOnly');
-    if (button) {
-        button.textContent = `🎂 Aniversariantes (${birthdays.length})`;
-    }
-}
-
-/* =========================================================
-   BOTÃO ANIVERSARIANTES — EVENTO ROBUSTO
-   ========================================================= */
-
 if ($('#birthdayOnly')) {
-    $('#birthdayOnly').onclick = async () => {
-        console.log('ANIVERSARIANTES: botão clicado');
-        await mostrarAniversariantesDoMes();
-    };
+
+    $('#birthdayOnly').onclick =
+        () => {
+
+            if (!isAdmin()) {
+                return;
+            }
+
+
+            const month =
+                today().slice(
+                    5,
+                    7
+                );
+
+
+            renderClients(
+
+                (
+                    window.allClients ||
+                    []
+                ).filter(
+
+                    c =>
+                        c.birth &&
+                        c.birth.slice(
+                            5,
+                            7
+                        ) === month
+
+                )
+
+            );
+
+        };
 }
-
-/* Fallback por delegação: funciona mesmo se a página for
-   reconstruída dinamicamente depois do carregamento. */
-document.addEventListener('click', async event => {
-    const birthdayButton = event.target.closest('#birthdayOnly');
-
-    if (!birthdayButton) {
-        return;
-    }
-
-    if (birthdayButton.dataset.busy === '1') {
-        return;
-    }
-
-    birthdayButton.dataset.busy = '1';
-
-    try {
-        console.log('ANIVERSARIANTES: carregando...');
-        await mostrarAniversariantesDoMes();
-    } catch (error) {
-        console.error('Erro ao mostrar aniversariantes:', error);
-        toast('Não foi possível carregar os aniversariantes.');
-    } finally {
-        delete birthdayButton.dataset.busy;
-    }
-});
 
 
 
@@ -6290,6 +6347,34 @@ async function novoAgendamentoAdmin() {
 document.addEventListener(
     'click',
     async e => {
+
+        /* -------------------------
+           EDITAR CLIENTE
+           ------------------------- */
+
+        const editClient = e.target.closest('[data-client-edit]');
+        if (editClient) {
+            if (!isAdmin()) {
+                toast('Acesso restrito ao administrador.');
+                return;
+            }
+            await editarCliente(editClient.dataset.clientEdit);
+            return;
+        }
+
+        /* -------------------------
+           EXCLUIR CLIENTE
+           ------------------------- */
+
+        const deleteClient = e.target.closest('[data-client-delete]');
+        if (deleteClient) {
+            if (!isAdmin()) {
+                toast('Acesso restrito ao administrador.');
+                return;
+            }
+            await excluirCliente(deleteClient.dataset.clientDelete);
+            return;
+        }
 
         /* -------------------------
            NOVO AGENDAMENTO ADMIN
