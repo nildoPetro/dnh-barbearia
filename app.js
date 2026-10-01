@@ -19,7 +19,8 @@ let settings = {
     start_time: '08:00',
     end_time: '18:00',
     slot_interval: 30,
-    logo_url: 'dnh-logo.png'
+    logo_url: 'dnh-logo.png',
+    weekly_schedule: {}
 };
 
 let services = [];
@@ -47,6 +48,22 @@ const money = value =>
 
 const digits = value =>
     (value || '').replace(/\D/g, '');
+
+function getWeeklySchedule(){
+    const fallback = {0:{enabled:false,start:'08:00',end:'18:00'},1:{enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'},2:{enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'},3:{enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'},4:{enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'},5:{enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'},6:{enabled:false,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'}};
+    const current = settings.weekly_schedule && typeof settings.weekly_schedule === 'object' ? settings.weekly_schedule : {};
+    return Object.fromEntries(Object.keys(fallback).map(k => [k, {...fallback[k], ...(current[k] || {})}]));
+}
+
+function scheduleForDate(date){
+    const d = new Date(date + 'T12:00:00');
+    const day = d.getDay();
+    return getWeeklySchedule()[day] || {enabled:true,start:settings.start_time?.slice(0,5)||'08:00',end:settings.end_time?.slice(0,5)||'18:00'};
+}
+
+function escapeHtml(value){
+    return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;',"\"":'&quot;'}[c]));
+}
 
 
 /* =========================================================
@@ -204,16 +221,14 @@ function aplicarPermissoesUI() {
 
     $$('[data-page]').forEach(button => {
 
-        const page =
-            button.dataset.page;
+        const page = button.dataset.page;
 
-        if (
-            ADMIN_PAGES.includes(page)
-        ) {
+        if (ADMIN_PAGES.includes(page)) {
+            button.style.display = admin ? '' : 'none';
+        }
 
-            button.style.display =
-                admin ? '' : 'none';
-
+        if (page === 'consultar') {
+            button.style.display = admin ? 'none' : '';
         }
 
     });
@@ -374,6 +389,8 @@ function go(page) {
         );
 
     });
+
+    $$('[data-page=\"consultar\"]').forEach(btn => { btn.style.display = isAdmin() ? 'none' : ''; });
 
 
     /* -------------------------
@@ -547,6 +564,20 @@ async function loadSettings() {
             'dnh-logo.png';
 
     }
+
+    const weekly = getWeeklySchedule();
+    $$('[data-weekday]').forEach(row => {
+        const day = row.dataset.weekday;
+        const cfg = weekly[day] || {};
+        const enabled = row.querySelector('[data-week-enabled]');
+        const start = row.querySelector('[data-week-start]');
+        const end = row.querySelector('[data-week-end]');
+        if (enabled) enabled.checked = cfg.enabled !== false;
+        if (start) start.value = cfg.start || settings.start_time?.slice(0,5) || '08:00';
+        if (end) end.value = cfg.end || settings.end_time?.slice(0,5) || '18:00';
+        if (start) start.disabled = cfg.enabled === false;
+        if (end) end.disabled = cfg.enabled === false;
+    });
 
 
     if ($('#shareUrl')) {
@@ -1689,6 +1720,8 @@ async function agenda() {
 
                 </div>
 
+                <button type="button" class="btn gold" data-admin-new-booking>+ Novo agendamento</button>
+
             </div>
 
 
@@ -1810,6 +1843,8 @@ async function agenda() {
 
         `;
 
+
+        $('#adminAgenda [data-admin-new-booking]')?.addEventListener('click', novoAgendamentoAdmin);
 
         const professionalSelect =
             $('#adminAgendaProfessional');
@@ -3539,23 +3574,23 @@ async function loadClientTimes() {
     }
 
 
-    const [
-        closingHour,
-        closingMinute
-    ] =
-        settings.end_time
-            .slice(0, 5)
-            .split(':')
-            .map(Number);
+    const daySchedule = scheduleForDate(date);
+    if (daySchedule.enabled === false) {
+        grid.innerHTML = '<p class="muted">Não há atendimento nesta data.</p>';
+        $('#bookingSummary')?.classList.add('hidden');
+        return;
+    }
 
-
-    const closing =
-        closingHour * 60 +
-        closingMinute;
-
-
-    const available =
-        slots().filter(time => {
+    const [openHour, openMinute] = String(daySchedule.start || settings.start_time || '08:00').slice(0,5).split(':').map(Number);
+    const [closingHour, closingMinute] = String(daySchedule.end || settings.end_time || '18:00').slice(0,5).split(':').map(Number);
+    const opening = openHour * 60 + openMinute;
+    const closing = closingHour * 60 + closingMinute;
+    const interval = Number(settings.slot_interval) || 30;
+    const available = [];
+    for(let start=opening; start + duration <= closing; start += interval){
+        const hh=String(Math.floor(start/60)).padStart(2,'0');
+        const mm=String(start%60).padStart(2,'0');
+        const time=`${hh}:${mm}`;
 
             const start =
                 timeToMinutes(time);
@@ -3603,9 +3638,9 @@ async function loadClientTimes() {
                 );
 
 
-            return !conflict;
-
-        });
+            if (conflict) continue;
+            available.push(time);
+        }
 
 
     if (!available.length) {
@@ -4484,6 +4519,27 @@ async function cancelarMeuAgendamento(
    CLIENTES ADMIN
    ========================================================= */
 
+async function excluirCliente(clientId) {
+    if (!isAdmin()) return;
+    const client = (window.allClients || []).find(c => String(c.id) === String(clientId));
+    if (!client) { toast('Cliente não encontrado.'); return; }
+    if (!confirm(`Excluir o cliente "${client.name || client.email || 'Cliente'}"? Esta ação removerá também os agendamentos dele.`)) return;
+
+    const { data: bookings = [], error: bookingError } = await sb.from('bookings').select('id').eq('user_id', clientId);
+    if (bookingError) { console.error('Erro ao verificar agendamentos do cliente:', bookingError); toast('Não foi possível verificar os agendamentos do cliente.'); return; }
+
+    if (bookings.length) {
+        const { error } = await sb.from('bookings').delete().eq('user_id', clientId);
+        if (error) { console.error('Erro ao excluir agendamentos do cliente:', error); toast(error.message || 'Não foi possível excluir os agendamentos do cliente.'); return; }
+    }
+
+    const { error } = await sb.from('profiles').delete().eq('id', clientId).eq('role','client');
+    if (error) { console.error('Erro ao excluir cliente:', error); toast(error.message || 'Não foi possível excluir o cliente.'); showActionMessage('Não foi possível excluir o cliente.', 'error'); return; }
+    toast('Cliente excluído com sucesso.');
+    showActionMessage('Cliente excluído com sucesso.');
+    await loadClients();
+}
+
 async function loadClients() {
 
     if (!isAdmin()) {
@@ -4563,88 +4619,39 @@ function renderClients(data) {
    ========================================================= */
 
 async function loadStock() {
-
-    if (!isAdmin()) {
-        return;
+    if (!isAdmin()) return;
+    const { data = [], error } = await sb.from('inventory').select('*').order('name');
+    if (error) { console.error('Erro ao carregar estoque:', error); toast('Não foi possível carregar o estoque.'); return; }
+    const list = $('#stockList');
+    if (!list) return;
+    const lowItems = data.filter(x => Number(x.quantity) <= Number(x.min_quantity));
+    const alertBox = $('#stockAlert');
+    if (alertBox) {
+        alertBox.classList.toggle('hidden', lowItems.length === 0);
+        alertBox.innerHTML = lowItems.length ? `<b>⚠ Atenção:</b> ${lowItems.length} produto(s) no estoque mínimo ou abaixo.` : '';
     }
+    list.innerHTML = data.length ? data.map(x => {
+        const low = Number(x.quantity) <= Number(x.min_quantity);
+        return `<div class="list-row"><div><b>${escapeHtml(x.name)}</b><small>Saldo: ${x.quantity} • mínimo: ${x.min_quantity}</small></div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;"><span class="${low?'cancel':'ok'}">${low?'⚠ Estoque baixo':'OK'}</span><button type="button" data-stock-entry="${x.id}">+ Entrada</button><button type="button" data-stock-exit="${x.id}">− Saída</button><button type="button" class="danger" data-stock-delete="${x.id}">Excluir</button></div></div>`;
+    }).join('') : '<p class="muted">Nenhum produto cadastrado.</p>';
+}
 
-
-    const {
-        data = [],
-        error
-    } = await sb
-        .from('inventory')
-        .select('*')
-        .order(
-            'name'
-        );
-
-
-    if (error) {
-
-        console.error(
-            'Erro ao carregar estoque:',
-            error
-        );
-
-        return;
-    }
-
-
-    if (!$('#stockList')) {
-        return;
-    }
-
-
-    $('#stockList').innerHTML =
-        data.length
-
-            ? data.map(x => `
-
-                <div class="list-row">
-
-                    <div>
-
-                        <b>
-                            ${x.name}
-                        </b>
-
-                        <small>
-                            Atual:
-                            ${x.quantity}
-                            • mínimo:
-                            ${x.min_quantity}
-                        </small>
-
-                    </div>
-
-                    <span
-                        class="${
-                            Number(x.quantity) <=
-                            Number(x.min_quantity)
-                                ? 'cancel'
-                                : 'ok'
-                        }"
-                    >
-                        ${
-                            Number(x.quantity) <=
-                            Number(x.min_quantity)
-                                ? 'Baixo'
-                                : 'OK'
-                        }
-                    </span>
-
-                </div>
-
-            `).join('')
-
-            : `
-
-                <p class="muted">
-                    Nenhum produto.
-                </p>
-
-            `;
+async function registrarMovimentoEstoque(id, tipo) {
+    if (!isAdmin()) return;
+    const { data: item, error } = await sb.from('inventory').select('*').eq('id', id).maybeSingle();
+    if (error || !item) { toast('Produto não encontrado.'); return; }
+    const raw = prompt(`${tipo === 'in' ? 'Quantidade de ENTRADA' : 'Quantidade de SAÍDA'} para ${item.name}:`);
+    const qty = Number(String(raw || '').replace(',','.'));
+    if (!Number.isFinite(qty) || qty <= 0) { toast('Informe uma quantidade válida.'); return; }
+    const current = Number(item.quantity) || 0;
+    if (tipo === 'out' && qty > current) { toast('A saída não pode ser maior que o estoque atual.'); return; }
+    const next = tipo === 'in' ? current + qty : current - qty;
+    const { error: moveError } = await sb.from('inventory_movements').insert({ inventory_id:id, type:tipo, quantity:qty });
+    if (moveError) { console.error('Erro ao registrar movimento:', moveError); toast(moveError.message || 'Não foi possível registrar a movimentação.'); return; }
+    const { error: updateError } = await sb.from('inventory').update({quantity:next,updated_at:new Date().toISOString()}).eq('id',id);
+    if (updateError) { console.error('Erro ao atualizar estoque:', updateError); toast(updateError.message || 'Não foi possível atualizar o estoque.'); return; }
+    toast(tipo === 'in' ? 'Entrada registrada.' : 'Saída registrada.');
+    await loadStock();
 }
 
 
@@ -4654,53 +4661,40 @@ async function loadStock() {
 
 async function loadFinance() {
     if (!isAdmin()) return;
-
-    const month = today().slice(0, 7);
-    const { data = [], error } = await sb
-        .from('cash_entries')
-        .select('*')
-        .gte('entry_date', month + '-01')
-        .lte('entry_date', month + '-31')
-        .order('entry_date', { ascending: false });
-
-    if (error) {
-        console.error('Erro ao carregar financeiro:', error);
-        toast('Não foi possível carregar o financeiro.');
-        return;
+    const filter = $('#financePeriod')?.value || 'month';
+    const now = new Date();
+    let from, to;
+    if (filter === 'day') {
+        from = to = today();
+    } else if (filter === 'week') {
+        const d = new Date(now); const day = d.getDay(); const diff = day === 0 ? -6 : 1 - day;
+        const monday = new Date(d); monday.setDate(d.getDate()+diff);
+        const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+        from = new Date(monday.getTime()-monday.getTimezoneOffset()*60000).toISOString().slice(0,10);
+        to = new Date(sunday.getTime()-sunday.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    } else {
+        const ym = today().slice(0,7); from = ym+'-01'; const last = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate(); to = ym+'-'+String(last).padStart(2,'0');
     }
-
-    const income = data.filter(x => x.type === 'income').reduce((total, x) => total + Number(x.amount || 0), 0);
-    const expense = data.filter(x => x.type === 'expense').reduce((total, x) => total + Number(x.amount || 0), 0);
-
-    if ($('#sumIncome')) $('#sumIncome').textContent = money(income);
-    if ($('#sumExpense')) $('#sumExpense').textContent = money(expense);
-    if ($('#sumBalance')) $('#sumBalance').textContent = money(income - expense);
-
-    if ($('#financeList')) {
-        $('#financeList').innerHTML = data.length
-            ? data.slice(0, 12).map(x => `
-                <div class="list-row">
-                    <div>
-                        <b>${x.description || 'Lançamento'}</b>
-                        <small>${new Date(x.entry_date + 'T12:00').toLocaleDateString('pt-BR')} • ${x.booking_id ? 'Sistema' : 'Manual'}</small>
-                    </div>
-                    <span class="${x.type === 'income' ? 'ok' : 'cancel'}">${x.type === 'income' ? '+' : '-'} ${money(x.amount)}</span>
-                </div>
-            `).join('')
-            : '<p class="muted">Nenhum lançamento no mês.</p>';
-    }
-
-    if (!$('#financeAllButton')) {
-        const btn = document.createElement('button');
-        btn.id = 'financeAllButton';
-        btn.type = 'button';
-        btn.className = 'btn secondary';
-        btn.textContent = 'Ver todos os lançamentos';
-        btn.style.marginTop = '12px';
-        $('#financeList')?.parentElement?.appendChild(btn);
-        btn.addEventListener('click', abrirTodosFinanceiros);
-    }
+    const { data = [], error } = await sb.from('cash_entries').select('*').gte('entry_date',from).lte('entry_date',to).order('entry_date',{ascending:false}).order('created_at',{ascending:false});
+    if (error) { console.error('Erro ao carregar financeiro:',error); toast('Não foi possível carregar o financeiro.'); return; }
+    const income=data.filter(x=>x.type==='income').reduce((a,x)=>a+Number(x.amount||0),0);
+    const expense=data.filter(x=>x.type==='expense').reduce((a,x)=>a+Number(x.amount||0),0);
+    if ($('#sumIncome')) $('#sumIncome').textContent=money(income);
+    if ($('#sumExpense')) $('#sumExpense').textContent=money(expense);
+    if ($('#sumBalance')) $('#sumBalance').textContent=money(income-expense);
+    if ($('#financeList')) $('#financeList').innerHTML=data.length?data.slice(0,20).map(x=>`<div class="list-row"><div><b>${escapeHtml(x.description||'Lançamento')}</b><small>${new Date(x.entry_date+'T12:00').toLocaleDateString('pt-BR')} • ${x.booking_id?'Sistema':'Manual'}</small></div><span class="${x.type==='income'?'ok':'cancel'}">${x.type==='income'?'+':'-'} ${money(x.amount)}</span></div>`).join(''):'<p class="muted">Nenhum lançamento no período.</p>';
+    renderFinanceChart(data,from,to);
+    if ($('#financePeriod')) $('#financePeriod').onchange = loadFinance;
+    if (!$('#financeAllButton')) { const btn=document.createElement('button'); btn.id='financeAllButton'; btn.type='button'; btn.className='btn secondary'; btn.textContent='Ver todos os lançamentos'; btn.style.marginTop='12px'; $('#financeList')?.parentElement?.appendChild(btn); btn.addEventListener('click',abrirTodosFinanceiros); }
 }
+
+function renderFinanceChart(data, from, to) {
+    const box=$('#financeChart'); if(!box) return;
+    const map={}; data.forEach(x=>{ const k=x.entry_date; map[k]=(map[k]||0)+(x.type==='income'?1:-1)*Number(x.amount||0); });
+    const keys=Object.keys(map).sort(); const max=Math.max(1,...keys.map(k=>Math.abs(map[k])));
+    box.innerHTML=keys.length?keys.map(k=>{const v=map[k]; const width=Math.max(4,Math.round(Math.abs(v)/max*100)); return `<div style="display:grid;grid-template-columns:90px 1fr 110px;gap:8px;align-items:center;margin:7px 0;"><small>${new Date(k+'T12:00').toLocaleDateString('pt-BR')}</small><div style="background:rgba(128,128,128,.15);border-radius:6px;overflow:hidden;height:14px;"><div style="width:${width}%;height:100%;background:${v>=0?'#2eaf6d':'#d9534f'};"></div></div><small style="text-align:right;">${money(v)}</small></div>`}).join(''):'<p class="muted">Sem dados para o gráfico.</p>';
+}
+
 
 async function abrirTodosFinanceiros() {
     if (!isAdmin()) return;
@@ -4898,6 +4892,18 @@ async function excluirProfissional(professionalId) {
     await loadTeam();
 }
 
+
+/* =========================================================
+   NOVO AGENDAMENTO ADMINISTRATIVO
+   ========================================================= */
+
+$$('[data-admin-new-booking]').forEach(button => {
+    button.addEventListener('click', async event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (isAdmin()) await novoAgendamentoAdmin();
+    });
+});
 
 /* =========================================================
    NAVEGAÇÃO DOS BOTÕES
@@ -5401,31 +5407,31 @@ if ($('#stockForm')) {
             }
 
 
-            const {
-                error
-            } =
-                await sb
-                    .from('inventory')
-                    .insert({
+            const initialQty = Number($('#stockQty').value);
+            const minQty = Number($('#stockMin').value);
+            if (!Number.isFinite(initialQty) || initialQty < 0 || !Number.isFinite(minQty) || minQty < 0) {
+                toast('Informe quantidades válidas.');
+                return;
+            }
 
-                        name:
-                            $('#stockName')
-                                .value
-                                .trim(),
+            const { data: created, error } = await sb
+                .from('inventory')
+                .insert({
+                    name: $('#stockName').value.trim(),
+                    quantity: initialQty,
+                    min_quantity: minQty
+                })
+                .select('id')
+                .single();
 
-                        quantity:
-                            Number(
-                                $('#stockQty')
-                                    .value
-                            ),
-
-                        min_quantity:
-                            Number(
-                                $('#stockMin')
-                                    .value
-                            )
-
-                    });
+            if (!error && initialQty > 0 && created?.id) {
+                const { error: movementError } = await sb.from('inventory_movements').insert({
+                    inventory_id: created.id,
+                    type: 'in',
+                    quantity: initialQty
+                });
+                if (movementError) console.error('Erro ao registrar entrada inicial:', movementError);
+            }
 
 
             if (error) {
@@ -5608,6 +5614,14 @@ if ($('#teamForm')) {
    CONFIGURAÇÕES
    ========================================================= */
 
+$$('[data-week-enabled]').forEach(box => {
+    box.addEventListener('change', () => {
+        const row = box.closest('[data-weekday]');
+        row?.querySelector('[data-week-start]')?.toggleAttribute('disabled', !box.checked);
+        row?.querySelector('[data-week-end]')?.toggleAttribute('disabled', !box.checked);
+    });
+});
+
 if ($('#saveSettings')) {
 
     $('#saveSettings').onclick =
@@ -5662,7 +5676,16 @@ if ($('#saveSettings')) {
                         .value
                         .trim()
                     ||
-                    'dnh-logo.png'
+                    'dnh-logo.png',
+
+                weekly_schedule: Object.fromEntries($$('[data-weekday]').map(row => {
+                    const enabled = row.querySelector('[data-week-enabled]')?.checked !== false;
+                    return [row.dataset.weekday, {
+                        enabled,
+                        start: row.querySelector('[data-week-start]')?.value || '08:00',
+                        end: row.querySelector('[data-week-end]')?.value || '18:00'
+                    }];
+                }))
 
             };
 
@@ -6199,6 +6222,19 @@ document.addEventListener(
             return;
         }
 
+        const stockEntry = e.target.closest('[data-stock-entry]');
+        if (stockEntry) { await registrarMovimentoEstoque(stockEntry.dataset.stockEntry,'in'); return; }
+        const stockExit = e.target.closest('[data-stock-exit]');
+        if (stockExit) { await registrarMovimentoEstoque(stockExit.dataset.stockExit,'out'); return; }
+        const stockDelete = e.target.closest('[data-stock-delete]');
+        if (stockDelete) {
+            if (confirm('Excluir este produto do estoque?')) {
+                const {error}=await sb.from('inventory').delete().eq('id',stockDelete.dataset.stockDelete);
+                if(error){console.error('Erro ao excluir produto:',error);toast(error.message||'Não foi possível excluir o produto.');} else {toast('Produto excluído.');await loadStock();}
+            }
+            return;
+        }
+
         const clientDelete = e.target.closest('[data-client-delete]');
         if (clientDelete) {
             await excluirCliente(clientDelete.dataset.clientDelete);
@@ -6382,9 +6418,15 @@ document.addEventListener(
                 );
 
 
-            timeButton.classList.add(
-                'selected'
-            );
+            timeButton.classList.add('selected');
+            $$('.time-option').forEach(button => {
+                button.style.background = '';
+                button.style.color = '';
+                button.style.borderColor = '';
+            });
+            timeButton.style.background = '#22a861';
+            timeButton.style.color = '#fff';
+            timeButton.style.borderColor = '#22a861';
 
 
             atualizarResumoAgendamento(
@@ -6463,21 +6505,14 @@ document.addEventListener(
             }
 
 
-            const {
-                error
-            } =
-                await sb
-                    .from('bookings')
-                    .update({
-
-                        status:
-                            newStatus
-
-                    })
-                    .eq(
-                        'id',
-                        bookingId
-                    );
+            let error = null;
+            if (newStatus === 'completed') {
+                const { error: rpcError } = await sb.rpc('complete_booking_and_register_finance', { p_booking_id: bookingId });
+                error = rpcError;
+            } else {
+                const result = await sb.from('bookings').update({ status:newStatus, updated_at:new Date().toISOString() }).eq('id',bookingId);
+                error = result.error;
+            }
 
 
             if (error) {
