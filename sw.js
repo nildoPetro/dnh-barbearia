@@ -1,0 +1,1 @@
+const C='dnh-v9';self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(x=>x.addAll(['./','./index.html','./style.css','./app.js','./config.js','./manifest.json','./dnh-logo.png']))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));
