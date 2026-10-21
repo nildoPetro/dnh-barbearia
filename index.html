@@ -1,1 +1,189 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DNH Barbearia</title><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><style>.superadmin-only{display:none}.admin-only{display:none}.client-only{display:none}.low-stock{border-left:4px solid #ff4444;background:#2a1515}.stock-alert{color:#ff4444;font-weight:bold;font-size:11px}.modal{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px}.modal-card{width:min(100%,480px);background:#151515;border-radius:16px;padding:22px;border:1px solid #333}</style></head><body><div id="toast" class="toast"></div><div id="authView" class="auth-shell"><div class="auth-card"><img src="dnh-logo.png" class="auth-logo"><div class="eyebrow">DNH BARBEARIA</div><h1>Seu estilo começa aqui.</h1><div class="auth-tabs"><button class="active" data-auth="login">Entrar</button><button data-auth="signup">Criar conta</button></div><form id="loginForm"><label>E-mail<input id="loginEmail" type="email" required></label><label>Senha<input id="loginPassword" type="password" required></label><button class="btn gold full">Entrar</button></form><form id="signupForm" class="hidden"><label>Nome<input id="signupName" required></label><label>WhatsApp<input id="signupPhone" required></label><label>Nascimento<input id="signupBirth" type="date"></label><label>E-mail<input id="signupEmail" type="email" required></label><label>Senha<input id="signupPassword" type="password" minlength="6" required></label><button class="btn gold full">Criar conta</button></form></div></div><div id="appView" class="hidden"><header class="topbar"><div class="brand"><img id="brandLogo" src="dnh-logo.png"><div><b id="brandName">GESTÃO BARBEARIAS</b><small id="roleLabel">Super Admin</small></div></div><div class="top-actions"><button id="logoutBtn" class="ghost">Sair</button></div></header><div class="layout"><aside class="sidebar"><button class="nav superadmin-only" data-page="superadmin">👑 Consulta Barbearias</button><button class="nav superadmin-only" data-page="superadmin-cadastro">➕ Cadastro</button><button class="nav superadmin-only" data-page="superadmin-financeiro">💰 Financeiro Global</button><button class="nav admin-only" data-page="dashboard">⌂ Visão geral</button><button class="nav admin-only" data-page="agenda">▣ Agenda</button><button class="nav client-only" data-page="agenda">▣ Agendar</button><button class="nav client-only" data-page="consultar">🔎 Consultar</button><button class="nav admin-only" data-page="services">✂ Serviços</button><button class="nav admin-only" data-page="clients">♙ Clientes</button><button class="nav admin-only" data-page="stock">▤ Estoque</button><button class="nav admin-only" data-page="finance">R$ Financeiro</button><button class="nav admin-only" data-page="team">♟ Equipe</button><button class="nav admin-only" data-page="settings">⚙ Config</button></aside><main class="content"><section id="page-superadmin" class="page active"><div class="page-head"><div><span class="eyebrow">SUPER ADMIN - Nildo</span><h2>Consulta - Barbearias Cadastradas</h2><p class="muted">Lista de todas as barbearias - clique em Gerenciar para entrar como admin</p></div></div><div class="card"><div id="barbershopList" class="list"><p class="muted">Carregando...</p></div></div></section><section id="page-superadmin-cadastro" class="page"><div class="page-head"><div><span class="eyebrow">SUPER ADMIN</span><h2>Cadastro de Barbearia</h2></div></div><div class="card" style="max-width:520px;"><form id="barbershopForm"><label>Slug (ex: barbearia-joao)<input id="shopSlug" required placeholder="barbearia-joao"></label><label>Nome da barbearia<input id="shopName" required placeholder="Barbearia do João"></label><label>Logo URL<input id="shopLogo" placeholder="logo-joao.png"></label><label>Email do dono<input id="shopOwner" type="email"></label><button class="btn gold">Criar barbearia</button></form><p class="muted" style="margin-top:12px;">Preview: <b id="previewLink">seusite.com?b=slug</b></p></div></section><section id="page-superadmin-financeiro" class="page"><div class="page-head"><div><span class="eyebrow">SUPER ADMIN</span><h2>Financeiro Global - Licenças</h2><p class="muted">Veja o que entrou e barbearias com licença atrasada</p></div></div><div class="card"><div id="superFinanceList" class="list"></div></div></section><section id="page-dashboard" class="page"><div class="page-head"><div><span class="eyebrow">PAINEL ADMIN</span><h2>Visão geral</h2></div></div><div class="stats"><div class="stat"><small>Hoje</small><b id="kToday">0</b></div><div class="stat"><small>Clientes</small><b id="kClients">0</b></div><div class="stat"><small>Faturamento</small><b id="kRevenue">R$ 0</b></div></div><div class="card"><h3>Agenda de hoje</h3><div id="todayList" class="list"></div></div></section><section id="page-agenda" class="page"><div id="clientAgenda"><div class="page-head"><h2>Agende seu horário</h2></div><div class="card"><label>Serviço<select id="clientService"><option value="">Selecione</option></select></label><label>Profissional<select id="clientProfessional"><option value="">Selecione</option></select></label><label>Data<input id="clientDate" type="date"></label><label>Horários<div id="clientTimeGrid" class="time-grid"></div></label><div id="bookingSummary" class="hidden"><h3>Resumo</h3><p>Serviço: <span id="summaryService"></span></p><p>Profissional: <span id="summaryProfessional"></span></p><p>Data: <span id="summaryDate"></span></p><p>Hora: <span id="summaryTime"></span></p><button id="confirmBooking" class="btn gold full">Confirmar Agendamento</button></div></div></div><div id="adminAgenda" class="hidden"></div></section><section id="page-consultar" class="page"><h2>Meus agendamentos</h2><div class="card"><div id="clientBookingsList" class="list"></div></div></section><section id="page-services" class="page"><h2>Serviços</h2><div class="grid-2"><div class="card"><h3>Novo serviço</h3><form id="serviceForm"><label>Nome<input id="serviceName" required></label><label>Preço<input id="servicePrice" type="number" step="0.01" required></label><label>Duração<select id="serviceDuration"><option value="30">30 min</option><option value="60">60 min</option><option value="90">90 min</option></select></label><button class="btn gold">Cadastrar</button></form></div><div class="card"><h3>Lista</h3><div id="serviceList" class="list"></div></div></div></section><section id="page-clients" class="page"><h2>Clientes</h2><div class="card"><div id="clientList" class="list"></div></div></section><section id="page-stock" class="page"><h2>Estoque - com alerta mínimo</h2><div class="grid-2"><div class="card"><h3>Novo produto</h3><form id="stockForm"><label>Produto<input id="stockName" required></label><label>Quantidade atual<input id="stockQty" type="number" required></label><label>Estoque mínimo (alerta)<input id="stockMin" type="number" value="5" required></label><button class="btn gold">Cadastrar</button></form></div><div class="card"><h3>Produtos</h3><p class="muted" style="font-size:12px;">Itens em vermelho = abaixo do mínimo</p><div id="stockList" class="list"></div></div></div></section><section id="page-finance" class="page"><h2>Financeiro - com gráfico por período</h2><div class="grid-2"><div class="card"><h3>Lançamento manual</h3><form id="financeForm"><label>Tipo<select id="financeType"><option value="income">Entrada</option><option value="expense">Saída</option></select></label><label>Descrição<input id="financeDesc" required></label><label>Valor<input id="financeAmount" type="number" step="0.01" required></label><label>Data<input id="financeDate" type="date" required></label><button class="btn gold">Registrar</button></form></div><div class="card"><h3>Resumo do período</h3><div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;"><label>De<input id="financeStart" type="date"></label><label>Até<input id="financeEnd" type="date"></label><button id="filterFinance" class="btn secondary">Filtrar</button></div><div>Entradas: <b id="sumIncome">R$ 0</b> | Saídas: <b id="sumExpense">R$ 0</b> | Saldo: <b id="sumBalance">R$ 0</b></div><canvas id="financeChart" height="200" style="margin-top:15px;"></canvas><div id="financeList" class="list" style="margin-top:15px;"></div></div></div></section><section id="page-team" class="page"><h2>Equipe</h2><div class="grid-2"><div class="card"><h3>Novo profissional</h3><form id="teamForm"><label>Nome<input id="teamName" required></label><label>Telefone<input id="teamPhone"></label><label>Perfil<select id="teamPerfil" required><option value="barbeiro">Barbeiro</option><option value="gerente">Gerente</option><option value="admin">Admin</option><option value="auxiliar">Auxiliar</option></select></label><button class="btn gold">Cadastrar</button></form></div><div class="card"><h3>Equipe</h3><div id="teamList" class="list"></div></div></div></section><section id="page-settings" class="page"><h2>Configurações - com intervalo de almoço</h2><div class="card"><div class="settings-grid"><label>Nome da barbearia<input id="setName"></label><label>WhatsApp<input id="setWhatsapp"></label><label>Abre<input id="setStart" type="time"></label><label>Fecha<input id="setEnd" type="time"></label><label>Intervalo entre clientes<select id="setInterval"><option value="15">15 min</option><option value="30">30 min</option><option value="60">60 min</option></select></label><label>Logo<input id="setLogoUrl"></label><label>Almoço Início<input id="setLunchStart" type="time"></label><label>Almoço Fim<input id="setLunchEnd" type="time"></label></div><div id="weeklyBox"></div><div class="share-box" style="margin-top:18px;"><b>🔗 Link da barbearia:</b> <span id="shareUrl"></span> <button id="copyShare" class="btn secondary">Copiar</button></div><button id="saveSettings" class="btn gold">Salvar todas as configurações</button></div></section></main></div></div><script src="config.js"></script><script src="app.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNH Barbearia</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="config.js"></script>
+<style>
+.hidden{display:none !important}
+.page{display:none}
+.page.active{display:block}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:999}
+.modal-card{background:#1a1a1a;padding:20px;border-radius:12px;min-width:320px;border:1px solid #d4af37}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#d4af37;color:#000;padding:12px 20px;border-radius:8px;opacity:0;transition:.3s;z-index:1000}
+.toast.show{opacity:1}
+.low-stock{border:1px solid #ff4444;background:rgba(255,68,68,.1)}
+.stock-alert{color:#ff4444;font-weight:bold;margin-left:8px}
+.list-row{display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid #333}
+.stat{background:#222;padding:14px;border-radius:10px;text-align:center;min-width:90px}
+</style>
+</head>
+<body>
+
+<div id="authView" class="auth-wrap">
+  <div class="auth-card">
+    <img src="dnh-logo.png" style="width:80px">
+    <h2>DNH BARBEARIA</h2>
+    <div class="auth-tabs">
+      <button data-auth="login" class="active">Entrar</button>
+      <button data-auth="signup">Cadastrar</button>
+    </div>
+    <form id="loginForm">
+      <input id="loginEmail" type="email" placeholder="E-mail" required>
+      <input id="loginPassword" type="password" placeholder="Senha" required>
+      <button type="submit" class="btn gold full">Entrar</button>
+    </form>
+    <form id="signupForm" class="hidden">
+      <input id="signupName" placeholder="Nome" required>
+      <input id="signupPhone" placeholder="Telefone" required>
+      <input id="signupEmail" type="email" placeholder="E-mail" required>
+      <input id="signupPassword" type="password" placeholder="Senha" required>
+      <input id="signupBirth" type="date">
+      <button type="submit" class="btn gold full">Cadastrar</button>
+    </form>
+  </div>
+</div>
+
+<div id="appView" class="app hidden">
+  <aside class="sidebar">
+    <div class="brand">
+      <img id="brandLogo" src="dnh-logo.png" style="width:40px">
+      <span id="brandName">DNH</span>
+    </div>
+    <small id="roleLabel">Carregando</small>
+    <nav class="nav">
+      <!-- SUPER ADMIN - 3 MENUS QUE VOCÊ PEDIU -->
+      <button data-page="superadmin" class="superadmin-only">👑 Consulta Barbearias</button>
+      <button data-page="superadmin-cadastro" class="superadmin-only">➕ Cadastro Barbearia</button>
+      <button data-page="superadmin-financeiro" class="superadmin-only">💰 Financeiro Global</button>
+
+      <!-- ADMIN -->
+      <button data-page="dashboard" class="admin-only">Dashboard</button>
+      <button data-page="agenda" class="admin-only">Agenda</button>
+      <button data-page="services" class="admin-only">Serviços</button>
+      <button data-page="clients" class="admin-only">Clientes</button>
+      <button data-page="stock" class="admin-only">Estoque</button>
+      <button data-page="finance" class="admin-only">Financeiro</button>
+      <button data-page="team" class="admin-only">Equipe</button>
+      <button data-page="settings" class="admin-only">Configurações</button>
+
+      <!-- CLIENTE -->
+      <button data-page="agenda" class="client-only">Agendar</button>
+      <button data-page="consultar" class="client-only">Meus Agendamentos</button>
+    </nav>
+    <button id="logoutBtn" class="btn danger full">Sair</button>
+  </aside>
+
+  <main class="main">
+    <!-- DASHBOARD ADMIN -->
+    <section id="page-dashboard" class="page">
+      <h1>Dashboard</h1>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0">
+        <div class="stat"><small>Hoje</small><b id="kToday">0</b></div>
+        <div class="stat"><small>Clientes</small><b id="kClients">0</b></div>
+        <div class="stat"><small>Receita mês</small><b id="kRevenue">R$ 0</b></div>
+      </div>
+      <div id="todayList"></div>
+    </section>
+
+    <!-- AGENDA ADMIN -->
+    <section id="page-agenda" class="page">
+      <div id="adminAgenda" class="hidden"></div>
+      <div id="clientAgenda" class="hidden">
+        <h1>Agendar</h1>
+        <div class="form-grid">
+          <select id="clientService"></select>
+          <select id="clientProfessional"></select>
+          <input id="clientDate" type="date">
+        </div>
+        <div id="clientTimeGrid" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"></div>
+        <div id="bookingSummary" class="hidden" style="background:#222;padding:12px;border-radius:10px;margin:12px 0">
+          <p>Serviço: <b id="summaryService">-</b></p>
+          <p>Profissional: <b id="summaryProfessional">-</b></p>
+          <p>Data: <b id="summaryDate">-</b></p>
+          <p>Hora: <b id="summaryTime">-</b></p>
+          <button id="confirmBooking" class="btn gold">Confirmar Agendamento</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-consultar" class="page"><h1>Meus Agendamentos</h1><div id="clientBookingsList"></div></section>
+
+    <section id="page-services" class="page">
+      <h1>Serviços</h1>
+      <form id="serviceForm"><input id="serviceName" placeholder="Nome" required><input id="servicePrice" type="number" step="0.01" placeholder="Preço" required><input id="serviceDuration" type="number" placeholder="Duração min" required><button class="btn gold">Adicionar</button></form>
+      <div id="serviceList"></div>
+    </section>
+
+    <section id="page-clients" class="page"><h1>Clientes</h1><div id="clientList"></div></section>
+
+    <section id="page-stock" class="page">
+      <h1>Estoque</h1>
+      <form id="stockForm"><input id="stockName" placeholder="Produto" required><input id="stockQty" type="number" placeholder="Qtd" required><input id="stockMin" type="number" placeholder="Mínimo" required><button class="btn gold">Adicionar</button></form>
+      <div id="stockList"></div>
+    </section>
+
+    <section id="page-finance" class="page">
+      <h1>Financeiro</h1>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><input id="financeStart" type="date"><input id="financeEnd" type="date"><button id="filterFinance" class="btn">Filtrar</button></div>
+      <div style="display:flex;gap:12px;margin:12px 0"><div class="stat"><small>Entradas</small><b id="sumIncome">R$ 0</b></div><div class="stat"><small>Saídas</small><b id="sumExpense">R$ 0</b></div><div class="stat"><small>Saldo</small><b id="sumBalance">R$ 0</b></div></div>
+      <canvas id="financeChart" height="120"></canvas>
+      <form id="financeForm" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><select id="financeType"><option value="income">Entrada</option><option value="expense">Saída</option></select><input id="financeDesc" placeholder="Descrição" required><input id="financeAmount" type="number" step="0.01" placeholder="Valor" required><input id="financeDate" type="date" required><button class="btn gold">Lançar</button></form>
+      <div id="financeList"></div>
+    </section>
+
+    <section id="page-team" class="page">
+      <h1>Equipe</h1>
+      <form id="teamForm" style="display:flex;gap:8px;flex-wrap:wrap"><input id="teamName" placeholder="Nome" required><input id="teamPhone" placeholder="Telefone"><select id="teamPerfil" required><option value="barbeiro">Barbeiro</option><option value="gerente">Gerente</option><option value="admin">Admin</option><option value="auxiliar">Auxiliar</option></select><button class="btn gold">Adicionar</button></form>
+      <div id="teamList"></div>
+    </section>
+
+    <section id="page-settings" class="page">
+      <h1>Configurações <span id="shareUrl" style="font-size:12px;color:#d4af37"></span> <button id="copyShare" class="btn">Copiar Link</button></h1>
+      <div style="display:grid;gap:8px;max-width:400px"><input id="setName" placeholder="Nome barbearia"><input id="setWhatsapp" placeholder="Whatsapp"><input id="setStart" type="time"><input id="setEnd" type="time"><input id="setInterval" type="number" placeholder="Intervalo min"><input id="setLogoUrl" placeholder="Logo URL"><div style="display:flex;gap:8px"><input id="setLunchStart" type="time"><input id="setLunchEnd" type="time"></div><div id="weeklyBox"></div><button id="saveSettings" class="btn gold">Salvar</button></div>
+    </section>
+
+    <!-- SUPERADMIN - 3 PÁGINAS -->
+    <section id="page-superadmin" class="page">
+      <h1>👑 Consulta Barbearias</h1>
+      <div id="barbershopList"></div>
+    </section>
+
+    <section id="page-superadmin-cadastro" class="page">
+      <h1>➕ Cadastro Barbearia</h1>
+      <form id="barbershopForm" style="display:grid;gap:8px;max-width:400px">
+        <input id="shopSlug" placeholder="Slug ex: dnh-jacarepagua" required>
+        <small id="previewLink" style="color:#d4af37"></small>
+        <input id="shopName" placeholder="Nome da barbearia" required>
+        <input id="shopLogo" placeholder="Logo URL (opcional)">
+        <input id="shopOwner" type="email" placeholder="E-mail do dono (opcional)">
+        <button class="btn gold" type="submit">Criar Barbearia</button>
+      </form>
+    </section>
+
+    <section id="page-superadmin-financeiro" class="page">
+      <h1>💰 Financeiro Global</h1>
+      <p class="muted">Entradas por barbearia + licenças atrasadas</p>
+      <div id="superFinanceList"></div>
+    </section>
+
+  </main>
+</div>
+
+<div class="mobile-nav">
+  <button data-page="superadmin" class="superadmin-only">👑</button>
+  <button data-page="superadmin-cadastro" class="superadmin-only">➕</button>
+  <button data-page="superadmin-financeiro" class="superadmin-only">💰</button>
+  <button data-page="dashboard" class="admin-only">📊</button>
+  <button data-page="agenda" class="admin-only client-only">📅</button>
+  <button data-page="finance" class="admin-only">💰</button>
+  <button data-page="settings" class="admin-only">⚙️</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
