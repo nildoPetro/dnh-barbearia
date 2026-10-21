@@ -1,6 +1,7 @@
 window.DNH_CONFIG = {
-  supabaseUrl: "https://ckzvvdqoqqfvwwewwskn.supabase.co",
-  supabaseAnonKey: "Nildo",
+  supabaseUrl: 'https://ckzvvdqoqqfvwwewwskn.supabase.co',
+  supabaseAnonKey: 'sb_publishable_LrTyXBKdMFIRRR4WIWhC5Q_8iLOMIBb',
+  // SEU EMAIL COMO SUPER ADMIN
   superAdmins: ["nildo.suporteti@gmail.com", "nildo@gmail.com"]
 };
 // =========================================================
