@@ -3,65 +3,120 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>BARBERPRO - Master Panel</title>
+<title>BARBEARIA SAAS - MASTER PANEL</title>
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="config.js"></script>
 </head>
 <body>
 <div id="authView" class="auth-wrap">
   <div class="auth-card">
-    <img src="dnh-logo.png" style="width:80px;height:80px;object-fit:contain;border-radius:50%;background:#111;">
-    <h2>BARBERPRO MASTER</h2>
+    <div class="auth-logo">🛡️</div>
+    <h2>BARBEARIA SAAS<br><small>MASTER PANEL</small></h2>
     <div class="auth-tabs"><button data-auth="login" class="active">Entrar</button><button data-auth="signup">Cadastrar</button></div>
     <form id="loginForm"><input id="loginEmail" type="email" placeholder="E-mail" required><input id="loginPassword" type="password" placeholder="Senha" required><button type="submit" class="btn gold full">Entrar</button></form>
-    <form id="signupForm" class="hidden"><input id="signupName" placeholder="Nome" required><input id="signupPhone" placeholder="Telefone" required><input id="signupEmail" type="email" placeholder="E-mail" required><input id="signupPassword" type="password" placeholder="Senha" required><input id="signupBirth" type="date"><button type="submit" class="btn gold full">Cadastrar</button></form>
+    <form id="signupForm" class="hidden"><input id="signupName" placeholder="Nome" required><input id="signupPhone" placeholder="Telefone" required><input id="signupEmail" type="email" placeholder="E-mail" required><input id="signupPassword" type="password" placeholder="Senha" required><button type="submit" class="btn gold full">Cadastrar</button></form>
   </div>
 </div>
 
 <div id="appView" class="app hidden">
   <aside class="sidebar">
-    <div class="brand"><div class="brand-icon">✂️</div><div><b>BARBERPRO</b><small>MASTER PANEL</small></div></div>
-    <small id="roleLabel">GESTORA DE LICENÇAS</small>
+    <div class="brand"><div class="shield">🛡️</div><div><b>BARBEARIA SAAS</b><small>MASTER PANEL</small></div></div>
+    <div class="menu-label">MENU</div>
     <nav class="nav">
-      <button data-page="superadmin" class="superadmin-only">🏠 Dashboard</button>
-      <button data-page="superadmin-cadastro" class="superadmin-only active">🏪 Barbearias</button>
-      <button data-page="superadmin-financeiro" class="superadmin-only">💳 Financeiro</button>
-      <button data-page="dashboard" class="admin-only">📊 Dashboard</button>
-      <button data-page="agenda" class="admin-only">📅 Agenda</button>
-      <button data-page="services" class="admin-only">✂️ Serviços</button>
-      <button data-page="clients" class="admin-only">👥 Clientes</button>
-      <button data-page="stock" class="admin-only">📦 Estoque</button>
-      <button data-page="finance" class="admin-only">💰 Financeiro</button>
-      <button data-page="team" class="admin-only">👨‍💼 Equipe</button>
-      <button data-page="settings" class="admin-only">⚙️ Configurações</button>
-      <button data-page="agenda" class="client-only">📅 Agendar</button>
-      <button data-page="consultar" class="client-only">🗓️ Meus Agendamentos</button>
+      <button data-page="superadmin" class="active superadmin-only"><span>📊</span> Dashboard</button>
+      <button data-page="superadmin-cadastro" class="superadmin-only"><span>🏢</span> Cadastro de Barbearia</button>
+      <button data-page="superadmin-financeiro" class="superadmin-only"><span>💳</span> Status de Pagamento</button>
+      <button data-page="superadmin-vincular" class="superadmin-only"><span>👤+</span> Vincular Administrador</button>
+      <button data-page="superadmin-metricas" class="superadmin-only"><span>📈</span> Métricas</button>
+      <button data-page="dashboard" class="admin-only"><span>📊</span> Dashboard</button>
+      <button data-page="agenda" class="admin-only"><span>📅</span> Agenda</button>
+      <button data-page="settings" class="admin-only"><span>⚙️</span> Configurações</button>
+      <button data-page="agenda" class="client-only"><span>📅</span> Agendar</button>
+      <button data-page="consultar" class="client-only"><span>🗓️</span> Meus Agendamentos</button>
     </nav>
-    <div class="sidebar-footer"><div class="user-badge">AD</div><div><b>Admin • Superuser</b></div></div>
-    <button id="logoutBtn" class="btn danger full">Sair</button>
+    <div class="sidebar-footer">
+      <div class="avatar">👤</div>
+      <div class="user-info"><b id="userEmailDisplay">admin@barbearisaas.com</b><small>Administrador</small></div>
+    </div>
+    <button id="logoutBtn" class="btn-logout"><span>→]</span> Sair</button>
   </aside>
 
   <main class="main">
-    <!-- DASHBOARD MASTER COM METRICAS V2.0 -->
-    <section id="page-superadmin" class="page">
-      <div class="page-top"><div><h1>Dashboard</h1><p>Visão geral das suas licenças</p></div><button class="btn gold" data-page-go="superadmin-cadastro">+ Nova Barbearia</button></div>
-      <div class="stats-grid">
-        <div class="metric-card"><small>Total Ativas</small><b id="metricAtivas">0</b><span>barbearias</span></div>
-        <div class="metric-card"><small>MRR</small><b id="metricMRR">R$ 0</b><span>faturamento mensal</span></div>
-        <div class="metric-card alert"><small>Em Atraso</small><b id="metricAtraso">0</b><span>precisam cobrar</span></div>
-        <div class="metric-card"><small>Em Trial</small><b id="metricTrial">0</b><span>7 dias grátis</span></div>
+    <!-- DASHBOARD PRINCIPAL - IGUAL AO PRINT -->
+    <section id="page-superadmin" class="page active">
+      <div class="top-bar">
+        <div><h1>GESTÃO DE LICENÇAS</h1><p>Visão geral e gestão das licenças de barbearias conectadas</p></div>
+        <div class="top-actions">
+          <div class="search-box"><span>🔍</span><input id="searchBarbearia" placeholder="Buscar barbearia..."></div>
+          <button class="btn-icon">🔔</button>
+          <button class="btn gold" data-page-go="superadmin-cadastro">+ Nova Barbearia</button>
+        </div>
       </div>
-      <div class="card"><h3>Barbearias que vencem nos próximos 7 dias</h3><div id="barbershopList" class="list"></div></div>
+
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-icon">🏢</div>
+          <small>Total Barbearias Ativas</small>
+          <b id="metricAtivas">0</b>
+          <span class="trend up">↗ +3 no último mês</span>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon">💰</div>
+          <small>MRR</small>
+          <b id="metricMRR">R$ 0</b>
+          <span class="trend up">↗ +12% no último mês</span>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon orange">⏱️</div>
+          <small>Em Atraso</small>
+          <b id="metricAtraso">0</b>
+          <span class="trend down">-1 comparado ao mês anterior</span>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon">🧪</div>
+          <small>Trial</small>
+          <b id="metricTrial">0</b>
+          <span class="trend neutral" id="metricTrialSub">0 expiram em 7 dias</span>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-header">
+          <h3>Barbearias</h3>
+          <div class="table-filters">
+            <select id="filterStatus"><option value="">Todos os status</option><option value="ativo">Ativo</option><option value="inativo">Inativo</option><option value="atraso">Em Atraso</option></select>
+            <select id="filterPlano"><option value="">Todos os planos</option><option value="trial">Trial</option><option value="starter">Starter</option><option value="profissional">Profissional</option><option value="premium">Premium</option></select>
+            <button id="btnExportar" class="btn export">↓ Exportar</button>
+          </div>
+        </div>
+        
+        <div class="table-wrap">
+          <table class="saas-table">
+            <thead>
+              <tr><th>BARBEARIA</th><th>RESPONSÁVEL</th><th>PLANO</th><th>STATUS</th><th>PAGAMENTO</th><th>AÇÕES</th></tr>
+            </thead>
+            <tbody id="barbershopTableBody">
+              <tr><td colspan="6" style="text-align:center;padding:30px;color:#666">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <small id="tableInfo">Mostrando 0 de 0 resultados</small>
+          <div class="pagination">
+            <button id="prevPage">Anterior</button>
+            <div id="paginationNumbers"></div>
+            <button id="nextPage">Próximo</button>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- CADASTRO LINDO - IGUAL DA FOTO -->
-    <section id="page-superadmin-cadastro" class="page active">
-      <div class="page-top"><div><span style="color:#777;font-size:12px">Barbearias / Nova Barbearia</span><h1>Cadastro de Barbearia</h1><p>Preencha os dados da barbearia e escolha o plano ideal para começar</p></div></div>
-      
+    <!-- CADASTRO DE BARBEARIA - LAYOUT LINDO V20 -->
+    <section id="page-superadmin-cadastro" class="page">
+      <div class="top-bar"><div><span style="color:#777;font-size:12px">Barbearias / Nova Barbearia</span><h1>Cadastro de Barbearia</h1><p>Preencha os dados da barbearia e escolha o plano ideal para começar</p></div></div>
       <div class="cadastro-layout">
-        <!-- ESQUERDA - Informações -->
         <div class="card cadastro-info">
           <h2>Informações da Barbearia</h2>
           <form id="barbershopForm">
@@ -70,15 +125,10 @@
             <div class="field"><label>Telefone</label><input id="shopPhone" placeholder="(11) 99999-9999"></div>
             <div class="field"><label>Email proprietário *</label><input id="shopOwner" type="email" placeholder="proprietario@email.com" required></div>
             <div class="field"><label>CPF/CNPJ *</label><input id="shopCpfCnpj" placeholder="00.000.000/0000-00" required></div>
-            <div class="grid-2">
-              <div class="field"><label>Data Vencimento *</label><input id="shopVencimento" type="date" required></div>
-              <div class="field"><label>Status *</label><select id="shopStatus"><option value="ativo">Ativo</option><option value="desativado">Desativado</option></select></div>
-            </div>
+            <div class="grid-2"><div class="field"><label>Data Vencimento *</label><input id="shopVencimento" type="date" required></div><div class="field"><label>Status *</label><select id="shopStatus"><option value="ativo">Ativo</option><option value="desativado">Desativado</option></select></div></div>
             <div class="field"><label>Logo URL</label><input id="shopLogo" placeholder="dnh-logo.png"></div>
           </form>
         </div>
-
-        <!-- DIREITA - Planos -->
         <div class="card cadastro-planos">
           <h2>Plano</h2><p class="muted" style="margin-bottom:16px">Selecione o plano ideal para a barbearia</p>
           <div class="plan-grid">
@@ -93,33 +143,25 @@
       </div>
     </section>
 
+    <!-- STATUS DE PAGAMENTO COM FILTRO -->
     <section id="page-superadmin-financeiro" class="page">
-      <div class="page-top"><h1>💰 Financeiro Licenças</h1><small>Apenas mensalidades - com filtro de intervalo</small></div>
+      <div class="top-bar"><div><h1>💳 Status de Pagamento</h1><p>Controle de mensalidades com filtro de intervalo</p></div></div>
       <div class="card">
         <div class="filter-row"><select id="superFinanceShopFilter"><option value="">Todas as barbearias</option></select><input type="date" id="superFinanceStart"><input type="date" id="superFinanceEnd"><button id="filterSuperFinance" class="btn gold">Filtrar</button><button id="clearSuperFinance" class="btn">Limpar</button></div>
-        <div id="superFinanceSummary" class="stats-grid" style="margin:16px 0"></div>
+        <div id="superFinanceSummary" class="metrics-grid" style="margin:16px 0"></div>
         <div id="superFinanceList" class="list"></div>
       </div>
     </section>
 
-    <section id="page-dashboard" class="page"><h1>Dashboard</h1><div class="stats-grid"><div class="metric-card"><small>Hoje</small><b id="kToday">0</b></div><div class="metric-card"><small>Clientes</small><b id="kClients">0</b></div><div class="metric-card"><small>Receita</small><b id="kRevenue">R$ 0</b></div></div><div id="todayList" class="list"></div></section>
+    <section id="page-superadmin-vincular" class="page"><div class="top-bar"><h1>Vincular Administrador</h1></div><div class="card"><p class="muted">Selecione uma barbearia no Dashboard e clique em Gerenciar para vincular administradores.</p><div id="barbershopListVincular" class="list"></div></div></section>
+    <section id="page-superadmin-metricas" class="page"><div class="top-bar"><h1>Métricas</h1></div><div class="metrics-grid"><div class="metric-card"><small>Total Ativas</small><b id="metricAtivas2">0</b></div><div class="metric-card"><small>MRR</small><b id="metricMRR2">R$ 0</b></div></div><canvas id="metricsChart" height="120"></canvas></section>
+
+    <!-- TELAS CLIENTE/ADMIN NORMAIS -->
+    <section id="page-dashboard" class="page"><h1>Dashboard</h1><div class="metrics-grid"><div class="metric-card"><small>Hoje</small><b id="kToday">0</b></div><div class="metric-card"><small>Clientes</small><b id="kClients">0</b></div><div class="metric-card"><small>Receita</small><b id="kRevenue">R$ 0</b></div></div><div id="todayList" class="list"></div></section>
     <section id="page-agenda" class="page"><div id="adminAgenda" class="hidden"></div><div id="clientAgenda" class="hidden"><h1>Agendar Horário</h1><div class="card"><div class="form-grid-3"><select id="clientService"></select><select id="clientProfessional"></select><input id="clientDate" type="date"></div><div id="clientTimeGrid" class="time-grid"></div><div id="bookingSummary" class="hidden summary-card"><p>Serviço: <b id="summaryService">-</b></p><p>Profissional: <b id="summaryProfessional">-</b></p><p>Data: <b id="summaryDate">-</b></p><p>Hora: <b id="summaryTime">-</b></p><button id="confirmBooking" class="btn gold">Confirmar</button></div></div></div></section>
     <section id="page-consultar" class="page"><h1>Meus Agendamentos</h1><div id="clientBookingsList" class="list"></div></section>
-    <section id="page-services" class="page"><h1>Serviços</h1><div class="card"><form id="serviceForm" class="inline-form"><input id="serviceName" placeholder="Nome" required><input id="servicePrice" type="number" step="0.01" placeholder="Preço" required><input id="serviceDuration" type="number" placeholder="Duração min" required><button class="btn gold">Add</button></form><div id="serviceList" class="list"></div></div></section>
-    <section id="page-clients" class="page"><h1>Clientes</h1><div class="card"><div id="clientList" class="list"></div></div></section>
-    <section id="page-stock" class="page"><h1>Estoque</h1><div class="card"><form id="stockForm" class="inline-form"><input id="stockName" placeholder="Produto" required><input id="stockQty" type="number" placeholder="Qtd" required><input id="stockMin" type="number" placeholder="Mínimo" required><button class="btn gold">Add</button></form><div id="stockList" class="list"></div></div></section>
-    <section id="page-finance" class="page"><h1>Financeiro Interno</h1><div class="card"><div class="filter-row"><input id="financeStart" type="date"><input id="financeEnd" type="date"><button id="filterFinance" class="btn">Filtrar</button></div><div class="stats-grid"><div class="metric-card"><small>Entradas</small><b id="sumIncome">R$ 0</b></div><div class="metric-card"><small>Saídas</small><b id="sumExpense">R$ 0</b></div><div class="metric-card"><small>Saldo</small><b id="sumBalance">R$ 0</b></div></div><canvas id="financeChart" height="120"></canvas><form id="financeForm" class="inline-form"><select id="financeType"><option value="income">Entrada</option><option value="expense">Saída</option></select><input id="financeDesc" placeholder="Descrição" required><input id="financeAmount" type="number" step="0.01" placeholder="Valor" required><input id="financeDate" type="date" required><button class="btn gold">Lançar</button></form><div id="financeList" class="list"></div></div></section>
-    <section id="page-team" class="page"><h1>Equipe</h1><div class="card"><form id="teamForm" class="inline-form"><input id="teamName" placeholder="Nome" required><input id="teamPhone" placeholder="Telefone"><select id="teamPerfil" required><option value="barbeiro">Barbeiro</option><option value="gerente">Gerente</option><option value="admin">Admin</option></select><button class="btn gold">Add</button></form><div id="teamList" class="list"></div></div></section>
-    <section id="page-settings" class="page"><div class="page-top"><h1>Configurações</h1><div class="share-box"><span id="shareUrl"></span><button id="copyShare" class="btn small">Copiar Link</button></div></div><div class="card config-card"><h3>Informações da Barbearia</h3><div class="field"><label>Nome</label><input id="setName"></div><div class="field"><label>WhatsApp</label><input id="setWhatsapp"></div><div class="field"><label>Logo URL</label><input id="setLogoUrl"></div><h3 style="margin-top:24px;">Horário Padrão</h3><div class="grid-2"><div class="field"><label>Abre</label><input id="setStart" type="time"></div><div class="field"><label>Fecha</label><input id="setEnd" type="time"></div></div><div class="grid-2"><div class="field"><label>Intervalo (min)</label><input id="setInterval" type="number"></div><div class="field"><label>Almoço</label><div class="grid-2"><input id="setLunchStart" type="time"><input id="setLunchEnd" type="time"></div></div></div><h3 style="margin-top:24px;">Horário por Dia</h3><div id="weeklyBox" class="weekly-grid"></div><button id="saveSettings" class="btn gold full" style="margin-top:24px;padding:14px;">Salvar</button></div></section>
+    <section id="page-settings" class="page"><div class="top-bar"><h1>Configurações</h1><div class="share-box"><span id="shareUrl"></span><button id="copyShare" class="btn small">Copiar Link</button></div></div><div class="card config-card"><div class="field"><label>Nome</label><input id="setName"></div><div class="field"><label>WhatsApp</label><input id="setWhatsapp"></div><div class="field"><label>Logo URL</label><input id="setLogoUrl"></div><div class="grid-2"><div class="field"><label>Abre</label><input id="setStart" type="time"></div><div class="field"><label>Fecha</label><input id="setEnd" type="time"></div></div><div class="grid-2"><div class="field"><label>Intervalo (min)</label><input id="setInterval" type="number"></div><div class="field"><label>Almoço</label><div class="grid-2"><input id="setLunchStart" type="time"><input id="setLunchEnd" type="time"></div></div></div><div id="weeklyBox" class="weekly-grid"></div><button id="saveSettings" class="btn gold full" style="margin-top:24px;padding:14px;">Salvar</button></div></section>
   </main>
-</div>
-
-<div class="mobile-nav">
-  <button data-page="superadmin" class="superadmin-only">👑</button>
-  <button data-page="superadmin-cadastro" class="superadmin-only">➕</button>
-  <button data-page="superadmin-financeiro" class="superadmin-only">💰</button>
-  <button data-page="dashboard" class="admin-only">📊</button>
-  <button data-page="agenda" class="admin-only client-only">📅</button>
 </div>
 
 <div id="manageShopModal" class="modal hidden" style="display:none">
