@@ -19,14 +19,12 @@ function getPlanoValor(plano, valorSalvo){
   if(v>0) return v;
   return tabela[(plano||'').toLowerCase()]||0;
 }
-
 function aplicarPermissoesUI(){
   const superAdmin=isSuperAdmin();
   $$('.sidebar .nav button').forEach(el=>el.style.display='none');
   $$('.sidebar .nav').forEach(el=>el.style.display='flex');
   if(superAdmin){
     $$('.superadmin-only').forEach(el=>el.style.display='flex');
-    const rl=$('#roleLabel'); if(rl) rl.textContent='GESTORA';
     const em=$('#userEmailDisplay'); if(em) em.textContent=profile?.email||'admin@barbearisaas.com';
   }else if(profile?.role==='admin'){
     $$('.admin-only').forEach(el=>el.style.display='flex');
@@ -63,48 +61,37 @@ function go(page){
   if(page==='settings') loadSettings();
 }
 
-// ================= DASHBOARD PRINCIPAL - CORRIGIDO =================
+// ================= DASHBOARD PRINCIPAL =================
 async function loadDashboardPrincipal(){
   if(!isSuperAdmin()) return;
   try{
     const tbody=$('#barbershopTableBody');
     if(tbody) tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:20px;color:#d4af37">Carregando barbearias...</td></tr>`;
-
     const {data:shops, error} = await sb.from('barbershops').select('*').order('created_at',{ascending:false});
     if(error){
-      console.error(error);
-      if(tbody) tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:20px;color:#ff6b6b">Erro: ${escapeHtml(error.message)}<br><small>Verifique RLS da tabela barbershops - precisa permitir SELECT para superAdmin</small></td></tr>`;
-      toast('Erro ao carregar: '+error.message);
-      return;
+      if(tbody) tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:20px;color:#ff6b6b">Erro: ${escapeHtml(error.message)}</td></tr>`;
+      toast('Erro: '+error.message); return;
     }
-    
     allBarbershopsCache = shops || [];
     const listShops = allBarbershopsCache;
-    const base=location.href.split('?')[0];
     const todayStr=today();
     const in7Days=new Date(); in7Days.setDate(in7Days.getDate()+7);
     const in7Str=in7Days.toISOString().slice(0,10);
-
-    // METRICAS
     const ativas=listShops.filter(s=>s.active!==false).length;
     const trial=listShops.filter(s=> (s.plano||'trial')==='trial').length;
     const mrr=listShops.filter(s=>s.active!==false && (s.plano||'')!=='trial').reduce((a,b)=>a+getPlanoValor(b.plano, b.plano_valor),0);
     const atraso=listShops.filter(s=> s.data_vencimento && s.data_vencimento < todayStr).length;
-
     const elAtivas=$('#metricAtivas'); if(elAtivas) elAtivas.textContent=ativas;
     const elTrial=$('#metricTrial'); if(elTrial) elTrial.textContent=trial;
     const elMRR=$('#metricMRR'); if(elMRR) elMRR.textContent='R$ '+mrr.toLocaleString('pt-BR',{minimumFractionDigits:2});
     const elAtraso=$('#metricAtraso'); if(elAtraso) elAtraso.textContent=atraso;
     const elMRR2=$('#metricMRR2'); if(elMRR2) elMRR2.textContent='R$ '+mrr.toLocaleString('pt-BR');
     const elAtivas2=$('#metricAtivas2'); if(elAtivas2) elAtivas2.textContent=ativas;
-
     const trialExpiring=listShops.filter(s=> s.data_vencimento && s.data_vencimento >= todayStr && s.data_vencimento <= in7Str).length;
     const sub=$('#metricTrialSub'); if(sub) sub.textContent=`${trialExpiring} expiram em 7 dias`;
-
-    // TABELA PRINCIPAL - IGUAL AO PRINT
     if(tbody){
       if(listShops.length===0){
-        tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:30px">Nenhuma barbearia cadastrada ainda. Clique em + Nova Barbearia</td></tr>`;
+        tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:30px">Nenhuma barbearia cadastrada</td></tr>`;
       } else {
         tbody.innerHTML=listShops.map((b,idx)=>{
           const isAtraso = b.data_vencimento && b.data_vencimento < todayStr;
@@ -126,47 +113,70 @@ async function loadDashboardPrincipal(){
         }).join('');
       }
       const info=$('#tableInfo'); if(info) info.textContent=`Mostrando 1-${listShops.length} de ${listShops.length} resultados`;
-      renderPagination(listShops.length);
     }
-
-    // Também preenche a lista da página Vincular se estiver lá
     const vincularList=$('#barbershopListVincular');
     if(vincularList){
-      vincularList.innerHTML=listShops.map(b=>`<div class="list-row"><div><b>${escapeHtml(b.name)}</b><small>${escapeHtml(b.slug)} • ${escapeHtml(b.owner_email||'')} • ${escapeHtml(b.plano||'trial')}</small></div><div style="display:flex;gap:6px"><button data-manage-shop="${b.slug}" class="btn gold">⚙️ Gerenciar / Vincular ADM</button></div></div>`).join('')||'<p class="muted">Nenhuma</p>';
+      vincularList.innerHTML=listShops.map(b=>`<div class="list-row"><div><b>${escapeHtml(b.name)}</b><small>${escapeHtml(b.slug)} • ${escapeHtml(b.owner_email||'')} • ${escapeHtml(b.plano||'trial')}</small></div><div style="display:flex;gap:6px"><button data-manage-shop="${b.slug}" class="btn gold">⚙️ Gerenciar</button></div></div>`).join('')||'<p class="muted">Nenhuma</p>';
     }
-
-    // Preenche select do financeiro
     const shopSelect=$('#superFinanceShopFilter');
     if(shopSelect){
       shopSelect.innerHTML='<option value="">Todas as barbearias</option>';
       listShops.forEach(s=>{ const opt=document.createElement('option'); opt.value=s.slug; opt.textContent=s.name+' ('+s.slug+')'; shopSelect.appendChild(opt); });
     }
-
-    // Lista que vence em 7 dias no dashboard antigo
+    const vincularSelect=$('#vincularShopSelect');
+    if(vincularSelect){
+      vincularSelect.innerHTML='<option value="">Selecione a barbearia...</option>';
+      listShops.forEach(s=>{ const opt=document.createElement('option'); opt.value=s.slug; opt.textContent=s.name+' ('+s.slug+')'; vincularSelect.appendChild(opt); });
+    }
+    const quick=$('#vincularQuickList');
+    if(quick){
+      quick.innerHTML=listShops.slice(0,6).map(b=>`<div class="list-row"><div><b>${escapeHtml(b.name)}</b><small>${escapeHtml(b.slug)} • ${escapeHtml(b.owner_email||'')}</small></div><button data-select-vincular="${b.slug}" class="btn small gold">Selecionar</button></div>`).join('')||'<p class="muted">Nenhuma</p>';
+    }
     const oldList=$('#barbershopList');
     if(oldList){
       const vencendo=listShops.filter(s=> s.data_vencimento && s.data_vencimento >= todayStr && s.data_vencimento <= in7Str).sort((a,b)=>a.data_vencimento.localeCompare(b.data_vencimento));
-      oldList.innerHTML=vencendo.length?vencendo.map(b=>`<div class="list-row"><div style="flex:1"><b>${escapeHtml(b.name)}</b><small style="display:block">Vence: ${b.data_vencimento} • ${escapeHtml(b.plano||'trial')}</small></div><div style="display:flex;gap:6px;flex-shrink:0"><button data-manage-shop="${b.slug}" class="btn gold" style="padding:8px 14px">Gerenciar</button><button data-copy-link="${base}?b=${b.slug}" class="btn small">Link</button></div></div>`).join(''):'<p class="muted" style="padding:12px">Nenhuma vencendo nos próximos 7 dias</p>';
+      oldList.innerHTML=vencendo.length?vencendo.map(b=>`<div class="list-row"><div style="flex:1"><b>${escapeHtml(b.name)}</b><small style="display:block">Vence: ${b.data_vencimento} • ${escapeHtml(b.plano||'trial')}</small></div><div style="display:flex;gap:6px;flex-shrink:0"><button data-manage-shop="${b.slug}" class="btn gold" style="padding:8px 14px">Gerenciar</button><button data-copy-link="${location.href.split('?')[0]+'?b='+b.slug}" class="btn small">Link</button></div></div>`).join(''):'<p class="muted" style="padding:12px">Nenhuma vencendo nos próximos 7 dias</p>';
     }
-
   }catch(err){
-    console.error(err);
-    toast('Erro crítico: '+err.message);
-    const tbody=$('#barbershopTableBody');
-    if(tbody) tbody.innerHTML=`<tr><td colspan="6" style="color:#ff6b6b;text-align:center;padding:20px">${err.message}</td></tr>`;
+    console.error(err); toast('Erro: '+err.message);
   }
 }
 
-function renderPagination(total){
-  const cont=$('#paginationNumbers'); if(!cont) return;
-  const perPage=10; const pages=Math.ceil(total/perPage); let html='';
-  for(let i=1;i<=Math.min(pages,5);i++){ html+=`<button class="${i===1?'active':''}" data-page-num="${i}">${i}</button>`; }
-  if(pages>5){ html+=`<button>3...</button><button data-page-num="${pages}">${pages}</button>`; }
-  cont.innerHTML=html;
+async function loadVincular(){ await loadDashboardPrincipal(); }
+
+async function loadVincularAdmins(slug){
+  if(!slug) return;
+  const {data:shop} = await sb.from('barbershops').select('*').eq('slug',slug).maybeSingle();
+  const base=location.href.split('?')[0];
+  const empty=$('#vincularEmpty'); const content=$('#vincularContent');
+  if(empty) empty.classList.add('hidden'); if(content) content.classList.remove('hidden');
+  const nameEl=$('#vincularShopName'); if(nameEl) nameEl.textContent=shop?.name||slug;
+  const hint=$('#vShopSlugHint'); if(hint) hint.textContent=slug;
+  const linkInput=$('#vShopLink'); if(linkInput) linkInput.value=base+'?b='+slug;
+  const {data:admins=[]} = await sb.from('professionals').select('*').eq('slug',slug).order('name');
+  const list=$('#vincularAdminsList');
+  if(list){
+    list.innerHTML=admins.length?admins.map(a=>`<div class="list-row" style="background:#0f1320"><div><b>${escapeHtml(a.name)}</b><small style="display:block;color:#aaa">${escapeHtml(a.email||'')} • ${escapeHtml(a.perfil)} • ${escapeHtml(a.phone||'')}</small></div><div style="display:flex;gap:6px"><button data-resend="${a.email}" class="btn small" style="color:#d4af37;border-color:#d4af37">Reenviar</button><button data-remove-vincular="${a.id}" class="btn small danger">Remover</button></div></div>`).join(''):'<div style="padding:20px;text-align:center;color:#666;border:1px dashed #333;border-radius:10px">Nenhum admin vinculado ainda.</div>';
+  }
 }
 
-async function loadVincular(){
-  await loadDashboardPrincipal();
+async function addVincularAdmin(){
+  const slug=$('#vincularShopSelect')?.value;
+  if(!slug){ toast('Selecione a barbearia no topo'); return; }
+  const name=$('#vAdminName')?.value.trim(); const email=$('#vAdminEmail')?.value.trim().toLowerCase(); const phone=$('#vAdminPhone')?.value.trim(); const perfil=$('#vAdminPerfil')?.value||'admin';
+  if(!name||!email){ toast('Nome e E-mail obrigatórios'); return; }
+  const btn=$('#vAddAdminBtn'); if(btn){ btn.textContent='Criando...'; btn.disabled=true; }
+  const tempPass = Math.random().toString(36).slice(-8)+'A1!b2@';
+  let userId=null;
+  try{ const {data}=await sb.auth.signUp({ email, password: tempPass, options: { data: { name, phone, role: 'admin' } } }); if(data?.user?.id) userId=data.user.id; }catch(e){}
+  try{ await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin}); }catch(e){}
+  try{ const {error}=await sb.from('professionals').insert({name,phone,email,perfil,slug,active:true}); if(error && error.message.includes('duplicate')){ await sb.from('professionals').update({name,phone,perfil,active:true}).eq('email',email).eq('slug',slug); } }catch(e){}
+  try{ if(userId){ await sb.from('profiles').upsert({id:userId,name,phone,email,role:'admin',active:true,barbershop_slug:slug},{onConflict:'id'}); } else { const {data:existing}=await sb.from('profiles').select('id').eq('email',email).maybeSingle(); if(existing?.id){ await sb.from('profiles').update({role:'admin',barbershop_slug:slug,name,phone}).eq('id',existing.id); } } }catch(e){}
+  if(btn){ btn.textContent='✉️ Criar Administrador e Enviar Acesso por E-mail'; btn.disabled=false; }
+  toast('✅ Admin criado! E-mail enviado para '+email);
+  const nEl=$('#vAdminName'); const eEl=$('#vAdminEmail'); const pEl=$('#vAdminPhone');
+  if(nEl) nEl.value=''; if(eEl) eEl.value=''; if(pEl) pEl.value='';
+  await loadVincularAdmins(slug);
 }
 
 function applyDashboardFilters(){
@@ -196,10 +206,9 @@ async function openManageShopModal(slug){
   if(!shop){ toast('Não encontrada'); return; }
   $('#mShopName').value=shop.name||''; $('#mShopSlug').value=shop.slug||''; $('#mShopLogo').value=shop.logo_url||''; $('#mShopOwner').value=shop.owner_email||''; $('#mShopActive').checked=shop.active!==false;
   $('#manageShopTitle').textContent='Gerenciar: '+shop.name;
-  const base=location.href.split('?')[0];
-  $('#mShopLink').textContent=base+'?b='+shop.slug;
+  $('#mShopLink').textContent=location.href.split('?')[0]+'?b='+shop.slug;
   const{data:admins=[]}=await sb.from('professionals').select('*').eq('slug',slug).order('name');
-  $('#mShopAdminsList').innerHTML=admins.length?admins.map(a=>`<div class="list-row" style="padding:10px 12px;margin:0;background:#1e1e1e;border-color:#2a2a2a;"><div><b style="color:#fff">${escapeHtml(a.name)}</b><small style="display:block;color:#aaa">${escapeHtml(a.email||'sem email')} • ${escapeHtml(a.perfil)} • ${escapeHtml(a.phone||'')}</small></div><div style="display:flex;gap:6px;"><button data-resend="${a.email}" style="padding:6px 8px;font-size:11px;background:#222;color:#d4af37;border:1px solid #d4af37;">Reenviar</button><button class="danger" data-remove-admin="${a.id}" style="padding:6px 8px;font-size:11px;">Remover</button></div></div>`).join(''):'<div style="padding:12px;text-align:center;color:#666;background:#1a1a1a;border-radius:10px;border:1px dashed #333;">Nenhum admin vinculado. Adicione abaixo.</div>';
+  $('#mShopAdminsList').innerHTML=admins.length?admins.map(a=>`<div class="list-row" style="padding:10px 12px;margin:0;background:#1e1e1e;border-color:#2a2a2a;"><div><b style="color:#fff">${escapeHtml(a.name)}</b><small style="display:block;color:#aaa">${escapeHtml(a.email||'sem email')} • ${escapeHtml(a.perfil)} • ${escapeHtml(a.phone||'')}</small></div><div style="display:flex;gap:6px;"><button data-resend="${a.email}" style="padding:6px 8px;font-size:11px;background:#222;color:#d4af37;border:1px solid #d4af37;">Reenviar</button><button class="danger" data-remove-admin="${a.id}" style="padding:6px 8px;font-size:11px;">Remover</button></div></div>`).join(''):'<div style="padding:12px;text-align:center;color:#666;background:#1a1a1a;border-radius:10px;border:1px dashed #333;">Nenhum admin</div>';
   $('#manageShopModal').classList.remove('hidden'); $('#manageShopModal').style.display='flex';
 }
 async function saveManageShop(){
@@ -216,16 +225,16 @@ async function addShopAdmin(){
   if(!name||!email){ toast('Nome e E-mail obrigatórios'); return; }
   const btn=$('#mAddAdminBtn'); btn.textContent='Enviando...'; btn.disabled=true;
   const tempPass = Math.random().toString(36).slice(-8)+'A1!b2@';
-  try{ await sb.auth.signUp({ email, password: tempPass, options: { data: { name, phone, role: 'admin' } } }); }catch(e){}
-  try{ await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }); }catch(e){}
-  try{ const { error } = await sb.from('professionals').insert({ name, phone, email, perfil, slug: currentManageSlug, active: true }); if(error && error.message.includes('duplicate')){ await sb.from('professionals').update({ name, phone, perfil, active: true }).eq('email', email).eq('slug', currentManageSlug); } }catch(e){}
-  try{ const { data: existing } = await sb.from('profiles').select('id').eq('email', email).maybeSingle(); if(existing?.id){ await sb.from('profiles').update({ role: 'admin', barbershop_slug: currentManageSlug, name, phone }).eq('id', existing.id); } }catch(e){}
+  let userId=null;
+  try{ const {data}=await sb.auth.signUp({ email, password: tempPass, options: { data: { name, phone, role: 'admin' } } }); if(data?.user?.id) userId=data.user.id; }catch(e){}
+  try{ await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin}); }catch(e){}
+  try{ const {error}=await sb.from('professionals').insert({ name, phone, email, perfil, slug: currentManageSlug, active: true }); if(error && error.message.includes('duplicate')){ await sb.from('professionals').update({ name, phone, perfil, active: true }).eq('email', email).eq('slug', currentManageSlug); } }catch(e){}
+  try{ if(userId){ await sb.from('profiles').upsert({ id: userId, name, phone, email, role: 'admin', active: true, barbershop_slug: currentManageSlug }, { onConflict: 'id' }); } else { const { data: existing } = await sb.from('profiles').select('id').eq('email', email).maybeSingle(); if(existing?.id){ await sb.from('profiles').update({ role: 'admin', barbershop_slug: currentManageSlug, name, phone }).eq('id', existing.id); } } }catch(e){}
   btn.textContent='✉️ Criar ADM e Enviar Acesso por E-mail'; btn.disabled=false;
-  toast('✅ ADM vinculado! E-mail enviado para '+email);
-  $('#mNewAdminName').value=''; $('#mNewAdminEmail').value=''; $('#mNewAdminPhone').value='';
+  toast('✅ ADM vinculado!'); $('#mNewAdminName').value=''; $('#mNewAdminEmail').value=''; $('#mNewAdminPhone').value='';
   await openManageShopModal(currentManageSlug);
 }
-async function removeShopAdmin(id){ if(!confirm('Remover este ADM?')) return; await sb.from('professionals').delete().eq('id',id); toast('Removido'); await openManageShopModal(currentManageSlug); }
+async function removeShopAdmin(id){ if(!confirm('Remover?')) return; await sb.from('professionals').delete().eq('id',id); toast('Removido'); await openManageShopModal(currentManageSlug); }
 async function resendAccess(email){ if(!email){ toast('Sem e-mail'); return; } const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }); if(error) toast(error.message); else toast('Link reenviado para '+email); }
 
 async function loadSuperFinance(){
@@ -252,7 +261,7 @@ async function loadSuperFinance(){
     const allShopPays=(pays||[]).filter(p=>p.barbershop_slug===shop.slug);
     const todayStr=today(); const paidThisMonth=allShopPays.some(p=>p.month_ref===todayStr.slice(0,7));
     const history=shopPays.map(p=>{ const d=new Date(p.payment_date); const dataHora=d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px dashed #222;"><span>${dataHora} - Ref: ${p.month_ref} - ${p.method}</span><span><b>${money(p.amount)}</b> <button class="danger" data-del-pay="${p.id}" style="padding:2px 6px;font-size:10px;margin-left:6px">X</button></span></div>`; }).join('')||'<small class="muted">Nenhum pagamento neste intervalo</small>';
-    return `<div class="list-row" style="flex-direction:column;align-items:stretch;gap:10px;"><div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:10px;"><div><b>${escapeHtml(shop.name)} (${escapeHtml(shop.slug)})</b><br><small style="color:${paidThisMonth?'#22c55e':'#ef4444'}">${paidThisMonth?'PAGO':'PENDENTE'} | Filtrado: ${money(shopPays.reduce((a,b)=>a+Number(b.amount||0),0))} | Plano: ${escapeHtml(shop.plano||'trial')} ${money(getPlanoValor(shop.plano,shop.plano_valor))}</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><input type="month" id="month-${shop.slug}" value="${todayStr.slice(0,7)}" style="width:130px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><input type="number" id="amount-${shop.slug}" value="${getPlanoValor(shop.plano,shop.plano_valor)||100}" style="width:80px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><select id="method-${shop.slug}" style="width:90px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><option value="pix">PIX</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option></select><button data-add-pay="${shop.slug}" class="btn gold" style="padding:8px 12px;">+ Mensalidade</button></div></div><details><summary style="cursor:pointer;color:#d4af37;font-size:13px;">Ver histórico filtrado (${shopPays.length})</summary><div style="margin-top:8px;background:#0a0a0a;padding:10px;border-radius:10px;border:1px solid #1e1e1e;">${history}</div></details></div>`;
+    return `<div class="list-row" style="flex-direction:column;align-items:stretch;gap:10px;"><div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:10px;"><div><b>${escapeHtml(shop.name)} (${escapeHtml(shop.slug)})</b><br><small style="color:${paidThisMonth?'#22c55e':'#ef4444'}">${paidThisMonth?'PAGO':'PENDENTE'} | Filtrado: ${money(shopPays.reduce((a,b)=>a+Number(b.amount||0),0))} | Plano: ${escapeHtml(shop.plano||'trial')} ${money(getPlanoValor(shop.plano,shop.plano_valor))}</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><input type="month" id="month-${shop.slug}" value="${todayStr.slice(0,7)}" style="width:130px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><input type="number" id="amount-${shop.slug}" value="${getPlanoValor(shop.plano,shop.plano_valor)||100}" style="width:80px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><select id="method-${shop.slug}" style="width:90px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><option value="pix">PIX</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option></select><button data-add-pay="${shop.slug}" class="btn gold" style="padding:8px 12px;">+ Mensalidade</button></div></div><details><summary style="cursor:pointer;color:#d4af37;font-size:13px;">Ver histórico (${shopPays.length})</summary><div style="margin-top:8px;background:#0a0a0a;padding:10px;border-radius:10px;border:1px solid #1e1e1e;">${history}</div></details></div>`;
   }).join('')||'<p class="muted">Nenhum resultado</p>';
 }
 async function addPayment(slug){
@@ -280,11 +289,8 @@ async function loadSettings(){
   if($('#setLunchEnd')) $('#setLunchEnd').value=settings.lunch_end?.slice(0,5)||'13:00';
   if($('#shareUrl')){ const b=location.href.split('?')[0]; $('#shareUrl').textContent=b+'?b='+CURRENT_SLUG; }
   if($('#weeklyBox') && !$('#weeklyBox').dataset.done){
-    const getWeeklySchedule=()=>{ const f=(e,s,en)=>({enabled:e,start:s,end:en}); const st=settings.start_time?.slice(0,5)||'08:00'; const en=settings.end_time?.slice(0,5)||'18:00'; const fb={0:f(false,st,en),1:f(true,st,en),2:f(true,st,en),3:f(true,st,en),4:f(true,st,en),5:f(true,st,en),6:f(false,st,en)}; const cur=settings.weekly_schedule||{}; return Object.fromEntries(Object.keys(fb).map(k=>[k,{...fb[k],...(cur[k]||{})}])); };
-    const w=getWeeklySchedule();
-    let h=''; Object.entries({1:'Segunda',2:'Terça',3:'Quarta',4:'Quinta',5:'Sexta',6:'Sábado',0:'Domingo'}).forEach(([k,n])=>{
-      const c=w[k]||{}; h+=`<div class="day-row" data-weekday="${k}"><b>${n}</b><label><input type="checkbox" data-week-enabled ${c.enabled!==false?'checked':''}> Atende</label><input type="time" data-week-start value="${c.start||'08:00'}"><input type="time" data-week-end value="${c.end||'18:00'}"></div>`;
-    });
+    const f=(e,s,en)=>({enabled:e,start:s,end:en}); const st=settings.start_time?.slice(0,5)||'08:00'; const en=settings.end_time?.slice(0,5)||'18:00'; const fb={0:f(false,st,en),1:f(true,st,en),2:f(true,st,en),3:f(true,st,en),4:f(true,st,en),5:f(true,st,en),6:f(false,st,en)}; const cur=settings.weekly_schedule||{}; const weekly=Object.fromEntries(Object.keys(fb).map(k=>[k,{...fb[k],...(cur[k]||{})}]));
+    let h=''; Object.entries({1:'Segunda',2:'Terça',3:'Quarta',4:'Quinta',5:'Sexta',6:'Sábado',0:'Domingo'}).forEach(([k,n])=>{ const c=weekly[k]||{}; h+=`<div class="day-row" data-weekday="${k}"><b>${n}</b><label><input type="checkbox" data-week-enabled ${c.enabled!==false?'checked':''}> Atende</label><input type="time" data-week-start value="${c.start||'08:00'}"><input type="time" data-week-end value="${c.end||'18:00'}"></div>`; });
     $('#weeklyBox').innerHTML=h; $('#weeklyBox').dataset.done='1';
   }
 }
@@ -374,32 +380,25 @@ if(btnSalvar){
     await loadDashboardPrincipal(); go('superadmin');
   };
 }
-if($('#saveSettings')){
-  $('#saveSettings').onclick=async()=>{
-    const weekly={}; document.querySelectorAll('[data-weekday]').forEach(row=>{
-      const d=row.dataset.weekday; const en=row.querySelector('[data-week-enabled]'); const st=row.querySelector('[data-week-start]'); const enT=row.querySelector('[data-week-end]');
-      weekly[d]={enabled: en?en.checked:true, start: st?st.value:'08:00', end: enT?enT.value:'18:00'};
-    });
-    const payload={slug:CURRENT_SLUG,name:$('#setName').value||'DNH',whatsapp:$('#setWhatsapp').value||'',start_time:($('#setStart').value||'08:00')+':00',end_time:($('#setEnd').value||'18:00')+':00',slot_interval:Number($('#setInterval').value||30,logo_url:$('#setLogoUrl').value||'dnh-logo.png',lunch_start:($('#setLunchStart').value||'12:00')+':00',lunch_end:($('#setLunchEnd').value||'13:00')+':00',weekly_schedule:weekly};
-    const{error}=await sb.from('settings').upsert(payload,{onConflict:'slug'}); if(error){ toast(error.message); return; } settings={...settings,...payload}; toast('Salvo');
-  };
-}
 
 document.addEventListener('click', async (e)=>{
   const t=e.target;
-  if(t.closest('#searchBarbearia')) return;
   if(t.matches('[data-manage-shop]')){ await openManageShopModal(t.dataset.manageShop); return; }
-  if(t.matches('[data-view-shop]')){ const slug=t.dataset.viewShop; const base=location.href.split('?')[0]; const url=base+'?b='+slug; navigator.clipboard.writeText(url); toast('Link copiado: '+url); return; }
+  if(t.matches('[data-view-shop]')){ const slug=t.dataset.viewShop; const url=location.href.split('?')[0]+'?b='+slug; navigator.clipboard.writeText(url); toast('Link copiado: '+url); return; }
+  if(t.matches('[data-select-vincular]')){ const slug=t.dataset.selectVincular; const sel=$('#vincularShopSelect'); if(sel) sel.value=slug; await loadVincularAdmins(slug); return; }
   if(t.id==='mSaveBtn'){ await saveManageShop(); return; }
   if(t.id==='mCancelBtn' || t.id==='mCloseX'){ $('#manageShopModal').style.display='none'; $('#manageShopModal').classList.add('hidden'); return; }
   if(t.id==='mAddAdminBtn'){ await addShopAdmin(); return; }
-  if(t.matches('[data-remove-admin]')){ await removeShopAdmin(t.dataset.removeAdmin); return; }
-  if(t.matches('[data-resend]')){ await resendAccess(t.dataset.resend); return; }
+  if(t.id==='vAddAdminBtn'){ await addVincularAdmin(); return; }
+  if(t.id==='vCopyLink'){ const input=$('#vShopLink'); if(input){ navigator.clipboard.writeText(input.value); toast('Link copiado'); } return; }
+  if(t.matches('[data-remove-admin]')){ if(!confirm('Remover?')) return; await sb.from('professionals').delete().eq('id',t.dataset.removeAdmin); toast('Removido'); await openManageShopModal(currentManageSlug); return; }
+  if(t.matches('[data-remove-vincular]')){ if(!confirm('Remover este admin?')) return; await sb.from('professionals').delete().eq('id',t.dataset.removeVincular); toast('Removido'); const slug=$('#vincularShopSelect')?.value; if(slug) await loadVincularAdmins(slug); return; }
+  if(t.matches('[data-resend]')){ const email=t.dataset.resend; if(!email) return; const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin}); if(error) toast(error.message); else toast('Link reenviado para '+email); return; }
   if(t.matches('[data-add-pay]')){ await addPayment(t.dataset.addPay); return; }
   if(t.matches('[data-del-pay]')){ if(!confirm('Excluir?')) return; await sb.from('barbershop_payments').delete().eq('id',t.dataset.delPay); toast('Excluído'); await loadSuperFinance(); return; }
   if(t.matches('[data-copy-link]')){ navigator.clipboard.writeText(t.dataset.copyLink); toast('Link copiado'); return; }
   if(t.id==='filterSuperFinance'){ await loadSuperFinance(); return; }
-  if(t.id==='clearSuperFinance'){ $('#superFinanceShopFilter').value=''; $('#superFinanceStart').value=''; $('#superFinanceEnd').value=''; await loadSuperFinance(); return; }
+  if(t.id==='clearSuperFinance'){ const a=$('#superFinanceShopFilter'); if(a) a.value=''; const b=$('#superFinanceStart'); if(b) b.value=''; const c=$('#superFinanceEnd'); if(c) c.value=''; await loadSuperFinance(); return; }
   if(t.id==='manageShopModal'){ $('#manageShopModal').style.display='none'; return; }
 });
 
@@ -419,6 +418,13 @@ if(btnExportar){
     });
     const blob=new Blob([csv],{type:'text/csv'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='barbearias.csv'; a.click();
   };
+}
+const vincularSelect=$('#vincularShopSelect'); 
+if(vincularSelect){
+  vincularSelect.addEventListener('change', async(e)=>{
+    const slug=e.target.value;
+    if(slug){ await loadVincularAdmins(slug); } else { const empty=$('#vincularEmpty'); const content=$('#vincularContent'); if(empty) empty.classList.remove('hidden'); if(content) content.classList.add('hidden'); }
+  });
 }
 
 async function init(){
