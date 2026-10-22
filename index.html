@@ -153,7 +153,52 @@
       </div>
     </section>
 
-    <section id="page-superadmin-vincular" class="page"><div class="top-bar"><h1>Vincular Administrador</h1></div><div class="card"><p class="muted">Selecione uma barbearia no Dashboard e clique em Gerenciar para vincular administradores.</p><div id="barbershopListVincular" class="list"></div></div></section>
+      <section id="page-superadmin-vincular" class="page">
+      <div class="top-bar">
+        <div><h1>Vincular Administrador</h1><p>Vincule e gerencie os administradores de cada barbearia</p></div>
+        <div class="top-actions">
+          <select id="vincularShopSelect" style="min-width:240px;background:#151a28;border:1px solid #1e2230;color:#fff;padding:10px 14px;border-radius:10px"><option value="">Selecione a barbearia...</option></select>
+        </div>
+      </div>
+
+      <div id="vincularEmpty" class="card" style="text-align:center;padding:40px">
+        <div style="font-size:40px;margin-bottom:12px">👤+</div>
+        <h3>Selecione uma barbearia</h3>
+        <p class="muted">Escolha uma barbearia no topo para ver e vincular administradores.</p>
+        <div id="vincularQuickList" class="list" style="max-width:600px;margin:20px auto;text-align:left"></div>
+      </div>
+
+      <div id="vincularContent" class="cadastro-layout hidden">
+        <div class="card">
+          <h2 style="display:flex;align-items:center;gap:8px">👥 Admins de <span id="vincularShopName" style="color:#d4af37"></span></h2>
+          <p class="muted" style="margin-bottom:16px">Administradores com acesso a essa unidade</p>
+          <div id="vincularAdminsList" class="list" style="max-height:500px;overflow-y:auto"></div>
+        </div>
+
+        <div class="card cadastro-planos">
+          <h2>+ Novo Administrador</h2>
+          <p class="muted" style="margin-bottom:16px">O admin receberá um e-mail automático para criar a senha</p>
+          
+          <div class="field"><label>Nome Completo *</label><input id="vAdminName" placeholder="Ex: João Silva"></div>
+          <div class="grid-2">
+            <div class="field"><label>E-mail * (será o login)</label><input id="vAdminEmail" type="email" placeholder="admin@barbearia.com"></div>
+            <div class="field"><label>Telefone</label><input id="vAdminPhone" placeholder="(11) 99999-9999"></div>
+          </div>
+          <div class="field"><label>Perfil *</label><select id="vAdminPerfil"><option value="admin">Admin - Acesso total</option><option value="gerente">Gerente - Sem financeiro</option><option value="barbeiro">Barbeiro - Só agenda</option></select></div>
+          
+          <div class="info-bar" style="margin:16px 0">
+            <span>ⓘ</span> <div><b>O que acontece ao clicar:</b><br>1. Cria o login no sistema<br>2. Envia e-mail automático com link para criar senha (24h)<br>3. Vincula automaticamente à barbearia <span id="vShopSlugHint" style="color:#d4af37"></span></div>
+          </div>
+
+          <button id="vAddAdminBtn" class="btn gold full" style="padding:14px;font-size:14px">✉️ Criar Administrador e Enviar Acesso por E-mail</button>
+          
+          <div style="margin-top:20px;padding:14px;background:#0f1320;border-radius:10px;border:1px solid #1e2230">
+            <small style="color:#8a8fa3;display:block;margin-bottom:8px">LINK DIRETO DA BARBEARIA:</small>
+            <div style="display:flex;gap:8px"><input id="vShopLink" disabled style="flex:1;background:#080a0f"><button id="vCopyLink" class="btn small">Copiar</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
     <section id="page-superadmin-metricas" class="page"><div class="top-bar"><h1>Métricas</h1></div><div class="metrics-grid"><div class="metric-card"><small>Total Ativas</small><b id="metricAtivas2">0</b></div><div class="metric-card"><small>MRR</small><b id="metricMRR2">R$ 0</b></div></div><canvas id="metricsChart" height="120"></canvas></section>
 
     <!-- TELAS CLIENTE/ADMIN NORMAIS -->
