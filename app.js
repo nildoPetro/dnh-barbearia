@@ -2,7 +2,7 @@ const cfg = window.DNH_CONFIG || {};
 const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 let profile = null;
 let settings = { name: 'DNH BARBEARIA', whatsapp: '', start_time: '08:00', end_time: '18:00', slot_interval: 30, logo_url: 'dnh-logo.png', weekly_schedule: {}, slug: 'dnh', lunch_start: '12:00', lunch_end: '13:00' };
-let services = []; let professionals = []; let financeChart = null; let currentManageSlug = null;
+let services = []; let professionals = []; let financeChart = null; let currentManageSlug = null; let selectedPlano = 'profissional'; let selectedPlanoValor = 97.90;
 const $ = (s) => document.querySelector(s); const $$ = (s) => [...document.querySelectorAll(s)];
 function getSlug(){ const p=new URLSearchParams(window.location.search); const s=p.get('b'); if(s){ localStorage.setItem('dnh_slug', s); return s; } return localStorage.getItem('dnh_slug')||'dnh'; }
 const CURRENT_SLUG=getSlug();
@@ -20,18 +20,18 @@ function aplicarPermissoesUI(){
   $$('.sidebar .nav').forEach(el=>el.style.display='flex');
   if(superAdmin){
     $$('.superadmin-only').forEach(el=>el.style.display='');
-    $('#roleLabel').textContent='GESTORA DE LICENÇAS'; $('#brandName').textContent='GESTÃO DNH';
+    $('#roleLabel').textContent='GESTORA DE LICENÇAS'; $('#brandName').innerHTML='<b>BARBERPRO</b><small>MASTER PANEL</small>';
     localStorage.removeItem('dnh_admin_view');
   }else if(profile?.role==='admin'){
     $$('.admin-only').forEach(el=>el.style.display='');
-    $('#roleLabel').textContent='Admin - '+CURRENT_SLUG; $('#brandName').textContent=settings.name||CURRENT_SLUG;
+    $('#roleLabel').textContent='Admin - '+CURRENT_SLUG; $('#brandName').innerHTML='<b>'+escapeHtml(settings.name||CURRENT_SLUG)+'</b>';
   }else{
     $$('.client-only').forEach(el=>el.style.display='');
-    $('#roleLabel').textContent='Cliente'; $('#brandName').textContent=settings.name||'DNH';
+    $('#roleLabel').textContent='Cliente'; $('#brandName').innerHTML='<b>'+escapeHtml(settings.name||'DNH')+'</b>';
   }
 }
 async function user(){ const{data:{user:au}}=await sb.auth.getUser(); if(!au){ profile=null; return null; } const{data}=await sb.from('profiles').select('*').eq('id',au.id).maybeSingle(); if(data){ profile=data; }else{ const md=au.user_metadata||{}; const fb={id:au.id,name:md.name||au.email?.split('@')[0]||'Cliente',phone:md.phone||'',email:au.email||'',role:'client',active:true}; const{data:r}=await sb.from('profiles').upsert(fb,{onConflict:'id'}).select('*').maybeSingle(); profile=r||fb; } return profile; }
-function go(page){ if(!profile) return; $$('.page').forEach(p=>p.classList.remove('active')); const t=$('#page-'+page); if(t) t.classList.add('active'); $$('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page)); if(page==='dashboard') dashboard(); if(page==='agenda') agenda(); if(page==='consultar') consultarAgenda(); if(page==='services') loadServices(); if(page==='clients') loadClients(); if(page==='stock') loadStock(); if(page==='finance') loadFinance(); if(page==='team') loadTeam(); if(page==='settings') loadSettings(); if(page==='superadmin') loadBarbershops(); if(page==='superadmin-financeiro') loadSuperFinance(); }
+function go(page){ if(!profile) return; $$('.page').forEach(p=>p.classList.remove('active')); const t=$('#page-'+page); if(t) t.classList.add('active'); $$('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page)); if(page==='dashboard') dashboard(); if(page==='agenda') agenda(); if(page==='consultar') consultarAgenda(); if(page==='services') loadServices(); if(page==='clients') loadClients(); if(page==='stock') loadStock(); if(page==='finance') loadFinance(); if(page==='team') loadTeam(); if(page==='settings') loadSettings(); if(page==='superadmin') loadBarbershops(); if(page==='superadmin-cadastro'){ loadBarbershops(); } if(page==='superadmin-financeiro') loadSuperFinance(); }
 async function loadSettings(){
   let data=null;
   try{ const r=await sb.from('settings').select('*').eq('slug',CURRENT_SLUG).maybeSingle(); if(r.data) data=r.data; }catch(e){}
@@ -73,13 +73,54 @@ async function registrarMovimento(id,t){ const{data:item}=await sb.from('invento
 async function loadFinance(){ const start=$('#financeStart')?.value; const end=$('#financeEnd')?.value; let query=sb.from('cash_entries').select('*').eq('slug',CURRENT_SLUG).order('entry_date',{ascending:true}); if(start) query=query.gte('entry_date',start); if(end) query=query.lte('entry_date',end); const{data=[]}=await query; const inc=data.filter(x=>x.type==='income').reduce((a,b)=>a+Number(b.amount||0),0); const exp=data.filter(x=>x.type==='expense').reduce((a,b)=>a+Number(b.amount||0),0); if($('#sumIncome')) $('#sumIncome').textContent=money(inc); if($('#sumExpense')) $('#sumExpense').textContent=money(exp); if($('#sumBalance')) $('#sumBalance').textContent=money(inc-exp); if($('#financeList')){ $('#financeList').innerHTML=data.slice(-30).reverse().map(x=>`<div class="list-row"><b>${escapeHtml(x.description)}</b><span>${x.type==='income'?'+':'-'}${money(x.amount)} - ${x.entry_date}</span></div>`).join('')||'<p class="muted">Sem lançamentos</p>'; } }
 async function loadTeam(){ const{data=[]}=await sb.from('professionals').select('*').eq('slug',CURRENT_SLUG).order('name'); if($('#teamList')){ $('#teamList').innerHTML=data.map(x=>`<div class="list-row"><div><b>${escapeHtml(x.name)}</b><small>${escapeHtml(x.email||'') } - ${x.perfil}</small></div><div><button class="danger" data-team-delete="${x.id}">Excluir</button></div></div>`).join('')||'<p class="muted">Nenhum</p>'; } professionals=data; }
 async function excluirProfissional(id){ if(!confirm('Excluir?')) return; await sb.from('professionals').delete().eq('id',id).eq('slug',CURRENT_SLUG); await loadTeam(); }
+
 async function loadBarbershops(){
   if(!isSuperAdmin()) return;
-  const{data=[],error}=await sb.from('barbershops').select('*').order('created_at',{ascending:false});
-  if(error){ $('#barbershopList').innerHTML='<p>Erro: '+escapeHtml(error.message)+'</p>'; return; }
+  const{data:shops=[],error}=await sb.from('barbershops').select('*').order('created_at',{ascending:false});
+  if(error){ const el=$('#barbershopList'); if(el) el.innerHTML='<p>Erro: '+escapeHtml(error.message)+'</p>'; return; }
   const base=location.href.split('?')[0];
-  $('#barbershopList').innerHTML=data.map(b=>`<div class="list-row"><div><b>${escapeHtml(b.name)}</b><small>Slug: ${escapeHtml(b.slug)} • ${b.active?'Ativo':'Inativo'} • Owner: ${escapeHtml(b.owner_email||'-')}</small><small>Link cliente: ${base}?b=${escapeHtml(b.slug)}</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button data-manage-shop="${b.slug}" class="btn gold">⚙️ Gerenciar</button><button data-copy-link="${base}?b=${b.slug}">Copiar Link</button><button class="danger" data-shop-delete="${b.id}">Excluir</button></div></div>`).join('')||'<p class="muted">Nenhuma</p>';
+  const todayStr=today();
+  const in7Days=new Date(); in7Days.setDate(in7Days.getDate()+7);
+  const in7Str=in7Days.toISOString().slice(0,10);
+
+  // Métricas
+  const ativas=shops.filter(s=>s.active!==false).length;
+  const trial=shops.filter(s=> (s.plano||'trial')==='trial').length;
+  const mrr=shops.filter(s=>s.active!==false && s.plano!=='trial').reduce((a,b)=>a+Number(b.plano_valor||0),0);
+  const atraso=shops.filter(s=> s.data_vencimento && s.data_vencimento < todayStr && s.status_pagamento!=='pago').length;
+
+  if($('#metricAtivas')) $('#metricAtivas').textContent=ativas;
+  if($('#metricTrial')) $('#metricTrial').textContent=trial;
+  if($('#metricMRR')) $('#metricMRR').textContent=money(mrr);
+  if($('#metricAtraso')) $('#metricAtraso').textContent=atraso;
+
+  // Lista vencendo 7 dias
+  const vencendo=shops.filter(s=> s.data_vencimento && s.data_vencimento >= todayStr && s.data_vencimento <= in7Str).sort((a,b)=>a.data_vencimento.localeCompare(b.data_vencimento));
+
+  const listEl=$('#barbershopList');
+  if(!listEl) return;
+
+  if(document.querySelector('#page-superadmin.active')){
+    // Se estiver no Dashboard, mostra só as que vencem
+    listEl.innerHTML=vencendo.length?vencendo.map(b=>`<div class="list-row"><div><b>${escapeHtml(b.name)}</b><small>${escapeHtml(b.slug)} • Vence: ${b.data_vencimento} • ${escapeHtml(b.plano||'trial')} ${money(b.plano_valor||0)} • ${escapeHtml(b.owner_email||'')}</small></div><div style="display:flex;gap:6px;"><button data-manage-shop="${b.slug}" class="btn gold">Gerenciar</button><button data-copy-link="${base}?b=${b.slug}">Link</button></div></div>`).join(''):'<p class="muted">Nenhuma vencendo nos próximos 7 dias</p>';
+  }else{
+    // Se estiver em outro lugar, carrega todas? Não, o dashboard usa essa mesma div. Vamos carregar todas no dashboard também se não filtrado por vencimento? Para consulta usamos outra lógica - vamos listar todas
+    // Para a página de Consulta Barbearias (que usa mesmo ID), vamos listar todas
+    const pageCadastroActive=document.querySelector('#page-superadmin-cadastro.active');
+    if(pageCadastroActive){
+      // Não precisa listar aqui
+    }else{
+      listEl.innerHTML=shops.map(b=>`<div class="list-row"><div><b>${escapeHtml(b.name)}</b><small>Slug: ${escapeHtml(b.slug)} • Plano: ${escapeHtml(b.plano||'trial')} ${money(b.plano_valor||0)} • Venc: ${b.data_vencimento||'-'} • ${b.active?'Ativo':'Inativo'}</small><small>${escapeHtml(b.owner_email||'')} • ${escapeHtml(b.telefone||'')} • ${escapeHtml(b.cpf_cnpj||'')}</small><small>Link: ${base}?b=${b.slug}</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button data-manage-shop="${b.slug}" class="btn gold">⚙️ Gerenciar</button><button data-copy-link="${base}?b=${b.slug}">Copiar Link</button><button class="danger" data-shop-delete="${b.id}">Excluir</button></div></div>`).join('')||'<p class="muted">Nenhuma barbearia cadastrada</p>';
+    }
+  }
+
+  // Preenche filtro financeiro
+  const shopSelect=$('#superFinanceShopFilter');
+  if(shopSelect && shopSelect.options.length===1){
+    shops.forEach(s=>{ const opt=document.createElement('option'); opt.value=s.slug; opt.textContent=s.name+' ('+s.slug+')'; shopSelect.appendChild(opt); });
+  }
 }
+
 async function openManageShopModal(slug){
   currentManageSlug=slug;
   const{data:shop}=await sb.from('barbershops').select('*').eq('slug',slug).maybeSingle();
@@ -110,19 +151,10 @@ async function addShopAdmin(){
   const btn=$('#mAddAdminBtn'); btn.textContent='Criando e enviando e-mail...'; btn.disabled=true;
   const tempPass = Math.random().toString(36).slice(-8)+'A1!b2@';
   let userId = null;
-  try{
-    const { data: signUpData } = await sb.auth.signUp({ email, password: tempPass, options: { data: { name, phone, role: 'admin' } } });
-    if(signUpData?.user?.id) userId = signUpData.user.id;
-  }catch(e){}
+  try{ const { data } = await sb.auth.signUp({ email, password: tempPass, options: { data: { name, phone, role: 'admin' } } }); if(data?.user?.id) userId=data.user.id; }catch(e){}
   try{ await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }); }catch(e){}
-  try{
-    const { error: profError } = await sb.from('professionals').insert({ name, phone, email, perfil, slug: currentManageSlug, active: true });
-    if(profError && profError.message.includes('duplicate')){ await sb.from('professionals').update({ name, phone, perfil, active: true }).eq('email', email).eq('slug', currentManageSlug); }
-  }catch(e){}
-  try{
-    if(userId){ await sb.from('profiles').upsert({ id: userId, name, phone, email, role: 'admin', active: true, barbershop_slug: currentManageSlug }, { onConflict: 'id' }); }
-    else{ const { data: existing } = await sb.from('profiles').select('id').eq('email', email).maybeSingle(); if(existing?.id){ await sb.from('profiles').update({ role: 'admin', barbershop_slug: currentManageSlug, name, phone }).eq('id', existing.id); } }
-  }catch(e){}
+  try{ const { error } = await sb.from('professionals').insert({ name, phone, email, perfil, slug: currentManageSlug, active: true }); if(error && error.message.includes('duplicate')){ await sb.from('professionals').update({ name, phone, perfil, active: true }).eq('email', email).eq('slug', currentManageSlug); } }catch(e){}
+  try{ if(userId){ await sb.from('profiles').upsert({ id: userId, name, phone, email, role: 'admin', active: true, barbershop_slug: currentManageSlug }, { onConflict: 'id' }); } else { const { data: existing } = await sb.from('profiles').select('id').eq('email', email).maybeSingle(); if(existing?.id){ await sb.from('profiles').update({ role: 'admin', barbershop_slug: currentManageSlug, name, phone }).eq('id', existing.id); } } }catch(e){}
   btn.textContent='✉️ Criar ADM e Enviar Acesso por E-mail'; btn.disabled=false;
   toast('✅ ADM criado! E-mail enviado para '+email);
   $('#mNewAdminName').value=''; $('#mNewAdminEmail').value=''; $('#mNewAdminPhone').value='';
@@ -130,76 +162,38 @@ async function addShopAdmin(){
 }
 async function removeShopAdmin(id){ if(!confirm('Remover?')) return; await sb.from('professionals').delete().eq('id',id); toast('Removido'); await openManageShopModal(currentManageSlug); }
 async function resendAccess(email){ if(!email || email==='sem email'){ toast('Sem e-mail'); return; } const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }); if(error){ toast('Erro: '+error.message); } else { toast('🔑 Link reenviado para '+email); } }
-async function excluirBarbearia(id){ if(!confirm('Excluir barbearia?')) return; const{error}=await sb.from('barbershops').delete().eq('id',id); if(error){ toast(error.message); return; } toast('Excluída'); await loadBarbershops(); await loadSuperFinance(); }
+async function excluirBarbearia(id){ if(!confirm('Excluir barbearia? Isso apaga tudo da unidade!')) return; const{error}=await sb.from('barbershops').delete().eq('id',id); if(error){ toast(error.message); return; } toast('Excluída'); await loadBarbershops(); await loadSuperFinance(); }
 
-// FINANCEIRO LICENÇAS COM FILTRO DE INTERVALO
 async function loadSuperFinance(){
   if(!isSuperAdmin()) return;
   const{data:shops=[]}=await sb.from('barbershops').select('*').order('name');
   const{data:pays=[]}=await sb.from('barbershop_payments').select('*').order('payment_date',{ascending:false});
-  
-  // Preenche select de barbearias no filtro se vazio
   const shopSelect=$('#superFinanceShopFilter');
-  if(shopSelect && shopSelect.options.length===1){
-    shops.forEach(s=>{
-      const opt=document.createElement('option'); opt.value=s.slug; opt.textContent=s.name+' ('+s.slug+')'; shopSelect.appendChild(opt);
-    });
-  }
-
+  if(shopSelect && shopSelect.options.length===1){ shops.forEach(s=>{ const opt=document.createElement('option'); opt.value=s.slug; opt.textContent=s.name+' ('+s.slug+')'; shopSelect.appendChild(opt); }); }
   const shopFilter=$('#superFinanceShopFilter')?.value||'';
   const startFilter=$('#superFinanceStart')?.value||'';
   const endFilter=$('#superFinanceEnd')?.value||'';
-
   let filteredPays=[...pays];
   if(shopFilter) filteredPays=filteredPays.filter(p=>p.barbershop_slug===shopFilter);
   if(startFilter) filteredPays=filteredPays.filter(p=> (p.payment_date||'').slice(0,10) >= startFilter );
   if(endFilter) filteredPays=filteredPays.filter(p=> (p.payment_date||'').slice(0,10) <= endFilter );
-
   const totalFiltered=filteredPays.reduce((a,b)=>a+Number(b.amount||0),0);
-  const now=new Date(); const currentMonth=now.toISOString().slice(0,7);
-
-  // Resumo filtrado
   const summaryEl=$('#superFinanceSummary');
-  if(summaryEl){
-    summaryEl.innerHTML=`<div class="stat"><small>Filtrado</small><b>${filteredPays.length} pagamentos</b></div><div class="stat"><small>Total no intervalo</small><b>${money(totalFiltered)}</b></div><div class="stat"><small>Período</small><b style="font-size:12px">${startFilter||'início'} até ${endFilter||'hoje'}</b></div>`;
-  }
-
+  if(summaryEl){ summaryEl.innerHTML=`<div class="metric-card"><small>Filtrado</small><b>${filteredPays.length} pagamentos</b></div><div class="metric-card"><small>Total no intervalo</small><b>${money(totalFiltered)}</b></div><div class="metric-card"><small>Período</small><b style="font-size:12px">${startFilter||'início'} até ${endFilter||'hoje'}</b></div>`; }
   const list=$('#superFinanceList'); if(!list) return;
-
   if(shops.length===0){ list.innerHTML='<p class="muted">Nenhuma barbearia</p>'; return; }
-
-  let html='';
-  // Se filtro de barbearia, mostra só ela. Se não, mostra todas com seus pagamentos filtrados
   const shopsToShow=shopFilter ? shops.filter(s=>s.slug===shopFilter) : shops;
-
-  html+=shopsToShow.map(shop=>{
+  let html=shopsToShow.map(shop=>{
     const shopPays=filteredPays.filter(p=>p.barbershop_slug===shop.slug);
     const allShopPays=pays.filter(p=>p.barbershop_slug===shop.slug);
-    const paidThisMonth=allShopPays.some(p=>p.month_ref===currentMonth);
-    const statusText=paidThisMonth?`✅ PAGO EM ${currentMonth}`:`❌ ATRASADO - ${currentMonth}`;
-    const history=shopPays.map(p=>{
-      const d=new Date(p.payment_date);
-      const dataHora=d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-      return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px dashed #222;align-items:center;"><span>${dataHora} - Ref: ${p.month_ref} - ${p.method}</span><span><b>${money(p.amount)}</b> <button class="danger" data-del-pay="${p.id}" style="padding:2px 6px;font-size:10px;margin-left:6px">X</button></span></div>`;
-    }).join('')||'<small class="muted">Nenhum pagamento neste intervalo</small>';
-    
-    return `<div class="list-row ${paidThisMonth?'':'low-stock'}" style="flex-direction:column;align-items:stretch;gap:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:10px;">
-        <div><b>${escapeHtml(shop.name)} (${escapeHtml(shop.slug)})</b><br><small class="${paidThisMonth?'':'stock-alert'}" style="margin:0">${statusText} | Filtrado: ${money(shopPays.reduce((a,b)=>a+Number(b.amount||0),0))} (${shopPays.length})</small></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-          <input type="month" id="month-${shop.slug}" value="${currentMonth}" style="width:130px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff">
-          <input type="number" id="amount-${shop.slug}" value="100" style="width:80px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff">
-          <select id="method-${shop.slug}" style="width:90px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><option value="pix">PIX</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option></select>
-          <button data-add-pay="${shop.slug}" class="btn gold" style="padding:8px 12px;">+ Mensalidade</button>
-        </div>
-      </div>
-      <details style="width:100%;margin-top:4px;"><summary style="cursor:pointer;color:#d4af37;font-size:13px;">Ver histórico filtrado (${shopPays.length}) de ${allShopPays.length} total</summary><div style="margin-top:8px;background:#0a0a0a;padding:10px;border-radius:10px;border:1px solid #1e1e1e;">${history}</div></details>
-    </div>`;
+    const todayStr=today();
+    const paidThisMonth=allShopPays.some(p=>p.month_ref===todayStr.slice(0,7));
+    const statusText=paidThisMonth?`✅ PAGO MÊS ATUAL`:`❌ PENDENTE`;
+    const history=shopPays.map(p=>{ const d=new Date(p.payment_date); const dataHora=d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px dashed #222;align-items:center;"><span>${dataHora} - Ref: ${p.month_ref} - ${p.method}</span><span><b>${money(p.amount)}</b> <button class="danger" data-del-pay="${p.id}" style="padding:2px 6px;font-size:10px;margin-left:6px">X</button></span></div>`; }).join('')||'<small class="muted">Nenhum pagamento neste intervalo</small>';
+    return `<div class="list-row" style="flex-direction:column;align-items:stretch;gap:10px;"><div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:10px;"><div><b>${escapeHtml(shop.name)} (${escapeHtml(shop.slug)})</b><br><small style="color:${paidThisMonth?'#22c55e':'#ef4444'}">${statusText} | Filtrado: ${money(shopPays.reduce((a,b)=>a+Number(b.amount||0),0))} (${shopPays.length}) | Plano: ${escapeHtml(shop.plano||'trial')} ${money(shop.plano_valor||0)}</small></div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><input type="month" id="month-${shop.slug}" value="${todayStr.slice(0,7)}" style="width:130px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><input type="number" id="amount-${shop.slug}" value="${Number(shop.plano_valor||100)}" style="width:80px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><select id="method-${shop.slug}" style="width:90px;padding:8px;border-radius:8px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><option value="pix">PIX</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option></select><button data-add-pay="${shop.slug}" class="btn gold" style="padding:8px 12px;">+ Mensalidade</button></div></div><details style="width:100%;margin-top:4px;"><summary style="cursor:pointer;color:#d4af37;font-size:13px;">Ver histórico filtrado (${shopPays.length}) de ${allShopPays.length} total</summary><div style="margin-top:8px;background:#0a0a0a;padding:10px;border-radius:10px;border:1px solid #1e1e1e;">${history}</div></details></div>`;
   }).join('');
-
   list.innerHTML=html||'<p class="muted">Nenhum resultado no intervalo</p>';
 }
-
 async function addPayment(slug){
   const monthInput=document.getElementById('month-'+slug); const amountInput=document.getElementById('amount-'+slug); const methodInput=document.getElementById('method-'+slug);
   if(!monthInput||!amountInput) return;
@@ -214,26 +208,75 @@ async function excluirServico(id){ if(!confirm('Excluir?')) return; await sb.fro
 async function editarServico(id){ const s=services.find(x=>x.id===id); if(!s) return; const n=prompt('Nome',s.name); if(!n) return; const p=prompt('Preço',s.price); await sb.from('services').update({name:n.trim(),price:Number(p)||0}).eq('id',id); await loadServices(); }
 
 $$('[data-page]').forEach(b=>{ b.onclick=()=>go(b.dataset.page); });
+$$('[data-page-go]').forEach(b=>{ b.onclick=()=>go(b.dataset.pageGo); });
+
+document.addEventListener('click', (e)=>{
+  const card=e.target.closest('.plan-card');
+  if(card && card.dataset.plan){
+    $$('.plan-card').forEach(c=>c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedPlano=card.dataset.plan;
+    selectedPlanoValor=Number(card.dataset.valor||0);
+    // Atualiza vencimento automático
+    const vencEl=$('#shopVencimento');
+    if(vencEl){
+      const now=new Date();
+      if(selectedPlano==='trial'){ now.setDate(now.getDate()+7); } else { now.setDate(now.getDate()+30); }
+      vencEl.value=now.toISOString().slice(0,10);
+    }
+  }
+});
+
 $$('.auth-tabs button').forEach(b=>{ b.onclick=()=>{ $$('.auth-tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const signup=b.dataset.auth==='signup'; $('#loginForm')?.classList.toggle('hidden',signup); $('#signupForm')?.classList.toggle('hidden',!signup); }; });
 if($('#loginForm')){ $('#loginForm').onsubmit=async(e)=>{ e.preventDefault(); const{error}=await sb.auth.signInWithPassword({email:$('#loginEmail').value.trim(),password:$('#loginPassword').value}); if(error){ alert('Login falhou: '+error.message); } }; }
-if($('#signupForm')){ $('#signupForm').onsubmit=async(e)=>{ e.preventDefault(); const name=$('#signupName').value.trim(); const phone=$('#signupPhone').value.trim(); const email=$('#signupEmail').value.trim(); const password=$('#signupPassword').value; const birth=$('#signupBirth').value||null; const{data,error}=await sb.auth.signUp({email,password,options:{data:{name,phone,birth}}}); if(error){ toast(error.message); return; } if(data.session){ await sb.from('profiles').upsert({id:data.user.id,name,phone,email,birth,role:'client',active:true}); toast('Cadastrado'); }else{ toast('Confirme e-mail'); } }; }
+if($('#signupForm')){ $('#signupForm').onsubmit=async(e)=>{ e.preventDefault(); const name=$('#signupName').value.trim(); const phone=$('#signupPhone').value.trim(); const email=$('#signupEmail').value.trim(); const password=$('#signupPassword').value; const birth=$('#signupBirth').value||null; const{data,error}=await sb.auth.signUp({email,password,options:{data:{name,[STRIPPED] if(error){ toast(error.message); return; } if(data.session){ await sb.from('profiles').upsert({id:data.user.id,name,phone,email,birth,role:'client',active:true}); toast('Cadastrado'); }else{ toast('Confirme e-mail'); } }; }
 if($('#logoutBtn')){ $('#logoutBtn').onclick=()=>sb.auth.signOut(); }
 if($('#serviceForm')){ $('#serviceForm').onsubmit=async(e)=>{ e.preventDefault(); const{error}=await sb.from('services').insert({name:$('#serviceName').value.trim(),price:Number($('#servicePrice').value),duration:Number($('#serviceDuration').value),active:true,slug:CURRENT_SLUG}); if(error){ toast(error.message); }else{ e.target.reset(); await loadServices(); } }; }
 if($('#stockForm')){ $('#stockForm').onsubmit=async(e)=>{ e.preventDefault(); const qty=Number($('#stockQty').value); const min=Number($('#stockMin').value); const{error}=await sb.from('inventory').insert({name:$('#stockName').value.trim(),quantity:qty,min_quantity:min,slug:CURRENT_SLUG}); if(error){ toast(error.message); }else{ e.target.reset(); await loadStock(); } }; }
 if($('#financeForm')){ $('#financeForm').onsubmit=async(e)=>{ e.preventDefault(); const{error}=await sb.from('cash_entries').insert({type:$('#financeType').value,description:$('#financeDesc').value.trim(),amount:Number($('#financeAmount').value),entry_date:$('#financeDate').value,slug:CURRENT_SLUG}); if(error){ toast(error.message); }else{ e.target.reset(); if($('#financeDate')) $('#financeDate').value=today(); await loadFinance(); } }; }
 if($('#teamForm')){ $('#teamForm').onsubmit=async(e)=>{ e.preventDefault(); const n=$('#teamName').value.trim(); const ph=$('#teamPhone').value.trim(); const perfil=$('#teamPerfil').value; const{error}=await sb.from('professionals').insert({name:n,phone:ph,perfil,active:true,slug:CURRENT_SLUG}); if(error){ toast(error.message); return; } e.target.reset(); await loadProfessionals(); await loadTeam(); toast('Cadastrado'); }; }
+
 if($('#barbershopForm')){
-  $('#barbershopForm').onsubmit=async(e)=>{
-    e.preventDefault(); if(!isSuperAdmin()){ toast('Só super admin'); return; }
-    const slug=$('#shopSlug').value.trim().toLowerCase().replace(/\s+/g,'-'); const name=$('#shopName').value.trim(); const logo=$('#shopLogo').value.trim()||'dnh-logo.png'; const owner=$('#shopOwner').value.trim()||null;
-    if(!slug||!name){ toast('Preencha'); return; }
-    const{error}=await sb.from('barbershops').insert({slug,name,logo_url:logo,owner_email:owner});
-    if(error){ toast(error.message); return; }
-    await sb.from('settings').insert({slug,name,logo_url:logo,whatsapp:'',start_time:'08:00:00',end_time:'18:00:00',slot_interval:30,lunch_start:'12:00:00',lunch_end:'13:00:00'});
-    toast('Criada! ?b='+slug); e.target.reset(); await loadBarbershops(); await loadSuperFinance();
-  };
-  const shopSlugInput=$('#shopSlug'); if(shopSlugInput){ shopSlugInput.addEventListener('input',()=>{ const s=shopSlugInput.value.trim()||'slug'; const el=$('#previewLink'); if(el) el.textContent=location.href.split('?')[0]+'?b='+s; }); }
+  const shopSlugInput=$('#shopSlug');
+  if(shopSlugInput){ shopSlugInput.addEventListener('input',()=>{ const s=shopSlugInput.value.trim()||'slug'; const el=$('#previewLink'); if(el) el.textContent=location.href.split('?')[0]+'?b='+s; }); }
+  const vencInput=$('#shopVencimento');
+  if(vencInput){ const d=new Date(); d.setDate(d.getDate()+7); vencInput.value=d.toISOString().slice(0,10); }
 }
+
+const btnSalvar=$('#btnSalvarBarbearia');
+if(btnSalvar){
+  btnSalvar.onclick=async()=>{
+    if(!isSuperAdmin()){ toast('Só super admin'); return; }
+    const slug=$('#shopSlug').value.trim().toLowerCase().replace(/\s+/g,'-');
+    const name=$('#shopName').value.trim();
+    const logo=$('#shopLogo').value.trim()||'dnh-logo.png';
+    const owner=$('#shopOwner').value.trim();
+    const telefone=$('#shopPhone').value.trim()||null;
+    const cpf_cnpj=$('#shopCpfCnpj').value.trim()||null;
+    const data_vencimento=$('#shopVencimento').value||null;
+    const statusVal=$('#shopStatus').value||'ativo';
+    if(!slug||!name||!owner){ toast('Preencha Nome, Slug e E-mail do proprietário'); return; }
+    
+    const payload={
+      slug, name, logo_url: logo, owner_email: owner,
+      telefone, cpf_cnpj, data_vencimento,
+      active: statusVal==='ativo',
+      plano: selectedPlano,
+      plano_valor: selectedPlanoValor,
+      status_pagamento: selectedPlano==='trial'?'trial':'pendente'
+    };
+    
+    const{error}=await sb.from('barbershops').insert(payload);
+    if(error){ toast(error.message); return; }
+    await sb.from('settings').insert({slug,name,logo_url:logo,whatsapp:telefone||'',start_time:'08:00:00',end_time:'18:00:00',slot_interval:30,lunch_start:'12:00:00',lunch_end:'13:00:00'});
+    toast('✅ Barbearia criada! Plano: '+selectedPlano+' - R$ '+selectedPlanoValor);
+    $('#barbershopForm').reset();
+    const d=new Date(); d.setDate(d.getDate()+7); if($('#shopVencimento')) $('#shopVencimento').value=d.toISOString().slice(0,10);
+    await loadBarbershops();
+    go('superadmin');
+  };
+}
+
 if($('#saveSettings')){
   $('#saveSettings').onclick=async()=>{
     const weekly={}; $$('[data-weekday]').forEach(row=>{ const d=row.dataset.weekday; weekly[d]={enabled:row.querySelector('[data-week-enabled]')?.checked!==false,start:row.querySelector('[data-week-start]')?.value||'08:00',end:row.querySelector('[data-week-end]')?.value||'18:00'}; });
@@ -266,12 +309,7 @@ document.addEventListener('click', async (e)=>{
   if(t.matches('[data-stock-exit]')){ await registrarMovimento(t.dataset.stockExit,'out'); return; }
   if(t.matches('[data-team-delete]')){ await excluirProfissional(t.dataset.teamDelete); return; }
   if(t.id==='filterSuperFinance'){ await loadSuperFinance(); return; }
-  if(t.id==='clearSuperFinance'){ 
-    const s=$('#superFinanceShopFilter'); if(s) s.value=''; 
-    const a=$('#superFinanceStart'); if(a) a.value=''; 
-    const b=$('#superFinanceEnd'); if(b) b.value=''; 
-    await loadSuperFinance(); return; 
-  }
+  if(t.id==='clearSuperFinance'){ const s=$('#superFinanceShopFilter'); if(s) s.value=''; const a=$('#superFinanceStart'); if(a) a.value=''; const b=$('#superFinanceEnd'); if(b) b.value=''; await loadSuperFinance(); return; }
 });
 
 if($('#clientService')) $('#clientService').addEventListener('change',loadClientTimes);
@@ -285,10 +323,10 @@ async function init(){
   const sI=$('#financeStart'); const eI=$('#financeEnd'); if(sI){ const d=new Date(); d.setDate(1); sI.value=d.toISOString().slice(0,10); } if(eI) eI.value=today();
   sb.auth.onAuthStateChange(async(ev,sess)=>{
     const av=$('#authView'); const ap=$('#appView');
-    if(sess){ await user(); if(!profile) return; if(av) av.classList.add('hidden'); if(ap) ap.classList.remove('hidden'); aplicarPermissoesUI(); await loadSettings(); await loadServices(); await loadProfessionals(); if(isSuperAdmin()){ localStorage.removeItem('dnh_slug'); go('superadmin'); } else if(profile?.role==='admin') go('dashboard'); else go('agenda'); }
+    if(sess){ await user(); if(!profile) return; if(av) av.classList.add('hidden'); if(ap) ap.classList.remove('hidden'); aplicarPermissoesUI(); await loadSettings(); await loadServices(); await loadProfessionals(); if(isSuperAdmin()){ go('superadmin'); } else if(profile?.role==='admin') go('dashboard'); else go('agenda'); }
     else{ profile=null; if(av) av.classList.remove('hidden'); if(ap) ap.classList.add('hidden'); }
   });
   const{data:{session}}=await sb.auth.getSession();
-  if(session){ await user(); if(profile){ $('#authView')?.classList.add('hidden'); $('#appView')?.classList.remove('hidden'); aplicarPermissoesUI(); await loadSettings(); await loadServices(); await loadProfessionals(); if(isSuperAdmin()){ localStorage.removeItem('dnh_slug'); go('superadmin'); } else if(profile?.role==='admin') go('dashboard'); else go('agenda'); } }
+  if(session){ await user(); if(profile){ $('#authView')?.classList.add('hidden'); $('#appView')?.classList.remove('hidden'); aplicarPermissoesUI(); await loadSettings(); await loadServices(); await loadProfessionals(); if(isSuperAdmin()){ go('superadmin'); } else if(profile?.role==='admin') go('dashboard'); else go('agenda'); } }
 }
 init();
