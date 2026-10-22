@@ -14,23 +14,9 @@
   <div class="auth-card">
     <img src="dnh-logo.png" style="width:80px;height:80px;object-fit:contain;border-radius:50%;background:#111;">
     <h2>DNH BARBEARIA</h2>
-    <div class="auth-tabs">
-      <button data-auth="login" class="active">Entrar</button>
-      <button data-auth="signup">Cadastrar</button>
-    </div>
-    <form id="loginForm">
-      <input id="loginEmail" type="email" placeholder="E-mail" required>
-      <input id="loginPassword" type="password" placeholder="Senha" required>
-      <button type="submit" class="btn gold full">Entrar</button>
-    </form>
-    <form id="signupForm" class="hidden">
-      <input id="signupName" placeholder="Nome completo" required>
-      <input id="signupPhone" placeholder="Telefone" required>
-      <input id="signupEmail" type="email" placeholder="E-mail" required>
-      <input id="signupPassword" type="password" placeholder="Senha" required>
-      <input id="signupBirth" type="date">
-      <button type="submit" class="btn gold full">Cadastrar</button>
-    </form>
+    <div class="auth-tabs"><button data-auth="login" class="active">Entrar</button><button data-auth="signup">Cadastrar</button></div>
+    <form id="loginForm"><input id="loginEmail" type="email" placeholder="E-mail" required><input id="loginPassword" type="password" placeholder="Senha" required><button type="submit" class="btn gold full">Entrar</button></form>
+    <form id="signupForm" class="hidden"><input id="signupName" placeholder="Nome completo" required><input id="signupPhone" placeholder="Telefone" required><input id="signupEmail" type="email" placeholder="E-mail" required><input id="signupPassword" type="password" placeholder="Senha" required><input id="signupBirth" type="date"><button type="submit" class="btn gold full">Cadastrar</button></form>
   </div>
 </div>
 
@@ -67,31 +53,22 @@
     <section id="page-team" class="page"><h1>Equipe</h1><div class="card"><form id="teamForm" class="inline-form"><input id="teamName" placeholder="Nome" required><input id="teamPhone" placeholder="Telefone"><select id="teamPerfil" required><option value="barbeiro">Barbeiro</option><option value="gerente">Gerente</option><option value="admin">Admin</option></select><button class="btn gold">Add</button></form><div id="teamList" class="list"></div></div></section>
     <section id="page-settings" class="page"><div class="page-header"><h1>Configurações</h1><div class="share-box"><span id="shareUrl"></span><button id="copyShare" class="btn small">Copiar Link</button></div></div><div class="card config-card"><h3>Informações da Barbearia</h3><div class="field"><label>Nome da Barbearia</label><input id="setName"></div><div class="field"><label>WhatsApp</label><input id="setWhatsapp"></div><div class="field"><label>Logo URL</label><input id="setLogoUrl"></div><h3 style="margin-top:24px;">Horário Padrão</h3><div class="grid-2"><div class="field"><label>Abre</label><input id="setStart" type="time"></div><div class="field"><label>Fecha</label><input id="setEnd" type="time"></div></div><div class="grid-2"><div class="field"><label>Intervalo (min)</label><input id="setInterval" type="number"></div><div class="field"><label>Almoço</label><div class="grid-2"><input id="setLunchStart" type="time"><input id="setLunchEnd" type="time"></div></div></div><h3 style="margin-top:24px;">Horário por Dia</h3><div id="weeklyBox" class="weekly-grid"></div><button id="saveSettings" class="btn gold full" style="margin-top:24px;padding:14px;">Salvar Configurações</button></div></section>
 
-    <!-- SUPERADMIN - TELAS REFEITAS BONITAS -->
-    <section id="page-superadmin" class="page">
-      <div class="page-header"><h1>👑 Consulta Barbearias</h1><small style="color:#777">Gestora de licenças</small></div>
-      <div class="card"><div id="barbershopList" class="list"></div></div>
-    </section>
-
-    <section id="page-superadmin-cadastro" class="page">
-      <div class="page-header"><h1>➕ Cadastro de Barbearia</h1></div>
-      <div class="card cadastro-card">
-        <div class="cadastro-icon">✂️</div>
-        <h2>Nova Barbearia Licenciada</h2>
-        <p>Crie o acesso da nova unidade. O slug será o link da barbearia.</p>
-        <form id="barbershopForm" class="cadastro-form">
-          <div class="field"><label>Slug da Barbearia *</label><input id="shopSlug" placeholder="ex: dnh-jacarepagua" required><small id="previewLink" class="preview-link"></small></div>
-          <div class="field"><label>Nome da Barbearia *</label><input id="shopName" placeholder="ex: DNH Barbearia Jacarepaguá" required></div>
-          <div class="field"><label>Logo URL (opcional)</label><input id="shopLogo" placeholder="dnh-logo.png ou https://..."></div>
-          <div class="field"><label>E-mail do Dono (opcional)</label><input id="shopOwner" type="email" placeholder="dono@email.com"></div>
-          <button class="btn gold full" type="submit" style="padding:14px;margin-top:8px;font-size:15px;">🚀 Criar Barbearia</button>
-        </form>
-      </div>
-    </section>
+    <section id="page-superadmin" class="page"><div class="page-header"><h1>👑 Consulta Barbearias</h1><small style="color:#777">Gestora de licenças</small></div><div class="card"><div id="barbershopList" class="list"></div></div></section>
+    <section id="page-superadmin-cadastro" class="page"><div class="page-header"><h1>➕ Cadastro de Barbearia</h1></div><div class="card cadastro-card"><div class="cadastro-icon">✂️</div><h2>Nova Barbearia Licenciada</h2><p>Crie o acesso da nova unidade. O slug será o link da barbearia.</p><form id="barbershopForm" class="cadastro-form"><div class="field"><label>Slug da Barbearia *</label><input id="shopSlug" placeholder="ex: dnh-jacarepagua" required><small id="previewLink" class="preview-link"></small></div><div class="field"><label>Nome da Barbearia *</label><input id="shopName" placeholder="ex: DNH Barbearia Jacarepaguá" required></div><div class="field"><label>Logo URL (opcional)</label><input id="shopLogo" placeholder="dnh-logo.png"></div><div class="field"><label>E-mail do Dono (opcional)</label><input id="shopOwner" type="email" placeholder="dono@email.com"></div><button class="btn gold full" type="submit" style="padding:14px;margin-top:8px;">🚀 Criar Barbearia</button></form></div></section>
 
     <section id="page-superadmin-financeiro" class="page">
       <div class="page-header"><h1>💰 Financeiro Licenças</h1><small style="color:#777">Apenas mensalidades das licenças</small></div>
-      <div class="card"><div id="superFinanceList" class="list"></div></div>
+      <div class="card">
+        <div class="filter-row" style="background:#0f0f0f;padding:12px;border-radius:12px;border:1px solid #1e1e1e;margin-bottom:16px;">
+          <select id="superFinanceShopFilter" style="flex:1;min-width:160px;padding:10px;border-radius:10px;border:1px solid #2a2a2a;background:#1e1e1e;color:#fff"><option value="">Todas as barbearias</option></select>
+          <input type="date" id="superFinanceStart" style="flex:1;min-width:130px" title="Data início">
+          <input type="date" id="superFinanceEnd" style="flex:1;min-width:130px" title="Data fim">
+          <button id="filterSuperFinance" class="btn gold">Filtrar</button>
+          <button id="clearSuperFinance" class="btn">Limpar</button>
+        </div>
+        <div id="superFinanceSummary" class="stats-row"></div>
+        <div id="superFinanceList" class="list"></div>
+      </div>
     </section>
   </main>
 </div>
