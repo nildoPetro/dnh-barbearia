@@ -207,17 +207,36 @@ async function openManageShopModal(slug){
   $('#mShopName').value=shop.name||''; $('#mShopSlug').value=shop.slug||''; $('#mShopLogo').value=shop.logo_url||''; $('#mShopOwner').value=shop.owner_email||''; $('#mShopActive').checked=shop.active!==false;
   $('#manageShopTitle').textContent='Gerenciar: '+shop.name;
   $('#mShopLink').textContent=location.href.split('?')[0]+'?b='+shop.slug;
+  // NOVO - CARREGA PLANO
+  const planoSel=$('#mShopPlano'); if(planoSel) planoSel.value=(shop.plano||'trial').toLowerCase();
+  const valorEl=$('#mShopPlanoValor'); if(valorEl) valorEl.value=getPlanoValor(shop.plano, shop.plano_valor);
+  const vencEl=$('#mShopVencimento'); if(vencEl) vencEl.value=shop.data_vencimento||'';
+  const statusPagEl=$('#mShopStatusPag'); if(statusPagEl) statusPagEl.value=shop.status_pagamento||'trial';
+  
   const{data:admins=[]}=await sb.from('professionals').select('*').eq('slug',slug).order('name');
   $('#mShopAdminsList').innerHTML=admins.length?admins.map(a=>`<div class="list-row" style="padding:10px 12px;margin:0;background:#1e1e1e;border-color:#2a2a2a;"><div><b style="color:#fff">${escapeHtml(a.name)}</b><small style="display:block;color:#aaa">${escapeHtml(a.email||'sem email')} • ${escapeHtml(a.perfil)} • ${escapeHtml(a.phone||'')}</small></div><div style="display:flex;gap:6px;"><button data-resend="${a.email}" style="padding:6px 8px;font-size:11px;background:#222;color:#d4af37;border:1px solid #d4af37;">Reenviar</button><button class="danger" data-remove-admin="${a.id}" style="padding:6px 8px;font-size:11px;">Remover</button></div></div>`).join(''):'<div style="padding:12px;text-align:center;color:#666;background:#1a1a1a;border-radius:10px;border:1px dashed #333;">Nenhum admin</div>';
   $('#manageShopModal').classList.remove('hidden'); $('#manageShopModal').style.display='flex';
 }
 async function saveManageShop(){
   if(!currentManageSlug) return;
-  const payload={name:$('#mShopName').value.trim(),logo_url:$('#mShopLogo').value.trim()||'dnh-logo.png',owner_email:$('#mShopOwner').value.trim()||null,active:$('#mShopActive').checked};
+  const plano=$('#mShopPlano')?.value||'trial';
+  const planoValor=Number($('#mShopPlanoValor')?.value||0)||getPlanoValor(plano,0);
+  const payload={
+    name:$('#mShopName').value.trim(),
+    logo_url:$('#mShopLogo').value.trim()||'dnh-logo.png',
+    owner_email:$('#mShopOwner').value.trim()||null,
+    active:$('#mShopActive').checked,
+    plano: plano,
+    plano_valor: planoValor,
+    data_vencimento: $('#mShopVencimento')?.value||null,
+    status_pagamento: $('#mShopStatusPag')?.value||'trial'
+  };
   const{error}=await sb.from('barbershops').update(payload).eq('slug',currentManageSlug);
   if(error){ toast(error.message); return; }
   await sb.from('settings').update({name:payload.name,logo_url:payload.logo_url}).eq('slug',currentManageSlug);
-  toast('Salvo!'); $('#manageShopModal').style.display='none'; $('#manageShopModal').classList.add('hidden'); await loadDashboardPrincipal();
+  toast('✅ Barbearia atualizada! Plano: '+plano+' - '+money(planoValor));
+  $('#manageShopModal').style.display='none'; $('#manageShopModal').classList.add('hidden'); 
+  await loadDashboardPrincipal();
 }
 async function addShopAdmin(){
   if(!currentManageSlug) return;
@@ -450,3 +469,10 @@ async function init(){
   }
 }
 init();
+const mPlanoEl=$('#mShopPlano');
+if(mPlanoEl){
+  mPlanoEl.addEventListener('change',()=>{
+    const v=getPlanoValor(mPlanoEl.value,0);
+    const valorInput=$('#mShopPlanoValor'); if(valorInput) valorInput.value=v;
+  });
+}
