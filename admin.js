@@ -16,23 +16,18 @@ async function gerarHorariosDisponiveis(){const dataSel=$('#agData')?.value||tod
 async function listarAgendaDia(){const dataSel=$('#agData')?.value||today();const{data:books=[]}=await sb.from('bookings').select('*,services(name,price)').eq('slug',CURRENT_SLUG).eq('booking_date',dataSel).order('booking_time');$('#adminAgendaList').innerHTML=`<h3>Agenda ${dataSel.split('-').reverse().join('/')} - ${books.length} agend.</h3>`+(books.length?books.map(b=>`<div class="list-row"><div><b>${(b.booking_time||'').slice(0,5)}</b> - ${esc(b.client_name||'')} - ${esc(b.phone||'')}<small style="display:block">${esc(b.services?.name||'')} • ${b.paid?'✅ Pago':'⏳ Não pago'}</small></div><div style="display:flex;gap:6px"><button data-edit-book="${b.id}" class="btn small">Editar</button><button data-cancel-book="${b.id}" class="btn small danger">Cancelar</button></div></div>`).join(''):'<p style="color:#666">Sem agendamentos</p>');}
 async function loadServ(){const{data:servs=[]}=await sb.from('services').select('*').eq('slug',CURRENT_SLUG).order('name');$('#listaServicos').innerHTML=servs.map(s=>`<div class="list-row"><div><b>${esc(s.name)}</b><small>${money(s.price)} • ${s.duration}min</small></div><div style="display:flex;gap:6px"><button data-edit-serv="${s.id}" class="btn small">✏️ Editar</button><button data-del-serv="${s.id}" class="btn small danger">Excluir</button></div></div>`).join('')||'<p style="color:#666">Nenhum</p>';}
 
-// ESTOQUE PROFISSIONAL - COM HISTÓRICO
 async function loadEst(){
  const hoje=today();
  if($('#estEntradaData'))$('#estEntradaData').value=hoje;
  if($('#retiradaData'))$('#retiradaData').value=hoje;
  if($('#estFiltroInicio'))$('#estFiltroInicio').value=hoje;
  if($('#estFiltroFim'))$('#estFiltroFim').value=hoje;
-
  const {data:catalog=[]} = await sb.from('product_catalog').select('*').eq('slug',CURRENT_SLUG).order('name');
  const {data:items=[]}=await sb.from('stock').select('*').eq('slug',CURRENT_SLUG).order('name');
- 
  const options = catalog.length ? catalog.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('') : '<option value="">Cadastre no catálogo</option>';
  if($('#estEntradaProduto')) $('#estEntradaProduto').innerHTML = options;
  if($('#estFiltroProduto')) $('#estFiltroProduto').innerHTML = '<option value="">Todos produtos</option>' + options;
-
  $('#retiradaProduto').innerHTML='<option value="">Selecione...</option>'+items.map(i=>`<option value="${i.name}" data-qtd="${i.quantity}" data-id="${i.id}">${esc(i.name)} (Qtd em estoque: ${i.quantity})</option>`).join('');
-
  if(!estoqueVisivel){$('#listaEstoque').innerHTML='<p style="color:var(--text)">Recolhido</p>';}else{
    $('#listaEstoque').innerHTML=items.map(i=>{const al=Number(i.quantity)<=Number(i.min_quantity);return `<div class="list-row ${al?'estoque-alerta':''}"><div><b>${esc(i.name)}</b><small>Qtd:${i.quantity} Min:${i.min_quantity} Custo médio:${money(i.cost)} | ${i.category||'sem categoria'}</small>${al?'<br><span style="color:#ff6b6b">⚠️ ABAIXO MÍNIMO - Comprar!</span>':''}</div><div style="display:flex;gap:6px"><button data-edit-est="${i.id}" class="btn small">✏️</button><button data-del-est="${i.id}" class="btn small danger">X</button></div></div>`;}).join('')||'<p style="color:#666">Nenhum produto - compre e lance em Entrada</p>';
  }
@@ -40,16 +35,41 @@ async function loadEst(){
 }
 async function loadMovimentos(){
  const ini=$('#estFiltroInicio')?.value, fim=$('#estFiltroFim')?.value, prod=$('#estFiltroProduto')?.value;
- let q=sb.from('stock_movements').select('*').eq('slug',CURRENT_SLUG).order('movement_date',{ascending:false}).order('created_at',{ascending:false}).limit(100);
+ let q=sb.from('stock_movements').select('*').eq('slug',CURRENT_SLUG).order('movement_date',{ascending:false}).order('created_at',{ascending:false}).limit(150);
  if(ini) q=q.gte('movement_date',ini);
  if(fim) q=q.lte('movement_date',fim);
  if(prod) q=q.eq('product_name',prod);
  const {data:moves=[]} = await q;
- if(!moves.length){$('#listaMovimentos').innerHTML='<p style="color:#666">Nenhuma movimentação no intervalo - use Entrada quando comprar e Saída quando usar</p>';return;}
+ if(!moves.length){$('#listaMovimentos').innerHTML='<p style="color:#666">Nenhuma movimentação no intervalo</p>';return;}
  $('#listaMovimentos').innerHTML=moves.map(m=>{
    const isEntrada=m.type==='entrada';
-   return `<div class="list-row" style="border-left:3px solid ${isEntrada?'#4ade80':'#f87171'}"><div><b style="color:${isEntrada?'#4ade80':'#f87171'}">${isEntrada?'🟢 COMPRA':'🔴 SAÍDA'} ${m.quantity}x ${esc(m.product_name)}</b> - ${money(m.total_cost||m.unit_cost*m.quantity||0)}<small style="display:block;color:#8a8fa3">${m.movement_date.split('-').reverse().join('/')} • ${esc(m.reason||m.supplier||'')} ${m.supplier?`• Forn: ${esc(m.supplier)}`:''} • Custo un: ${money(m.unit_cost)}</small></div><div style="display:flex;gap:6px"><button data-del-mov="${m.id}" class="btn small danger">X</button></div></div>`;
+   return `<div class="list-row" style="border-left:3px solid ${isEntrada?'#4ade80':'#f87171'}"><div><b style="color:${isEntrada?'#4ade80':'#f87171'}">${isEntrada?'🟢 COMPRA':'🔴 SAÍDA'} ${m.quantity}x ${esc(m.product_name)}</b> - ${money(m.total_cost||m.unit_cost*m.quantity||0)}<small style="display:block;color:#8a8fa3">${m.movement_date.split('-').reverse().join('/')} • ${esc(m.reason||'')}${m.supplier?` • Forn: ${esc(m.supplier)}`:''} • Un: ${money(m.unit_cost)}</small></div><div style="display:flex;gap:6px"><button data-edit-mov="${m.id}" class="btn small">✏️ Editar</button><button data-del-mov="${m.id}" class="btn small danger">X</button></div></div>`;
  }).join('');
+}
+async function deleteMovimento(id){
+  const {data:mov}=await sb.from('stock_movements').select('*').eq('id',id).maybeSingle();
+  if(!mov){toast('Movimentação não encontrada');return;}
+  const isEntrada = mov.type==='entrada';
+  const {data:stockRow}=await sb.from('stock').select('*').eq('slug',CURRENT_SLUG).eq('name',mov.product_name).maybeSingle();
+  if(isEntrada){
+    if(!stockRow || Number(stockRow.quantity) < Number(mov.quantity)){
+      if(!confirm(`⚠️ Você vai excluir COMPRA de ${mov.quantity}x ${mov.product_name} mas saldo é só ${stockRow?.quantity||0}. Vai ficar NEGATIVO. Continuar?`)) return;
+    }
+    const novaQtd = Math.max(0, Number(stockRow?.quantity||0) - Number(mov.quantity));
+    if(stockRow) await sb.from('stock').update({quantity:novaQtd}).eq('id',stockRow.id);
+    await sb.from('stock_movements').delete().eq('id',id);
+    toast(`🗑️ Compra excluída -${mov.quantity} ${mov.product_name} (novo saldo: ${novaQtd})`);
+  }else{
+    const novaQtd = Number(stockRow?.quantity||0) + Number(mov.quantity);
+    if(stockRow){
+      await sb.from('stock').update({quantity:novaQtd}).eq('id',stockRow.id);
+    }else{
+      await sb.from('stock').insert({slug:CURRENT_SLUG,name:mov.product_name,quantity:mov.quantity,min_quantity:5,cost:mov.unit_cost||0});
+    }
+    await sb.from('stock_movements').delete().eq('id',id);
+    toast(`🗑️ Saída excluída +${mov.quantity} ${mov.product_name} devolvido (novo: ${novaQtd})`);
+  }
+  loadEst(); loadDash();
 }
 
 async function loadFunc(){const{data:funcs=[]}=await sb.from('professionals').select('*').eq('slug',CURRENT_SLUG).order('name');$('#listaFuncionarios').innerHTML=funcs.map(f=>`<div class="list-row"><div><b>${esc(f.name)}</b><small>${esc(f.phone||'')} • ${esc(f.perfil)} • ${f.start_time||''}-${f.end_time||''}</small></div><div style="display:flex;gap:6px"><button data-edit-func="${f.id}" class="btn small">✏️ Editar</button><button data-del-func="${f.id}" class="btn small danger">Excluir</button></div></div>`).join('')||'<p style="color:#666">Nenhum</p>';}
@@ -90,7 +110,6 @@ document.addEventListener('click',async e=>{
  if(t.id==='btnSaveEditServ'){await sb.from('services').update({name:$('#editServNome').value.trim(),price:Number($('#editServPreco').value||0),duration:Number($('#editServDuracao').value||0)}).eq('id',editServId);toast('Atualizado');$('#editServModal').classList.remove('show');loadServ();return;}
  if(t.matches('[data-del-serv]')){if(!confirm('Excluir?'))return;await sb.from('services').delete().eq('id',t.dataset.delServ);loadServ();return;}
 
- // CATÁLOGO
  if(t.id==='btnAddCatalog'){
    let nome = ($('#newCatalogName').value||'').trim().toLowerCase();
    if(!nome){toast('Digite nome');return;}
@@ -103,31 +122,26 @@ document.addEventListener('click',async e=>{
    toast(`✅ "${nome}" no catálogo`);$('#newCatalogName').value='';loadEst();return;
  }
 
- // ENTRADA / COMPRA - AGORA SOMA E REGISTRA HISTÓRICO COM DATA
  if(t.id==='btnAddEntrada'){
    const nome=$('#estEntradaProduto').value, qtd=Number($('#estEntradaQtd').value||0), custo=Number($('#estEntradaCusto').value||0), dataMov=$('#estEntradaData').value||today(), forn=$('#estEntradaForn').value.trim();
    if(!nome||!qtd){toast('Selecione produto e qtd');return;}
    const total=custo*qtd;
-   // 1. Registra movimentação de entrada com data
    const {error:movErr} = await sb.from('stock_movements').insert({slug:CURRENT_SLUG,product_name:nome,type:'entrada',quantity:qtd,unit_cost:custo,total_cost:total,supplier:forn,reason:'compra',movement_date:dataMov});
    if(movErr){toast(movErr.message);return;}
-   // 2. Atualiza ou cria saldo no stock (soma, não dá erro de duplicidade)
    const {data:existe} = await sb.from('stock').select('*').eq('slug',CURRENT_SLUG).eq('name',nome).maybeSingle();
    if(existe){
      const novaQtd=Number(existe.quantity||0)+qtd;
-     const novoCusto = custo>0 ? ((Number(existe.cost||0)*Number(existe.quantity||0) + total)/novaQtd) : Number(existe.cost||0); // custo médio ponderado
+     const novoCusto = custo>0 ? ((Number(existe.cost||0)*Number(existe.quantity||0) + total)/novaQtd) : Number(existe.cost||0);
      await sb.from('stock').update({quantity:novaQtd,cost:novoCusto}).eq('id',existe.id);
    }else{
      await sb.from('stock').insert({slug:CURRENT_SLUG,name:nome,quantity:qtd,min_quantity:5,cost:custo,category:'uso'});
    }
-   toast(`✅ Compra registrada: ${qtd}x ${nome} em ${dataMov.split('-').reverse().join('/')} - Saldo atualizado`);
+   toast(`✅ Compra ${qtd}x ${nome} em ${dataMov.split('-').reverse().join('/')}`);
    $('#estEntradaQtd').value='';$('#estEntradaCusto').value='';$('#estEntradaForn').value='';
    loadEst();loadDash();return;
  }
-
  if(t.id==='btnToggleEstoque'){estoqueVisivel=!estoqueVisivel;loadEst();return;}
 
- // SAÍDA / RETIRADA - COM QTD EM ESTOQUE E POPUP SE MAIOR
  if(t.id==='btnRetirar'){
    const nome=$('#retiradaProduto').value,qtd=Number($('#retiradaQtd').value||0), dataMov=$('#retiradaData').value||today(), motivo=$('#retiradaMotivo').value;
    if(!nome||!qtd){toast('Selecione produto e quantidade');return;}
@@ -143,19 +157,68 @@ document.addEventListener('click',async e=>{
    if(movErr){toast(movErr.message);return;}
    const novaQtd=Math.max(0,Number(stockRow?.quantity||0)-qtd);
    await sb.from('stock').update({quantity:novaQtd}).eq('id',stockRow?.id||stockId);
-   toast(`✅ Saída registrada: ${qtd}x ${nome} - ${motivo} em ${dataMov.split('-').reverse().join('/')} - Qtd em estoque agora: ${novaQtd}`);
-   if(novaQtd<=Number(stockRow?.min_quantity||0))toast(`⚠️ ALERTA: ${nome} ficou abaixo do mínimo (${stockRow?.min_quantity}) - Comprar!`);
+   toast(`✅ Saída ${qtd}x ${nome} - ${motivo} - Qtd em estoque agora: ${novaQtd}`);
+   if(novaQtd<=Number(stockRow?.min_quantity||0))toast(`⚠️ ${nome} abaixo do mínimo`);
    $('#retiradaQtd').value='';$('#retiradaInfo').textContent='';loadEst();loadDash();return;
  }
 
- if(t.id==='btnFiltrarEst'){await loadMovimentos();toast('Filtro aplicado');return;}
+ if(t.id==='btnFiltrarEst'){await loadMovimentos();return;}
  if(t.id==='btnLimparEst'){if($('#estFiltroInicio'))$('#estFiltroInicio').value=today();if($('#estFiltroFim'))$('#estFiltroFim').value=today();if($('#estFiltroProduto'))$('#estFiltroProduto').value='';await loadMovimentos();return;}
- if(t.matches('[data-del-mov]')){if(!confirm('Excluir movimentação? Isso NÃO devolve estoque automaticamente, ajuste manualmente se precisar.'))return;await sb.from('stock_movements').delete().eq('id',t.dataset.delMov);toast('Movimentação excluída');loadEst();return;}
+
+ if(t.matches('[data-del-mov]')){
+   if(!confirm('Excluir essa movimentação? O saldo será ajustado automaticamente.')) return;
+   await deleteMovimento(t.dataset.delMov);
+   return;
+ }
+ if(t.matches('[data-edit-mov]')){
+   const {data:mov}=await sb.from('stock_movements').select('*').eq('id',t.dataset.editMov).maybeSingle();
+   if(!mov) return;
+   window._editingMov = mov;
+   $('#editMovProduto').value=mov.product_name;
+   $('#editMovTipo').value=mov.type;
+   $('#editMovQtd').value=mov.quantity;
+   $('#editMovData').value=mov.movement_date;
+   $('#editMovCusto').value=mov.unit_cost||0;
+   $('#editMovObs').value=mov.supplier||mov.reason||'';
+   $('#editMovModal').classList.add('show');
+   return;
+ }
+ if(t.id==='btnSaveEditMov'){
+   const antigo = window._editingMov;
+   if(!antigo){toast('Erro');return;}
+   const novaQtd=Number($('#editMovQtd').value||0), novoTipo=$('#editMovTipo').value, novaData=$('#editMovData').value||today(), novoCusto=Number($('#editMovCusto').value||0), novaObs=$('#editMovObs').value.trim();
+   if(!novaQtd){toast('Qtd obrigatória');return;}
+   const {data:stockRow}=await sb.from('stock').select('*').eq('slug',CURRENT_SLUG).eq('name',antigo.product_name).maybeSingle();
+   const desfazAntigo = antigo.type==='entrada' ? -Number(antigo.quantity) : +Number(antigo.quantity);
+   const aplicaNovo = novoTipo==='entrada' ? +novaQtd : -novaQtd;
+   const delta = desfazAntigo + aplicaNovo;
+   const novaQtdEstoque = Number(stockRow?.quantity||0) + delta;
+   if(novaQtdEstoque < 0){
+     if(!confirm(`Vai ficar negativo (${novaQtdEstoque}). Continuar?`)) return;
+   }
+   await sb.from('stock_movements').update({
+     product_name: antigo.product_name,
+     type: novoTipo,
+     quantity: novaQtd,
+     unit_cost: novoCusto,
+     total_cost: novoCusto*novaQtd,
+     movement_date: novaData,
+     supplier: novoTipo==='entrada'?novaObs:null,
+     reason: novoTipo==='saida'?novaObs:novaObs
+   }).eq('id',antigo.id);
+   if(stockRow){
+     await sb.from('stock').update({quantity: Math.max(0,novaQtdEstoque), cost: novoTipo==='entrada' && novoCusto>0 ? novoCusto : stockRow.cost}).eq('id',stockRow.id);
+   }
+   toast(`✅ Editado. Saldo ajustado ${delta>0?'+':''}${delta} (novo: ${Math.max(0,novaQtdEstoque)})`);
+   $('#editMovModal').classList.remove('show');
+   window._editingMov=null;
+   loadEst(); loadDash();
+   return;
+ }
 
  if(t.matches('[data-edit-est]')){const{data:i}=await sb.from('stock').select('*').eq('id',t.dataset.editEst).maybeSingle();editEstId=i.id;$('#editEstNome').value=i.name;$('#editEstQtd').value=i.quantity;$('#editEstMin').value=i.min_quantity;$('#editEstCusto').value=i.cost;$('#editEstCat').value=i.category||'';$('#editEstModal').classList.add('show');return;}
  if(t.id==='btnSaveEditEst'){await sb.from('stock').update({quantity:Number($('#editEstQtd').value||0),min_quantity:Number($('#editEstMin').value||0),cost:Number($('#editEstCusto').value||0),category:$('#editEstCat').value.trim()}).eq('id',editEstId);toast('Saldo ajustado manualmente');$('#editEstModal').classList.remove('show');loadEst();loadDash();return;}
  if(t.matches('[data-del-est]')){if(!confirm('Excluir produto do saldo? Histórico continua.'))return;await sb.from('stock').delete().eq('id',t.dataset.delEst);loadEst();return;}
-
  if(t.id==='btnAddFunc'){const nome=$('#funcNome').value.trim(),phone=$('#funcPhone').value.trim(),funcao=$('#funcFuncao').value,inicio=$('#funcInicio').value,fim=$('#funcFim').value,email=$('#funcEmail').value.trim();if(!nome||!phone){toast('Nome e telefone');return;}const{error}=await sb.from('professionals').insert({slug:CURRENT_SLUG,name:nome,phone,email:email||null,perfil:funcao,start_time:inicio,end_time:fim,active:true});if(error){toast(error.message);return;}toast('✅ Funcionário');$('#funcNome').value='';$('#funcPhone').value='';loadFunc();await loadAgenda();return;}
  if(t.matches('[data-edit-func]')){const{data:f}=await sb.from('professionals').select('*').eq('id',t.dataset.editFunc).maybeSingle();editFuncId=f.id;$('#editFuncNome').value=f.name;$('#editFuncPhone').value=f.phone||'';$('#editFuncFuncao').value=f.perfil||'barbeiro';$('#editFuncInicio').value=f.start_time||'08:00';$('#editFuncFim').value=f.end_time||'18:00';$('#editFuncEmail').value=f.email||'';$('#editFuncModal').classList.add('show');return;}
  if(t.id==='btnSaveEditFunc'){await sb.from('professionals').update({name:$('#editFuncNome').value.trim(),phone:$('#editFuncPhone').value.trim(),perfil:$('#editFuncFuncao').value,start_time:$('#editFuncInicio').value,end_time:$('#editFuncFim').value,email:$('#editFuncEmail').value.trim()||null}).eq('id',editFuncId);toast('Atualizado');$('#editFuncModal').classList.remove('show');loadFunc();return;}
