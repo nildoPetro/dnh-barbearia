@@ -1,18 +1,89 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Agendar - Barbearia</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>:root{--gold:#d4af37;--bg:#0a0a0f;--card:#151a28;--border:#1e2230}*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:#fff;font-family:Inter}.container{max-width:480px;margin:0 auto;padding:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:16px}.btn{width:100%;padding:16px;border-radius:12px;border:1px solid var(--border);background:#1e2230;color:#fff;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;font-size:16px}.btn.gold{background:var(--gold);color:#000;border-color:var(--gold)}.btn.big{padding:24px;font-size:18px}.field{margin-bottom:12px}.field label{font-size:11px;color:#8a8fa3;text-transform:uppercase}.field input,.field select{width:100%;padding:12px;border-radius:10px;background:#0a0e1a;border:1px solid var(--border);color:#fff}.list-row{display:flex;justify-content:space-between;align-items:center;background:#0a0e1a;border:1px solid var(--border);padding:12px;border-radius:10px;margin-bottom:8px}.hidden{display:none}.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:#111525;border:1px solid var(--gold);padding:14px 18px;border-radius:10px;opacity:0;transition:.3s;z-index:9999}.toast.show{transform:translateX(-50%) translateY(0);opacity:1}</style>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agendar - Barbearia</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--gold:#d4af37;--bg:#0a0a0f;--card:#151a28;--border:#1e2230;--text:#8a8fa3}
+*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:#fff;font-family:Inter,system-ui}
+.container{max-width:480px;margin:0 auto;padding:16px}
+.header{text-align:center;padding:20px 10px;background:var(--card);border:1px solid var(--border);border-radius:16px;margin-bottom:16px}
+.logo-img{width:80px;height:80px;border-radius:16px;object-fit:cover;border:2px solid var(--gold);background:#000;display:none;margin:0 auto 12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:16px}
+.btn{width:100%;padding:16px;border-radius:12px;border:1px solid var(--border);background:#1e2230;color:#fff;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;font-size:16px}
+.btn.gold{background:var(--gold);color:#000;border-color:var(--gold)}.btn.big{padding:22px;font-size:18px}
+.field{margin-bottom:12px;display:flex;flex-direction:column;gap:6px}.field label{font-size:11px;color:var(--text);text-transform:uppercase}
+.field input,.field select{width:100%;padding:12px;border-radius:10px;background:#0a0e1a;border:1px solid var(--border);color:#fff}
+.list-row{display:flex;justify-content:space-between;align-items:center;background:#0a0e1a;border:1px solid var(--border);padding:12px;border-radius:10px;margin-bottom:8px;gap:10px}
+.hidden{display:none!important}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(100px);background:#111525;border:1px solid var(--gold);padding:14px 18px;border-radius:10px;opacity:0;transition:.3s;z-index:9999}.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.horario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.horario-grid button{padding:10px;font-size:13px;border-radius:8px}
+@media(max-width:380px){.horario-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
 </head>
 <body>
 <div class="container">
-<div style="text-align:center;padding:20px"><div style="width:60px;height:60px;background:var(--gold);border-radius:16px;display:grid;place-items:center;margin:0 auto;color:#000;font-size:28px">💈</div><h1 id="shopName" style="margin-top:12px;color:var(--gold)">BARBEARIA</h1><small id="shopSlug" style="color:#8a8fa3"></small></div>
 
-<div id="authClient" class="card"><h3>Faça seu cadastro</h3><p style="color:#8a8fa3;font-size:12px;margin:8px 0">Para agendar, crie sua conta rápida</p><div class="field"><label>Nome</label><input id="cliNome"></div><div class="field"><label>Telefone</label><input id="cliPhone"></div><div class="field"><label>E-mail</label><input id="cliEmail" type="email"></div><div class="field"><label>Senha</label><input id="cliSenha" type="password"></div><button id="btnCadastroCli" class="btn gold">Cadastrar e Entrar</button><div style="text-align:center;margin:12px 0;color:#8a8fa3">ou</div><div class="field"><label>E-mail</label><input id="cliLoginEmail" type="email"></div><div class="field"><label>Senha</label><input id="cliLoginSenha" type="password"></div><button id="btnLoginCli" class="btn">Entrar</button></div>
-
-<div id="menuCliente" class="hidden"><div class="card"><h3 style="text-align:center;margin-bottom:16px">O que deseja fazer?</h3><button id="btnGoAgendar" class="btn big gold">📅 Agendar Horário</button><button id="btnGoConsultar" class="btn big">📋 Consultar Meus Agendamentos</button><button id="btnLogoutCli" style="margin-top:12px;background:transparent;border:none;color:#8a8fa3;width:100%;cursor:pointer">Sair</button></div></div>
-
-<div id="pageAgendar" class="hidden"><div class="card"><h3>📅 Agendar</h3><div class="field"><label>Data</label><input id="cliData" type="date"></div><div class="field"><label>Barbeiro</label><select id="cliBarbeiro"><option value="">Selecione o barbeiro...</option></select><small id="barbeiroHint" style="color:#8a8fa3"></small></div><div class="field"><label>Serviço</label><select id="cliServico"></select></div><div class="field"><label>Horários Disponíveis (auto)</label><div id="horariosDisponiveis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px"></div></div><button id="btnConfirmarAgendamento" class="btn gold hidden">Confirmar Agendamento</button><button id="btnVoltarMenu1" class="btn">Voltar</button></div></div>
-
-<div id="pageConsultar" class="hidden"><div class="card"><h3>📋 Meus Agendamentos</h3><div id="listaMeusAgendamentos" style="margin-top:12px"></div><button id="btnVoltarMenu2" class="btn" style="margin-top:12px">Voltar</button></div></div>
+<!-- HEADER CORRIGIDO COM LOGO -->
+<div class="header">
+  <img id="logoCliente" class="logo-img" alt="Logo Barbearia">
+  <h1 id="shopName" style="color:var(--gold);font-size:22px">BARBEARIA</h1>
+  <small id="shopSlug" style="color:var(--text)"></small>
+  <small id="shopWhatsapp" style="color:var(--text);display:block;margin-top:4px"></small>
 </div>
-<script src="config.js"></script><script src="cliente.js"></script></body></html>
+
+<!-- AUTH CLIENTE -->
+<div id="authClient" class="card">
+  <h3>Faça seu cadastro</h3>
+  <p style="color:var(--text);font-size:12px;margin:8px 0">Para agendar, crie sua conta rápida</p>
+  <div class="field"><label>Nome</label><input id="cliNome"></div>
+  <div class="field"><label>Telefone</label><input id="cliPhone"></div>
+  <div class="field"><label>E-mail</label><input id="cliEmail" type="email"></div>
+  <div class="field"><label>Senha</label><input id="cliSenha" type="password"></div>
+  <button id="btnCadastroCli" class="btn gold">Cadastrar e Entrar</button>
+  <div style="text-align:center;margin:12px 0;color:var(--text)">ou</div>
+  <div class="field"><label>E-mail</label><input id="cliLoginEmail" type="email"></div>
+  <div class="field"><label>Senha</label><input id="cliLoginSenha" type="password"></div>
+  <button id="btnLoginCli" class="btn">Entrar</button>
+</div>
+
+<!-- MENU COM 2 BOTÕES SÓ -->
+<div id="menuCliente" class="hidden">
+  <div class="card">
+    <h3 style="text-align:center;margin-bottom:16px">O que deseja fazer?</h3>
+    <button id="btnGoAgendar" class="btn big gold">📅 Agendar</button>
+    <button id="btnGoConsultar" class="btn big">📋 Consultar</button>
+    <button id="btnLogoutCli" style="margin-top:12px;background:transparent;border:none;color:var(--text);width:100%;cursor:pointer">Sair</button>
+  </div>
+</div>
+
+<!-- AGENDAR -->
+<div id="pageAgendar" class="hidden">
+  <div class="card">
+    <h3>📅 Agendar</h3>
+    <div class="field"><label>Data</label><input id="cliData" type="date"></div>
+    <div class="field"><label>Barbeiro</label><select id="cliBarbeiro"><option value="">Carregando...</option></select><small id="barbeiroHint" style="color:var(--text)"></small></div>
+    <div class="field"><label>Serviço</label><select id="cliServico"></select></div>
+    <div class="field"><label>Horários Disponíveis</label><div id="horariosDisponiveis" class="horario-grid"></div></div>
+    <button id="btnConfirmarAgendamento" class="btn gold hidden">Confirmar Agendamento</button>
+    <button id="btnVoltarMenu1" class="btn">Voltar</button>
+  </div>
+</div>
+
+<!-- CONSULTAR -->
+<div id="pageConsultar" class="hidden">
+  <div class="card">
+    <h3>📋 Meus Agendamentos</h3>
+    <div id="listaMeusAgendamentos" style="margin-top:12px"></div>
+    <button id="btnVoltarMenu2" class="btn" style="margin-top:12px">Voltar</button>
+  </div>
+</div>
+
+</div>
+<script src="config.js"></script>
+<script src="cliente.js"></script>
+</body>
+</html>
