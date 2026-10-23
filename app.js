@@ -445,7 +445,37 @@ if(vincularSelect){
     if(slug){ await loadVincularAdmins(slug); } else { const empty=$('#vincularEmpty'); const content=$('#vincularContent'); if(empty) empty.classList.remove('hidden'); if(content) content.classList.add('hidden'); }
   });
 }
+async function handleRecovery(){
+  const hash = window.location.hash;
+  if(hash && hash.includes('type=recovery')){
+    const params = new URLSearchParams(hash.substring(1));
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    if(access_token){
+      const { error } = await sb.auth.setSession({ access_token, refresh_token });
+      if(!error){
+        const novaSenha = prompt('🔑 Link válido! Digite a NOVA SENHA para este administrador (mínimo 6 caracteres):');
+        if(novaSenha && novaSenha.length>=6){
+          const { error: updateError } = await sb.auth.updateUser({ password: novaSenha });
+          if(updateError){ alert('Erro: '+updateError.message); }
+          else { alert('✅ Senha criada com sucesso! Faça login agora.'); window.location.hash=''; window.location.href=window.location.origin+window.location.pathname; }
+        }
+      }
+    }
+  }
+}
 
+async function init(){
+  await handleRecovery();
+  sb.auth.onAuthStateChange(async(ev,sess)=>{
+    if(ev==='PASSWORD_RECOVERY'){
+      const novaSenha = prompt('🔑 Digite a NOVA SENHA:');
+      if(novaSenha && novaSenha.length>=6){
+        const { error } = await sb.auth.updateUser({ password: novaSenha });
+        if(!error){ alert('Senha atualizada!'); window.location.hash=''; }
+      }
+      return;
+    }
 async function init(){
   sb.auth.onAuthStateChange(async(ev,sess)=>{
     if(sess){
