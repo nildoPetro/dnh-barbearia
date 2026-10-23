@@ -169,7 +169,7 @@ async function addVincularAdmin(){
   const tempPass = Math.random().toString(36).slice(-8)+'A1!b2@';
   let userId=null;
   try{ const {data}=await sb.auth.signUp({ email, password: tempPass, options: { data: { name, phone, role: 'admin' } } }); if(data?.user?.id) userId=data.user.id; }catch(e){}
-  try{ await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin}); }catch(e){}
+  try{ await sb.auth.resetPasswordForEmail(email,{ redirectTo: window.location.origin + window.location.pathname });}catch(e){}
   try{ const {error}=await sb.from('professionals').insert({name,phone,email,perfil,slug,active:true}); if(error && error.message.includes('duplicate')){ await sb.from('professionals').update({name,phone,perfil,active:true}).eq('email',email).eq('slug',slug); } }catch(e){}
   try{ if(userId){ await sb.from('profiles').upsert({id:userId,name,phone,email,role:'admin',active:true,barbershop_slug:slug},{onConflict:'id'}); } else { const {data:existing}=await sb.from('profiles').select('id').eq('email',email).maybeSingle(); if(existing?.id){ await sb.from('profiles').update({role:'admin',barbershop_slug:slug,name,phone}).eq('id',existing.id); } } }catch(e){}
   if(btn){ btn.textContent='✉️ Criar Administrador e Enviar Acesso por E-mail'; btn.disabled=false; }
@@ -246,7 +246,7 @@ async function addShopAdmin(){
   const tempPass = Math.random().toString(36).slice(-8)+'A1!b2@';
   let userId=null;
   try{ const {data}=await sb.auth.signUp({ email, password: tempPass, options: { data: { name, phone, role: 'admin' } } }); if(data?.user?.id) userId=data.user.id; }catch(e){}
-  try{ await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin}); }catch(e){}
+  try{ await sb.auth.resetPasswordForEmail(email,{ redirectTo: window.location.origin + window.location.pathname }); }catch(e){}
   try{ const {error}=await sb.from('professionals').insert({ name, phone, email, perfil, slug: currentManageSlug, active: true }); if(error && error.message.includes('duplicate')){ await sb.from('professionals').update({ name, phone, perfil, active: true }).eq('email', email).eq('slug', currentManageSlug); } }catch(e){}
   try{ if(userId){ await sb.from('profiles').upsert({ id: userId, name, phone, email, role: 'admin', active: true, barbershop_slug: currentManageSlug }, { onConflict: 'id' }); } else { const { data: existing } = await sb.from('profiles').select('id').eq('email', email).maybeSingle(); if(existing?.id){ await sb.from('profiles').update({ role: 'admin', barbershop_slug: currentManageSlug, name, phone }).eq('id', existing.id); } } }catch(e){}
   btn.textContent='✉️ Criar ADM e Enviar Acesso por E-mail'; btn.disabled=false;
@@ -254,7 +254,7 @@ async function addShopAdmin(){
   await openManageShopModal(currentManageSlug);
 }
 async function removeShopAdmin(id){ if(!confirm('Remover?')) return; await sb.from('professionals').delete().eq('id',id); toast('Removido'); await openManageShopModal(currentManageSlug); }
-async function resendAccess(email){ if(!email){ toast('Sem e-mail'); return; } const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }); if(error) toast(error.message); else toast('Link reenviado para '+email); }
+async function resendAccess(email){ if(!email){ toast('Sem e-mail'); return; } const { error } = await sb.auth.resetPasswordForEmail(email,{ redirectTo: window.location.origin + window.location.pathname });); if(error) toast(error.message); else toast('Link reenviado para '+email); }
 
 async function loadSuperFinance(){
   if(!isSuperAdmin()) return;
