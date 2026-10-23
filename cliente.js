@@ -8,7 +8,17 @@ function toast(m){let el=document.createElement('div');el.className='toast';el.t
 function showMenu(){ $('#menuCliente').classList.remove('hidden'); $('#pageAgendar').classList.add('hidden'); $('#pageConsultar').classList.add('hidden'); }
 async function loadSettingsCliente(){
  let data=null;try{const r=await sb.from('settings').select('*').eq('slug',CURRENT_SLUG).maybeSingle();if(r.data)data=r.data;}catch(e){}
- if(data){settings={...settings,...data};$('#shopName').textContent=data.name||CURRENT_SLUG.toUpperCase();$('#shopSlug').textContent=CURRENT_SLUG;}
+ if(data){
+   settings={...settings,...data};
+   $('#shopName').textContent=data.name||CURRENT_SLUG.toUpperCase();
+   $('#shopSlug').textContent=CURRENT_SLUG;
+   if($('#shopWhatsapp')) $('#shopWhatsapp').textContent=data.whatsapp||'';
+   // LOGO EM TODAS AS TELAS COM TAG LOGO
+   if(data.logo_url){
+     const logoEl=$('#logoCliente');
+     if(logoEl){ logoEl.src=data.logo_url; logoEl.style.display='block'; }
+   }
+ }
 }
 async function loadBarbeirosEServicos(){
  const{data:funcs=[]}=await sb.from('professionals').select('*').eq('slug',CURRENT_SLUG).eq('active',true);
