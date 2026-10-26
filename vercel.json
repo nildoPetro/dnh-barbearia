@@ -1,10 +1,12 @@
 {
-  "cleanUrls": true,
+  "cleanUrls": false,
   "rewrites": [
     { "source": "/:slug/admin.html", "destination": "/admin.html" },
     { "source": "/:slug/barbeiro.html", "destination": "/barbeiro.html" },
     { "source": "/:slug/cliente.html", "destination": "/cliente.html" },
-    { "source": "/:slug", "destination": "/hub.html" },
-    { "source": "/:slug/", "destination": "/hub.html" }
+    { "source": "/:slug/hub.html", "destination": "/hub.html" },
+    { "source": "/:slug/hub", "destination": "/hub.html" },
+    { "source": "/:slug/", "destination": "/hub.html" },
+    { "source": "/:slug", "destination": "/hub.html" }
   ]
 }
