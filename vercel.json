@@ -5,6 +5,12 @@
     { "source": "/:slug/barbeiro.html", "destination": "/barbeiro.html" },
     { "source": "/:slug/cliente.html", "destination": "/cliente.html" },
     { "source": "/:slug/hub.html", "destination": "/hub.html" },
+    { "source": "/:slug/config.js", "destination": "/config.js" },
+    { "source": "/:slug/admin.js", "destination": "/admin.js" },
+    { "source": "/:slug/cliente.js", "destination": "/cliente.js" },
+    { "source": "/:slug/barbeiro.js", "destination": "/barbeiro.js" },
+    { "source": "/:slug/dnh-logo.png", "destination": "/dnh-logo.png" },
+    { "source": "/:slug/:file(.*\\.(js|css|png|jpg|jpeg|svg|ico))", "destination": "/$file" },
     { "source": "/:slug/hub", "destination": "/hub.html" },
     { "source": "/:slug/", "destination": "/hub.html" },
     { "source": "/:slug", "destination": "/hub.html" }
