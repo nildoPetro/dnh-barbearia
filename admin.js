@@ -1,7 +1,7 @@
 let sb=null, currentSlug='dnh', currentShop=null, currentAdmin=null;
 let editingServId=null, editingEstId=null, editingFuncId=null, editingBookId=null, editingMovId=null, editingClienteId=null;
 let selectedHora='', estoqueVisible=true, finVisible=false;
-let cacheFuncionarios=[], cacheServicos=[], cacheClientes=[], schemaCache={};
+let cacheFuncionarios=[], cacheServicos=[], cacheClientes=[], cacheCatalogo=[], schemaCache={};
 function $id(id){return document.getElementById(id);}
 function toast(m){let t=$id('toast'); if(!t){t=document.createElement('div'); t.id='toast'; t.className='toast'; document.body.appendChild(t);} t.textContent=m; t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},3000);}
 function fmtMoney(v){return 'R$ '+Number(v||0).toFixed(2).replace('.',',');}
@@ -10,13 +10,14 @@ function openModal(id){let e=$id(id); if(e) e.classList.add('show');}
 function closeModal(id){let e=$id(id); if(e) e.classList.remove('show');}
 function cleanPhone(p){return String(p||'').replace(/[^0-9]/g,'');}
 function capFirst(s){ s=String(s||'').trim().toLowerCase(); if(!s) return s; return s.charAt(0).toUpperCase()+s.slice(1); }
+function fmtBR(d){ if(!d) return ''; d=String(d).slice(0,10); let p=d.split('-'); if(p.length===3) return p[2]+'/'+p[1]+'/'+p[0]; return d; }
 function rowDate(r){ return r.booking_date||r.date||r.appointment_date||r.scheduled_date||(r.created_at?String(r.created_at).slice(0,10):''); }
-function movDate(m){ return m.date||m.movement_date||m.created_at? (m.date||m.movement_date||String(m.created_at||'').slice(0,10)) : ''; }
+function movDate(m){ return m.date||m.movement_date||(m.created_at?String(m.created_at).slice(0,10):''); }
 function finDate(f){ return f.date||f.entry_date||f.transaction_date||(f.created_at?String(f.created_at).slice(0,10):''); }
 async function getCols(table){
   if(schemaCache[table]) return schemaCache[table];
   try{ let r=await sb.from(table).select('*').limit(1); if(r.data && r.data.length>0){ schemaCache[table]=Object.keys(r.data[0]); return schemaCache[table]; } }catch(e){}
-  let fallback={bookings:['id','slug','booking_date','date','time','customer_name','name','phone','service_id','professional_id','employee_id','employee_name','professional_name','price','status','payment_status','obs','notes','created_at'],services:['id','slug','name','price','duration','duration_minutes'],inventory:['id','slug','name','product_name','quantity','current_quantity','min_quantity','min_stock','cost','unit_cost','category'],professionals:['id','slug','name','phone','email','role','funcao','start_time','end_time','commission_percent','commission','commission_type'],cash_entries:['id','slug','type','amount','value','date','entry_date','created_at','category','payment_method','form','description'],barbershops:['id','slug','name','whatsapp','phone','logo_url','start_time','end_time','interval_minutes','lunch_start','lunch_end','working_days','working_hours','opening_hours','schedule'],customers:['id','slug','name','phone','birthdate'],product_catalog:['id','slug','name'],inventory_movements:['id','slug','product','product_name','type','quantity','cost','unit_cost','date','movement_date','supplier','reason','motivo','obs','created_at'],professional_payments:['id','slug','professional_id','employee_id','employee_name','professional_name','start_date','end_date','total','commission','amount','paid_at','status']};
+  let fallback={bookings:['id','slug','booking_date','date','time','customer_name','name','phone','service_id','professional_id','employee_id','employee_name','professional_name','price','status','payment_status','obs','notes','created_at'],services:['id','slug','name','price','duration','duration_minutes'],inventory:['id','slug','name','product_name','quantity','current_quantity','min_quantity','min_stock','cost','unit_cost','category'],professionals:['id','slug','name','phone','email','role','funcao','start_time','end_time','commission_percent','commission','commission_type'],cash_entries:['id','slug','type','amount','value','date','entry_date','created_at','category','payment_method','form','description'],barbershops:['id','slug','name','whatsapp','phone','logo_url','start_time','end_time','interval_minutes','lunch_start','lunch_end','working_days','working_hours','opening_hours','schedule'],customers:['id','slug','name','phone','birthdate'],product_catalog:['id','slug','name','min_quantity','min_stock'],inventory_movements:['id','slug','product','product_name','type','quantity','cost','unit_cost','date','movement_date','supplier','reason','motivo','obs'],professional_payments:['id','slug','professional_id','employee_id','employee_name','professional_name','start_date','end_date','total','commission','paid_at','status']};
   schemaCache[table]=fallback[table]||[]; return schemaCache[table];
 }
 function filterObj(obj, cols){ let o={}; Object.keys(obj).forEach(function(k){ if(cols.indexOf(k)!==-1) o[k]=obj[k]; }); return o; }
@@ -55,6 +56,7 @@ function bindEvents(){
   if($id('btnAddServico')) $id('btnAddServico').addEventListener('click', addServico);
   if($id('btnSaveEditServ')) $id('btnSaveEditServ').addEventListener('click', salvarEditServ);
   if($id('btnAddCatalog')) $id('btnAddCatalog').addEventListener('click', addCatalog);
+  if($id('btnEditarCatalogo')) $id('btnEditarCatalogo').addEventListener('click', function(){ let l=$id('listaCatalogo'); if(l) l.classList.toggle('hidden'); renderCatalogo(); });
   if($id('btnAddEntrada')) $id('btnAddEntrada').addEventListener('click', addEntrada);
   if($id('btnRetirar')) $id('btnRetirar').addEventListener('click', retirarEstoque);
   if($id('btnToggleEstoque')) $id('btnToggleEstoque').addEventListener('click', function(){ estoqueVisible=!estoqueVisible; if($id('listaEstoque')) $id('listaEstoque').style.display=estoqueVisible?'block':'none'; });
@@ -79,6 +81,7 @@ function bindEvents(){
   if($id('agFuncionario')) $id('agFuncionario').addEventListener('change', carregarHorarios);
   if($id('agServico')) $id('agServico').addEventListener('change', carregarHorarios);
   if($id('retiradaProduto')) $id('retiradaProduto').addEventListener('change', atualizarRetiradaInfo);
+  if($id('estEntradaProduto')) $id('estEntradaProduto').addEventListener('change', onEntradaProdutoChange);
   if($id('buscaCliente')) $id('buscaCliente').addEventListener('input', carregarAniversariantes);
   if($id('agClienteNome')) $id('agClienteNome').addEventListener('input', onNomeClienteChange);
   if($id('agClienteNome')) $id('agClienteNome').addEventListener('change', onNomeClienteChange);
@@ -96,15 +99,12 @@ function bindEvents(){
   if($id('finData')) $id('finData').value=hoje;
 }
 function onNomeClienteChange(){ let nome=$id('agClienteNome').value.trim().toLowerCase(); let found=cacheClientes.find(function(c){ return String(c.name||'').trim().toLowerCase()===nome; }); if(found && $id('agClientePhone')) $id('agClientePhone').value=found.phone||''; }
-async function fetchAllBookings(){
-  let r=await sb.from('bookings').select('*, services(name,price)').eq('slug',currentSlug).order('created_at',{ascending:false}).limit(1000);
-  if(r.error){ r=await sb.from('bookings').select('*').eq('slug',currentSlug).limit(1000); }
-  return r.data||[];
-}
+function onEntradaProdutoChange(){ let prod=$id('estEntradaProduto').value; let c=cacheCatalogo.find(function(x){ return x.name===prod; }); if(c && $id('estEntradaMin')){ let m=c.min_quantity; if(m==null) m=c.min_stock; if(m==null) m=5; $id('estEntradaMin').value=m; } }
+async function fetchAllBookings(){ let r=await sb.from('bookings').select('*, services(name,price)').eq('slug',currentSlug).order('created_at',{ascending:false}).limit(1000); if(r.error){ r=await sb.from('bookings').select('*').eq('slug',currentSlug).limit(1000); } return r.data||[]; }
 async function carregarDashboard(){
   if(!sb) return;
   let hoje=new Date().toISOString().slice(0,10);
-  if($id('dashDate')) $id('dashDate').textContent=new Date().toLocaleDateString('pt-BR');
+  if($id('dashDate')) $id('dashDate').textContent=fmtBR(hoje);
   let bookings=await fetchAllBookings();
   let hojeList=bookings.filter(function(b){ return rowDate(b)===hoje; });
   let pagos=hojeList.filter(function(b){ return b.status==='paid'||b.payment_status==='paid'; });
@@ -113,17 +113,11 @@ async function carregarDashboard(){
   if($id('dashClientes')) $id('dashClientes').textContent=new Set(hojeList.map(function(b){return b.phone;})).size;
   if($id('dashReceita')) $id('dashReceita').textContent=fmtMoney(receita);
   if($id('dashTicket')) $id('dashTicket').textContent=fmtMoney(hojeList.length?receita/hojeList.length:0);
-  if($id('todayAgenda')){
-    if(hojeList.length===0){ $id('todayAgenda').innerHTML='Nenhum atendimento hoje'; }
-    else { let h=''; hojeList.forEach(function(b){ h+='<div class="list-row"><div><b>'+(b.time||'')+' - '+(b.customer_name||b.name||'')+'</b><br><small>'+((b.services&&b.services.name)||'')+' - '+(b.employee_name||b.professional_name||'')+'</small></div><span>'+(b.status||'')+'</span></div>'; }); $id('todayAgenda').innerHTML=h; }
-  }
+  if($id('todayAgenda')){ if(hojeList.length===0){ $id('todayAgenda').innerHTML='Nenhum atendimento hoje'; } else { let h=''; hojeList.forEach(function(b){ h+='<div class="list-row"><div><b>'+fmtBR(rowDate(b))+' '+(b.time||'')+' - '+(b.customer_name||b.name||'')+' - Barbeiro: '+(b.employee_name||b.professional_name||'')+'</b><br><small>'+((b.services&&b.services.name)||'')+'</small></div><span>'+(b.status||'')+'</span></div>'; }); $id('todayAgenda').innerHTML=h; } }
   let re=await sb.from('inventory').select('*').eq('slug',currentSlug);
   let estoque=re.data||[];
   let baixo=estoque.filter(function(e){ return Number(e.quantity||e.current_quantity||0) <= Number(e.min_quantity||e.min_stock||5); });
-  if($id('dashEstoque')){
-    if(baixo.length===0) $id('dashEstoque').innerHTML='Estoque OK';
-    else { let h2=''; baixo.forEach(function(e){ h2+='<div>Alerta '+(e.name||e.product_name)+' - '+(e.quantity||e.current_quantity)+' restantes</div>'; }); $id('dashEstoque').innerHTML=h2; }
-  }
+  if($id('dashEstoque')){ if(baixo.length===0) $id('dashEstoque').innerHTML='Estoque OK'; else { let h2=''; baixo.forEach(function(e){ h2+='<div style="color:#f87171">Alerta '+(e.name||e.product_name)+' - '+(e.quantity||e.current_quantity)+' restantes - Min: '+(e.min_quantity||e.min_stock||5)+'</div>'; }); $id('dashEstoque').innerHTML=h2; } }
   carregarAniversariantes();
 }
 async function filtrarDashboard(){
@@ -133,11 +127,8 @@ async function filtrarDashboard(){
   let all=await fetchAllBookings();
   let fil=all.filter(function(b){ let d=rowDate(b); return d>=ini && d<=fim; });
   let rec=0; fil.forEach(function(b){ if(b.status==='paid'||b.payment_status==='paid') rec+=Number(b.price||0); });
-  if($id('filtroResultado')) $id('filtroResultado').innerHTML='<b>'+fil.length+'</b> atendimentos - Receita: <b>'+fmtMoney(rec)+'</b> - '+ini+' ate '+fim;
-  if($id('filtroLista')){
-    if(fil.length===0) $id('filtroLista').innerHTML='Nenhum atendimento no periodo';
-    else { let h=''; fil.forEach(function(b){ h+='<div class="list-row"><div><b>'+rowDate(b)+' '+(b.time||'')+' - '+(b.customer_name||b.name)+'</b><br><small>'+(b.phone||'')+' - '+(b.employee_name||b.professional_name||'')+' - '+fmtMoney(b.price||0)+'</small></div><span>'+(b.status||'')+'</span></div>'; }); $id('filtroLista').innerHTML=h; }
-  }
+  if($id('filtroResultado')) $id('filtroResultado').innerHTML='<b>'+fil.length+'</b> atendimentos - Receita: <b>'+fmtMoney(rec)+'</b> - '+fmtBR(ini)+' ate '+fmtBR(fim);
+  if($id('filtroLista')){ if(fil.length===0) $id('filtroLista').innerHTML='Nenhum atendimento no periodo'; else { let h=''; fil.forEach(function(b){ h+='<div class="list-row"><div><b>'+fmtBR(rowDate(b))+' '+(b.time||'')+' - '+(b.customer_name||b.name)+' - Barbeiro: '+(b.employee_name||b.professional_name||'')+'</b><br><small>'+(b.phone||'')+' - '+fmtMoney(b.price||0)+'</small></div><span>'+(b.status||'')+'</span></div>'; }); $id('filtroLista').innerHTML=h; } }
 }
 async function carregarAgendaAdmin(){
   if(!sb) return;
@@ -162,7 +153,7 @@ async function carregarAgendaAdmin(){
   bookings.sort(function(a,b){ return rowDate(b).localeCompare(rowDate(a)); });
   if($id('adminAgendaList')){
     if(bookings.length===0){ $id('adminAgendaList').innerHTML='Sem agendamentos'; }
-    else { let h=''; bookings.forEach(function(b){ h+='<div class="list-row"><div><b>'+rowDate(b)+' '+(b.time||'')+' - '+(b.customer_name||b.name)+'</b><br><small>'+((b.services&&b.services.name)||'')+' - '+(b.phone||'')+' - '+(b.status||'')+' - '+(b.employee_name||b.professional_name||'')+'</small></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-pago="'+b.id+'">Pago</button><button class="btn small" data-edit-book="'+b.id+'">Editar</button><button class="btn small danger" data-del-book="'+b.id+'">Excluir</button></div></div>'; }); $id('adminAgendaList').innerHTML=h; $id('adminAgendaList').querySelectorAll('[data-pago]').forEach(function(x){ x.addEventListener('click', function(){ marcarPago(x.dataset.pago); }); }); $id('adminAgendaList').querySelectorAll('[data-edit-book]').forEach(function(x){ x.addEventListener('click', function(){ editarBooking(x.dataset.editBook); }); }); $id('adminAgendaList').querySelectorAll('[data-del-book]').forEach(function(x){ x.addEventListener('click', function(){ excluirBooking(x.dataset.delBook); }); }); }
+    else { let h=''; bookings.forEach(function(b){ let isPago=(b.status==='paid'||b.payment_status==='paid'); let cls=isPago?'btn small pago':'btn small'; let txt=isPago?'Pago ✓':'Pago'; h+='<div class="list-row"><div><b>'+fmtBR(rowDate(b))+' '+(b.time||'')+' - '+(b.customer_name||b.name)+' - Barbeiro: '+(b.employee_name||b.professional_name||'')+'</b><br><small>'+((b.services&&b.services.name)||'')+' - '+(b.phone||'')+' - '+(b.status||'')+'</small></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="'+cls+'" data-pago="'+b.id+'">'+txt+'</button><button class="btn small" data-edit-book="'+b.id+'">Editar</button><button class="btn small danger" data-del-book="'+b.id+'">Excluir</button></div></div>'; }); $id('adminAgendaList').innerHTML=h; $id('adminAgendaList').querySelectorAll('[data-pago]').forEach(function(x){ x.addEventListener('click', function(){ marcarPago(x.dataset.pago); }); }); $id('adminAgendaList').querySelectorAll('[data-edit-book]').forEach(function(x){ x.addEventListener('click', function(){ editarBooking(x.dataset.editBook); }); }); $id('adminAgendaList').querySelectorAll('[data-del-book]').forEach(function(x){ x.addEventListener('click', function(){ excluirBooking(x.dataset.delBook); }); }); }
   }
 }
 async function carregarHorarios(){
@@ -192,7 +183,7 @@ async function agendarCliente(){
   let serv=cacheServicos.find(function(s){ return String(s.id)===String(service_id); })||{};
   let func=cacheFuncionarios.find(function(f){ return String(f.id)===String(professional_id); })||{};
   let cols=await getCols('bookings');
-  let raw={slug:currentSlug,booking_date:date,date:date,appointment_date:date,scheduled_date:date,time:selectedHora,professional_id:professional_id||null,employee_id:professional_id||null,employee_name:func.name||'',professional_name:func.name||'',service_id:service_id,customer_name:name,name:name,phone:phone,obs:obs,notes:obs,price:serv.price||0,status:'pending'};
+  let raw={slug:currentSlug,booking_date:date,date:date,appointment_date:date,scheduled_date:date,time:selectedHora,professional_id:professional_id||null,employee_name:func.name||'',professional_name:func.name||'',service_id:service_id,customer_name:name,name:name,phone:phone,obs:obs,notes:obs,price:serv.price||0,status:'pending'};
   let payload=filterObj(raw, cols);
   let res=await sb.from('bookings').insert([payload]);
   if(res.error) return toast('Erro: '+res.error.message);
@@ -202,7 +193,13 @@ async function agendarCliente(){
   toast('Agendado!'); selectedHora=''; $id('agClienteNome').value=''; $id('agClientePhone').value=''; $id('agObs').value='';
   carregarDashboard(); carregarAgendaAdmin();
 }
-async function marcarPago(id){ await sb.from('bookings').update({status:'paid',payment_status:'paid'}).eq('id',id); toast('Marcado como pago'); carregarDashboard(); carregarAgendaAdmin(); carregarFinanceiro(); }
+async function marcarPago(id){
+  let r=await sb.from('bookings').select('*').eq('id',id).single(); let b=r.data;
+  let up=await sb.from('bookings').update({status:'paid',payment_status:'paid'}).eq('id',id);
+  if(up.error) return toast(up.error.message);
+  toast('Marcado como pago');
+  carregarDashboard(); carregarAgendaAdmin(); carregarFinanceiro();
+}
 async function excluirBooking(id){ if(!confirm('Excluir agendamento?')) return; await sb.from('bookings').delete().eq('id',id); carregarDashboard(); carregarAgendaAdmin(); }
 async function editarBooking(id){ editingBookId=id; let r=await sb.from('bookings').select('*').eq('id',id).single(); let b=r.data; if(!b) return; $id('editBookData').value=rowDate(b); $id('editBookHora').value=b.time; $id('editBookCliente').value=b.customer_name||b.name||''; $id('editBookPhone').value=b.phone||''; $id('editBookObs').value=b.obs||b.notes||''; $id('editBookFunc').value=b.professional_id||b.employee_id||''; $id('editBookServ').value=b.service_id||''; openModal('editBookingModal'); }
 async function salvarEditBook(){ let cols=await getCols('bookings'); let d=$id('editBookData').value; let raw={booking_date:d,date:d,appointment_date:d,scheduled_date:d,time:$id('editBookHora').value,customer_name:$id('editBookCliente').value,name:$id('editBookCliente').value,phone:$id('editBookPhone').value,obs:$id('editBookObs').value,professional_id:$id('editBookFunc').value,employee_id:$id('editBookFunc').value,service_id:$id('editBookServ').value}; let payload=filterObj(raw, cols); let res=await sb.from('bookings').update(payload).eq('id',editingBookId); if(res.error) return toast(res.error.message); closeModal('editBookingModal'); toast('Salvo'); carregarAgendaAdmin(); carregarDashboard(); }
@@ -231,23 +228,40 @@ async function carregarCatalogoSelects(){
   if(!sb) return;
   let r=await sb.from('product_catalog').select('*').eq('slug',currentSlug).order('name');
   if(r.error){ console.log(r.error); return toast('Catalogo: '+r.error.message); }
-  let data=r.data||[];
-  let opts=''; data.forEach(function(c){ opts+='<option value="'+c.name+'">'+c.name+'</option>'; });
+  cacheCatalogo=r.data||[];
+  let opts=''; cacheCatalogo.forEach(function(c){ opts+='<option value="'+c.name+'">'+c.name+'</option>'; });
   if($id('estEntradaProduto')) $id('estEntradaProduto').innerHTML=opts||'<option value="">Cadastre um produto no catalogo</option>';
   if($id('retiradaProduto')) $id('retiradaProduto').innerHTML=opts||'<option value="">Cadastre um produto</option>';
   if($id('estFiltroProduto')) $id('estFiltroProduto').innerHTML='<option value="">Todos produtos</option>'+opts;
+  onEntradaProdutoChange();
+}
+function renderCatalogo(){
+  let l=$id('listaCatalogo'); if(!l) return;
+  if(cacheCatalogo.length===0){ l.innerHTML='Nenhum produto no catalogo'; return; }
+  let h=''; cacheCatalogo.forEach(function(c){ let m=c.min_quantity; if(m==null) m=c.min_stock; if(m==null) m=5; h+='<div class="list-row" data-cat="'+c.id+'" style="cursor:pointer"><div><b>'+c.name+'</b><br><small>Qtd minima: '+m+' - clique para editar</small></div><span>Editar</span></div>'; }); l.innerHTML=h;
+  l.querySelectorAll('[data-cat]').forEach(function(el){ el.addEventListener('click', function(){ let c=cacheCatalogo.find(function(x){ return String(x.id)===el.dataset.cat; }); if(!c) return; let novoNome=prompt('Nome do produto:',c.name); if(novoNome===null) return; let novaMin=prompt('Quantidade minima:', (c.min_quantity!=null?c.min_quantity:(c.min_stock!=null?c.min_stock:5))); if(novaMin===null) return; salvarCatalogoEdit(c.id, capFirst(novoNome), parseInt(novaMin)||5); }); });
+}
+async function salvarCatalogoEdit(id, nome, min){
+  let cols=await getCols('product_catalog');
+  let payload=filterObj({name:nome,min_quantity:min,min_stock:min}, cols);
+  let res=await sb.from('product_catalog').update(payload).eq('id',id);
+  if(res.error){ if(String(res.error.message).indexOf('min_quantity')!==-1 || String(res.error.message).indexOf('min_stock')!==-1){ let p2=filterObj({name:nome}, cols); res=await sb.from('product_catalog').update(p2).eq('id',id); } else return toast(res.error.message); }
+  let icols=await getCols('inventory');
+  let ri=await sb.from('inventory').select('*').eq('slug',currentSlug).eq('name',cacheCatalogo.find(function(x){return String(x.id)===String(id);})?.name||'');
+  toast('Produto atualizado'); carregarCatalogoSelects(); carregarEstoque();
 }
 async function addCatalog(){
   let raw=$id('newCatalogName').value.trim();
   if(!raw) return toast('Digite o nome');
   let name=capFirst(raw);
+  let min=parseInt($id('newCatalogMin')? $id('newCatalogMin').value : '5')||5;
   let r=await sb.from('product_catalog').select('*').eq('slug',currentSlug).ilike('name',name);
   if(r.data && r.data.length>0){ alert('Ja existe o produto: '+name); return; }
   let cols=await getCols('product_catalog');
-  let payload=filterObj({slug:currentSlug,name:name}, cols);
+  let payload=filterObj({slug:currentSlug,name:name,min_quantity:min,min_stock:min}, cols);
   let res=await sb.from('product_catalog').insert([payload]);
   if(res.error){ if(String(res.error.message).indexOf('duplicate')!==-1 || String(res.error.message).indexOf('unique')!==-1){ alert('Ja existe o produto: '+name); return; } return toast('Erro catalogo: '+res.error.message); }
-  $id('newCatalogName').value=''; alert('Salvo com sucesso: '+name); toast('Salvo no catalogo'); carregarCatalogoSelects();
+  $id('newCatalogName').value=''; alert('Salvo com sucesso: '+name+' - Min: '+min); toast('Salvo no catalogo'); carregarCatalogoSelects();
 }
 async function carregarEstoque(){
   if(!sb) return;
@@ -256,24 +270,26 @@ async function carregarEstoque(){
   let data=r.data||[];
   if($id('listaEstoque')){
     if(data.length===0){ $id('listaEstoque').innerHTML='Estoque vazio'; }
-    else { let h=''; data.forEach(function(e){ let qtd=e.quantity; if(qtd==null) qtd=e.current_quantity; if(qtd==null) qtd=0; let min=e.min_quantity; if(min==null) min=e.min_stock; if(min==null) min=5; let custo=e.cost; if(custo==null) custo=e.unit_cost; if(custo==null) custo=0; let cls=Number(qtd)<=Number(min)?'estoque-alerta':''; h+='<div class="list-row '+cls+'"><div><b>'+(e.name||e.product_name)+'</b><br><small>Qtd: '+qtd+' - Min: '+min+' - Custo: '+fmtMoney(custo)+'</small></div><button class="btn small" data-edit-est="'+e.id+'">Editar</button></div>'; }); $id('listaEstoque').innerHTML=h; $id('listaEstoque').querySelectorAll('[data-edit-est]').forEach(function(b){ b.addEventListener('click', function(){ let e=data.find(function(x){ return String(x.id)===b.dataset.editEst; }); if(e){ editingEstId=e.id; $id('editEstNome').value=e.name||e.product_name; $id('editEstQtd').value=e.quantity!=null?e.quantity:e.current_quantity||0; $id('editEstMin').value=e.min_quantity!=null?e.min_quantity:e.min_stock||5; $id('editEstCusto').value=e.cost!=null?e.cost:e.unit_cost||0; $id('editEstCat').value=e.category||''; openModal('editEstModal'); } }); }); }
+    else { let h=''; data.forEach(function(e){ let qtd=e.quantity; if(qtd==null) qtd=e.current_quantity; if(qtd==null) qtd=0; let min=e.min_quantity; if(min==null) min=e.min_stock; if(min==null) min=5; let custo=e.cost; if(custo==null) custo=e.unit_cost; if(custo==null) custo=0; let isBaixo=Number(qtd)<=Number(min); let cls=isBaixo?'estoque-alerta':''; let alerta=isBaixo?'<br><span style="color:#f87171;font-weight:700">ABAIXO DA MINIMA!</span>':''; h+='<div class="list-row '+cls+'"><div><b>'+(e.name||e.product_name)+'</b><br><small>Qtd: '+qtd+' - Min: '+min+' - Custo: '+fmtMoney(custo)+'</small>'+alerta+'</div><button class="btn small" data-edit-est="'+e.id+'">Editar</button></div>'; }); $id('listaEstoque').innerHTML=h; $id('listaEstoque').querySelectorAll('[data-edit-est]').forEach(function(b){ b.addEventListener('click', function(){ let e=data.find(function(x){ return String(x.id)===b.dataset.editEst; }); if(e){ editingEstId=e.id; $id('editEstNome').value=e.name||e.product_name; $id('editEstQtd').value=e.quantity!=null?e.quantity:e.current_quantity||0; $id('editEstMin').value=e.min_quantity!=null?e.min_quantity:e.min_stock||5; $id('editEstCusto').value=e.cost!=null?e.cost:e.unit_cost||0; $id('editEstCat').value=e.category||''; openModal('editEstModal'); } }); }); }
   }
   carregarMovimentos();
 }
 async function addEntrada(){
-  let produto=$id('estEntradaProduto').value; let qtd=parseFloat($id('estEntradaQtd').value); let custo=parseFloat($id('estEntradaCusto').value)||0; let dataCompra=$id('estEntradaData').value; let forn=$id('estEntradaForn').value;
+  let produto=$id('estEntradaProduto').value; let qtd=parseFloat($id('estEntradaQtd').value); let custo=parseFloat($id('estEntradaCusto').value)||0; let dataCompra=$id('estEntradaData').value; let forn=$id('estEntradaForn').value; let minInput=parseInt($id('estEntradaMin')? $id('estEntradaMin').value : '')||null;
   if(!produto||!qtd||!dataCompra) return toast('Preencha produto, qtd e data');
   let icols=await getCols('inventory');
   let ra=await sb.from('inventory').select('*').eq('slug',currentSlug).eq('name',produto).single();
   let atual=ra.data;
-  if(atual){ let base=atual.quantity; if(base==null) base=atual.current_quantity; if(base==null) base=0; let novaQtd=Number(base)+qtd; let payload=filterObj({quantity:novaQtd,current_quantity:novaQtd,cost:custo||atual.cost,unit_cost:custo||atual.unit_cost}, icols); let res=await sb.from('inventory').update(payload).eq('id',atual.id); if(res.error) return toast(res.error.message); }
-  else { let payload=filterObj({slug:currentSlug,name:produto,product_name:produto,quantity:qtd,current_quantity:qtd,min_quantity:5,min_stock:5,cost:custo,unit_cost:custo,category:''}, icols); let res2=await sb.from('inventory').insert([payload]); if(res2.error) return toast(res2.error.message); }
+  let minFinal=minInput;
+  if(minFinal==null){ let c=cacheCatalogo.find(function(x){ return x.name===produto; }); if(c){ minFinal=c.min_quantity!=null?c.min_quantity:c.min_stock; } if(minFinal==null) minFinal=5; }
+  if(atual){ let base=atual.quantity; if(base==null) base=atual.current_quantity; if(base==null) base=0; let novaQtd=Number(base)+qtd; let payload=filterObj({quantity:novaQtd,current_quantity:novaQtd,min_quantity:minFinal,min_stock:minFinal,cost:custo||atual.cost,unit_cost:custo||atual.unit_cost}, icols); let res=await sb.from('inventory').update(payload).eq('id',atual.id); if(res.error) return toast(res.error.message); }
+  else { let payload=filterObj({slug:currentSlug,name:produto,product_name:produto,quantity:qtd,current_quantity:qtd,min_quantity:minFinal,min_stock:minFinal,cost:custo,unit_cost:custo,category:''}, icols); let res2=await sb.from('inventory').insert([payload]); if(res2.error) return toast(res2.error.message); }
   let mcols=await getCols('inventory_movements');
   let mp=filterObj({slug:currentSlug,product:produto,product_name:produto,type:'entrada',quantity:qtd,cost:custo,unit_cost:custo,date:dataCompra,movement_date:dataCompra,supplier:forn,obs:forn}, mcols);
   await sb.from('inventory_movements').insert([mp]);
-  toast('Compra registrada'); carregarEstoque(); $id('estEntradaQtd').value='';
+  toast('Compra registrada - somou '+qtd+' ao estoque'); carregarEstoque(); $id('estEntradaQtd').value='';
 }
-async function atualizarRetiradaInfo(){ let prod=$id('retiradaProduto').value; let r=await sb.from('inventory').select('*').eq('slug',currentSlug).eq('name',prod).single(); let d=r.data; if($id('retiradaInfo')) $id('retiradaInfo').textContent=d?('Saldo atual: '+(d.quantity!=null?d.quantity:d.current_quantity)):''; }
+async function atualizarRetiradaInfo(){ let prod=$id('retiradaProduto').value; let r=await sb.from('inventory').select('*').eq('slug',currentSlug).eq('name',prod).single(); let d=r.data; if($id('retiradaInfo')) $id('retiradaInfo').textContent=d?('Saldo atual: '+(d.quantity!=null?d.quantity:d.current_quantity)+' - Min: '+(d.min_quantity!=null?d.min_quantity:d.min_stock||5)):''; }
 async function retirarEstoque(){
   let produto=$id('retiradaProduto').value; let qtd=parseFloat($id('retiradaQtd').value); let dataUso=$id('retiradaData').value; let motivo=$id('retiradaMotivo').value;
   if(!produto||!qtd||!dataUso) return toast('Preencha tudo');
@@ -287,12 +303,13 @@ async function retirarEstoque(){
   await sb.from('inventory').update(filterObj({quantity:novaQtd,current_quantity:novaQtd}, icols)).eq('id',atual.id);
   let mcols=await getCols('inventory_movements');
   await sb.from('inventory_movements').insert([filterObj({slug:currentSlug,product:produto,product_name:produto,type:'saida',quantity:qtd,date:dataUso,movement_date:dataUso,reason:motivo,motivo:motivo,obs:motivo}, mcols)]);
-  toast('Saida registrada'); carregarEstoque(); $id('retiradaQtd').value='';
+  toast('Saida registrada - diminuiu '+qtd+' do estoque'); carregarEstoque(); $id('retiradaQtd').value='';
 }
 async function salvarEditEst(){ let icols=await getCols('inventory'); let payload=filterObj({quantity:parseFloat($id('editEstQtd').value),current_quantity:parseFloat($id('editEstQtd').value),min_quantity:parseFloat($id('editEstMin').value),min_stock:parseFloat($id('editEstMin').value),cost:parseFloat($id('editEstCusto').value),unit_cost:parseFloat($id('editEstCusto').value),category:$id('editEstCat').value}, icols); let res=await sb.from('inventory').update(payload).eq('id',editingEstId); if(res.error) return toast(res.error.message); closeModal('editEstModal'); toast('Salvo'); carregarEstoque(); }
 async function carregarMovimentos(){
   if(!sb) return;
-  let r=await sb.from('inventory_movements').select('*').eq('slug',currentSlug).order('created_at',{ascending:false}).limit(500);
+  let r=await sb.from('inventory_movements').select('*').eq('slug',currentSlug).order('date',{ascending:false}).limit(500);
+  if(r.error){ r=await sb.from('inventory_movements').select('*').eq('slug',currentSlug).limit(500); }
   let data=r.data||[];
   let ini=$id('estFiltroInicio')? $id('estFiltroInicio').value : '';
   let fim=$id('estFiltroFim')? $id('estFiltroFim').value : '';
@@ -301,7 +318,7 @@ async function carregarMovimentos(){
   data.sort(function(a,b){ return movDate(b).localeCompare(movDate(a)); });
   if($id('listaMovimentos')){
     if(data.length===0){ $id('listaMovimentos').innerHTML='Sem movimentos - ajuste o filtro'; }
-    else { let h=''; data.forEach(function(m){ let custo=m.cost!=null?m.cost:m.unit_cost||0; h+='<div class="list-row"><div><b>'+(m.type==='entrada'?'Entrada':'Saida')+' '+(m.product||m.product_name)+' - Qtd: '+m.quantity+'</b><br><small>Data: '+movDate(m)+' - Custo unitario: '+fmtMoney(custo)+' - Total: '+fmtMoney(Number(m.quantity||0)*Number(custo||0))+' - '+(m.supplier||m.reason||m.obs||'')+'</small></div><button class="btn small" data-edit-mov="'+m.id+'">Editar</button></div>'; }); $id('listaMovimentos').innerHTML=h; $id('listaMovimentos').querySelectorAll('[data-edit-mov]').forEach(function(b){ b.addEventListener('click', function(){ let m=data.find(function(x){ return String(x.id)===b.dataset.editMov; }); if(m){ editingMovId=m.id; $id('editMovProduto').value=m.product||m.product_name; $id('editMovTipo').value=m.type; $id('editMovQtd').value=m.quantity; $id('editMovData').value=movDate(m); $id('editMovCusto').value=m.cost!=null?m.cost:m.unit_cost||0; $id('editMovObs').value=m.supplier||m.reason||''; openModal('editMovModal'); } }); }); }
+    else { let h=''; data.forEach(function(m){ let custo=m.cost!=null?m.cost:m.unit_cost||0; let nome=m.product||m.product_name||''; h+='<div class="list-row"><div><b>'+(m.type==='entrada'?'Entrada':'Saida')+' - '+nome+' - Qtd: '+m.quantity+'</b><br><small>Data: '+fmtBR(movDate(m))+' - Valor: '+fmtMoney(custo)+' - Total: '+fmtMoney(Number(m.quantity||0)*Number(custo||0))+' - '+(m.supplier||m.reason||m.obs||'')+'</small></div><button class="btn small" data-edit-mov="'+m.id+'">Editar</button></div>'; }); $id('listaMovimentos').innerHTML=h; $id('listaMovimentos').querySelectorAll('[data-edit-mov]').forEach(function(b){ b.addEventListener('click', function(){ let m=data.find(function(x){ return String(x.id)===b.dataset.editMov; }); if(m){ editingMovId=m.id; $id('editMovProduto').value=m.product||m.product_name; $id('editMovTipo').value=m.type; $id('editMovQtd').value=m.quantity; $id('editMovData').value=movDate(m); $id('editMovCusto').value=m.cost!=null?m.cost:m.unit_cost||0; $id('editMovObs').value=m.supplier||m.reason||''; openModal('editMovModal'); } }); }); }
   }
 }
 async function salvarEditMov(){ let mcols=await getCols('inventory_movements'); let payload=filterObj({type:$id('editMovTipo').value,quantity:parseFloat($id('editMovQtd').value),date:$id('editMovData').value,movement_date:$id('editMovData').value,cost:parseFloat($id('editMovCusto').value),unit_cost:parseFloat($id('editMovCusto').value),supplier:$id('editMovObs').value,obs:$id('editMovObs').value}, mcols); let res=await sb.from('inventory_movements').update(payload).eq('id',editingMovId); if(res.error) return toast(res.error.message); closeModal('editMovModal'); toast('Movimentacao atualizada'); carregarEstoque(); }
@@ -334,23 +351,34 @@ async function calcularComissao(){
   let func=cacheFuncionarios.find(function(f){ return String(f.id)===String(barbeiroId); })||{};
   if(!func.id){ let rf=await sb.from('professionals').select('*').eq('slug',currentSlug); cacheFuncionarios=rf.data||[]; func=cacheFuncionarios.find(function(f){ return String(f.id)===String(barbeiroId); })||{}; }
   let all=await fetchAllBookings();
-  let filtrados=all.filter(function(b){ let d=rowDate(b); if(d<ini||d>fim) return false; let isPaid=(b.status==='paid'||b.payment_status==='paid'); if(!isPaid) return false; let byId=String(b.professional_id)===String(barbeiroId)||String(b.employee_id)===String(barbeiroId); let byName=(b.employee_name||b.professional_name)===(func.name||''); return byId||byName; });
+  let filtrados=all.filter(function(b){ let d=rowDate(b); if(!d||d<ini||d>fim) return false; let isPaid=(b.status==='paid'||b.payment_status==='paid'); if(!isPaid) return false; let byId=String(b.professional_id)===String(barbeiroId)||String(b.employee_id)===String(barbeiroId); let byName=(b.employee_name||b.professional_name)===(func.name||''); return byId||byName; });
   let total=0; filtrados.forEach(function(b){ total+=Number(b.price||(b.services&&b.services.price)||0); });
   let comissao=0; let perc=Number(func.commission_percent||func.commission||50);
   if(func.commission_type==='fixed') comissao=filtrados.length*perc; else comissao=total*(perc/100);
   comissaoAtual={professional_id:barbeiroId,employee_name:func.name,professional_name:func.name,ini:ini,fim:fim,total:total,comissao:comissao,qtd:filtrados.length};
-  if($id('comResumo')) $id('comResumo').innerHTML='<div class="grid-3"><div class="metric-card"><small>ATENDIMENTOS PAGOS</small><b>'+filtrados.length+'</b></div><div class="metric-card"><small>FATURAMENTO</small><b>'+fmtMoney(total)+'</b></div><div class="metric-card"><small>COMISSAO ('+(func.commission_type==='fixed'?'R$ '+perc+' por atendimento':perc+'%')+')</small><b style="color:var(--gold)">'+fmtMoney(comissao)+'</b></div></div>';
+  if($id('comResumo')) $id('comResumo').innerHTML='<div class="grid-3"><div class="metric-card"><small>ATENDIMENTOS PAGOS</small><b>'+filtrados.length+'</b></div><div class="metric-card"><small>FATURAMENTO (SOMA)</small><b>'+fmtMoney(total)+'</b></div><div class="metric-card"><small>COMISSAO ('+(func.commission_type==='fixed'?'R$ '+perc+' por atendimento':perc+'%')+')</small><b style="color:var(--gold)">'+fmtMoney(comissao)+'</b></div></div>';
   let pagos=await sb.from('professional_payments').select('*').eq('slug',currentSlug);
   let pagosList=(pagos.data||[]).filter(function(p){ return String(p.professional_id)===String(barbeiroId)||String(p.employee_id)===String(barbeiroId)||(p.professional_name||p.employee_name)===(func.name||''); });
+  let jaPago=pagosList.some(function(p){ return String(p.start_date)===ini && String(p.end_date)===fim; });
   if($id('listaComissoes')){
     if(filtrados.length===0) $id('listaComissoes').innerHTML='Sem atendimentos pagos no periodo - marque o agendamento como Pago na Agenda ou na tela do Barbeiro';
-    else { let h=''; filtrados.forEach(function(b){ let d=rowDate(b); let isPago=pagosList.some(function(p){ return String(p.start_date)<=d && String(p.end_date)>=d; }); let badge=isPago?'<span style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">Pago</span>':'<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">Nao pago</span>'; h+='<div class="list-row"><div><b>'+d+' '+(b.time||'')+' - '+(b.customer_name||b.name)+'</b><br><small>'+fmtMoney(b.price||0)+' - '+(b.employee_name||b.professional_name||'')+'</small></div>'+badge+'</div>'; }); $id('listaComissoes').innerHTML=h; }
+    else { let h=''; filtrados.forEach(function(b){ let d=rowDate(b); let badge=jaPago?'<span style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">Pago</span>':'<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">Nao pago</span>'; h+='<div class="list-row"><div><b>'+fmtBR(d)+' '+(b.time||'')+' - '+(b.customer_name||b.name)+'</b><br><small>'+fmtMoney(b.price||0)+' - Barbeiro: '+(b.employee_name||b.professional_name||'')+'</small></div>'+badge+'</div>'; }); $id('listaComissoes').innerHTML=h; }
   }
-  let bp=$id('btnPagarComissao'); if(bp) bp.style.display='block';
+  let bp=$id('btnPagarComissao'); if(bp){ bp.style.display='block'; if(jaPago){ bp.textContent='Ja pago neste periodo'; bp.disabled=true; bp.style.opacity='0.6'; } else { bp.textContent='Marcar como Paga'; bp.disabled=false; bp.style.opacity='1'; } }
   carregarPagamentos();
 }
-async function pagarComissao(){ if(!comissaoAtual) return; let cols=await getCols('professional_payments'); let payload=filterObj({slug:currentSlug,professional_id:comissaoAtual.professional_id,employee_id:comissaoAtual.professional_id,employee_name:comissaoAtual.employee_name,professional_name:comissaoAtual.employee_name,start_date:comissaoAtual.ini,end_date:comissaoAtual.fim,total:comissaoAtual.total,commission:comissaoAtual.comissao,amount:comissaoAtual.comissao,paid_at:new Date().toISOString(),status:'paid'}, cols); let res=await sb.from('professional_payments').insert([payload]); if(res.error) return toast(res.error.message); toast('Comissao marcada como paga'); carregarPagamentos(); calcularComissao(); }
-async function carregarPagamentos(){ let r=await sb.from('professional_payments').select('*').eq('slug',currentSlug).order('paid_at',{ascending:false}).limit(20); let data=r.data||[]; if($id('listaPagamentos')){ if(data.length===0) $id('listaPagamentos').innerHTML='Nenhum pagamento ainda'; else { let h=''; data.forEach(function(p){ let st=(p.status==='paid'||p.paid_at)?'Pago':'Nao pago'; let bg=st==='Pago'?'#16a34a':'#dc2626'; h+='<div class="list-row"><div><b>'+(p.professional_name||p.employee_name)+' - '+fmtMoney(p.commission||p.amount)+'</b><br><small>'+p.start_date+' ate '+p.end_date+'</small></div><span style="background:'+bg+';color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">'+st+'</span></div>'; }); $id('listaPagamentos').innerHTML=h; } } }
+async function pagarComissao(){
+  if(!comissaoAtual) return;
+  let check=await sb.from('professional_payments').select('*').eq('slug',currentSlug).eq('start_date',comissaoAtual.ini).eq('end_date',comissaoAtual.fim);
+  let exists=(check.data||[]).some(function(p){ return String(p.professional_id)===String(comissaoAtual.professional_id)||String(p.employee_id)===String(comissaoAtual.professional_id); });
+  if(exists){ toast('Ja pago neste periodo'); return; }
+  let cols=await getCols('professional_payments');
+  let payload=filterObj({slug:currentSlug,professional_id:comissaoAtual.professional_id,employee_id:comissaoAtual.professional_id,employee_name:comissaoAtual.employee_name,professional_name:comissaoAtual.employee_name,start_date:comissaoAtual.ini,end_date:comissaoAtual.fim,total:comissaoAtual.total,commission:comissaoAtual.comissao,paid_at:new Date().toISOString(),status:'paid'}, cols);
+  let res=await sb.from('professional_payments').insert([payload]);
+  if(res.error) return toast(res.error.message);
+  toast('Comissao marcada como paga - Total: '+fmtMoney(comissaoAtual.total)+' Comissao: '+fmtMoney(comissaoAtual.comissao)); carregarPagamentos(); calcularComissao();
+}
+async function carregarPagamentos(){ let r=await sb.from('professional_payments').select('*').eq('slug',currentSlug).order('paid_at',{ascending:false}).limit(20); let data=r.data||[]; if($id('listaPagamentos')){ if(data.length===0) $id('listaPagamentos').innerHTML='Nenhum pagamento ainda'; else { let h=''; data.forEach(function(p){ let st=(p.status==='paid'||p.paid_at)?'Pago':'Nao pago'; let bg=st==='Pago'?'#16a34a':'#dc2626'; h+='<div class="list-row"><div><b>'+(p.professional_name||p.employee_name)+' - '+fmtMoney(p.commission||0)+'</b><br><small>'+fmtBR(p.start_date)+' ate '+fmtBR(p.end_date)+' - Total: '+fmtMoney(p.total||0)+'</small></div><span style="background:'+bg+';color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">'+st+'</span></div>'; }); $id('listaPagamentos').innerHTML=h; } } }
 async function carregarFinanceiro(){
   if(!sb) return;
   let r=await sb.from('cash_entries').select('*').eq('slug',currentSlug).order('created_at',{ascending:false}).limit(500);
@@ -365,7 +393,7 @@ async function carregarFinanceiro(){
   if($id('finResumo')) $id('finResumo').innerHTML='<div class="metric-card"><small>ENTRADAS</small><b style="color:#4ade80">'+fmtMoney(ent)+'</b></div><div class="metric-card"><small>SAIDAS</small><b style="color:#f87171">'+fmtMoney(sai)+'</b></div><div class="metric-card"><small>LUCRO</small><b style="color:var(--gold)">'+fmtMoney(ent-sai)+'</b></div>';
   if($id('listaFinanceiro')){
     if(data.length===0) $id('listaFinanceiro').innerHTML='Sem lancamentos no periodo';
-    else { let h=''; data.forEach(function(f){ let d=finDate(f); h+='<div class="list-row"><div><b>'+(f.type==='income'?'Entrada':'Saida')+' '+(f.description||'')+' - '+fmtMoney(f.amount||f.value)+'</b><br><small>'+d+' - Categoria: '+(f.category||'Sem categoria')+' - '+(f.payment_method||f.form||'')+'</small></div>'+(String(f.id).indexOf('book-')===0?'':('<button class="btn small danger" data-del-fin="'+f.id+'">Excluir</button>'))+'</div>'; }); $id('listaFinanceiro').innerHTML=h; $id('listaFinanceiro').querySelectorAll('[data-del-fin]').forEach(function(b){ b.addEventListener('click', function(){ excluirFin(b.dataset.delFin); }); }); }
+    else { let h=''; data.forEach(function(f){ let d=finDate(f); h+='<div class="list-row"><div><b>'+(f.type==='income'?'Entrada':'Saida')+' '+(f.description||'')+' - '+fmtMoney(f.amount||f.value)+'</b><br><small>'+fmtBR(d)+' - Categoria: '+(f.category||'Sem categoria')+' - '+(f.payment_method||f.form||'')+'</small></div>'+(String(f.id).indexOf('book-')===0?'':('<button class="btn small danger" data-del-fin="'+f.id+'">Excluir</button>'))+'</div>'; }); $id('listaFinanceiro').innerHTML=h; $id('listaFinanceiro').querySelectorAll('[data-del-fin]').forEach(function(b){ b.addEventListener('click', function(){ excluirFin(b.dataset.delFin); }); }); }
   }
   window._finData=data;
   let cats={}; data.forEach(function(f){ if(f.category) cats[f.category]=1; });
