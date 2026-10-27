@@ -10,29 +10,22 @@ function openModal(id){let e=$id(id); if(e) e.classList.add('show');}
 function closeModal(id){let e=$id(id); if(e) e.classList.remove('show');}
 function cleanPhone(p){return String(p||'').replace(/[^0-9]/g,'');}
 function capFirst(s){ s=String(s||'').trim().toLowerCase(); if(!s) return s; return s.charAt(0).toUpperCase()+s.slice(1); }
+function rowDate(r){ return r.booking_date||r.date||r.appointment_date||r.scheduled_date||(r.created_at?String(r.created_at).slice(0,10):''); }
+function movDate(m){ return m.date||m.movement_date||m.created_at? (m.date||m.movement_date||String(m.created_at||'').slice(0,10)) : ''; }
+function finDate(f){ return f.date||f.entry_date||f.transaction_date||(f.created_at?String(f.created_at).slice(0,10):''); }
 async function getCols(table){
   if(schemaCache[table]) return schemaCache[table];
-  try{
-    let r=await sb.from(table).select('*').limit(1);
-    if(r.data && r.data.length>0){ schemaCache[table]=Object.keys(r.data[0]); return schemaCache[table]; }
-  }catch(e){}
-  let fallback={bookings:['id','slug','date','time','customer_name','name','phone','service_id','professional_id','employee_id','employee_name','professional_name','price','status','payment_status','obs','notes','created_at'],services:['id','slug','name','price','duration','duration_minutes'],inventory:['id','slug','name','product_name','quantity','current_quantity','min_quantity','min_stock','cost','unit_cost','category'],professionals:['id','slug','name','phone','email','role','funcao','start_time','end_time','commission_percent','commission','commission_type'],cash_entries:['id','slug','type','amount','value','date','created_at','category','payment_method','form','description'],barbershops:['id','slug','name','whatsapp','phone','logo_url','start_time','end_time','interval_minutes','lunch_start','lunch_end','working_days'],customers:['id','slug','name','phone','birthdate'],product_catalog:['id','slug','name'],inventory_movements:['id','slug','product','product_name','type','quantity','cost','unit_cost','date','supplier','reason','motivo','obs','created_at'],professional_payments:['id','slug','professional_id','employee_id','employee_name','professional_name','start_date','end_date','total','commission','amount','paid_at','status']};
-  schemaCache[table]=fallback[table]||[];
-  return schemaCache[table];
+  try{ let r=await sb.from(table).select('*').limit(1); if(r.data && r.data.length>0){ schemaCache[table]=Object.keys(r.data[0]); return schemaCache[table]; } }catch(e){}
+  let fallback={bookings:['id','slug','booking_date','date','time','customer_name','name','phone','service_id','professional_id','employee_id','employee_name','professional_name','price','status','payment_status','obs','notes','created_at'],services:['id','slug','name','price','duration','duration_minutes'],inventory:['id','slug','name','product_name','quantity','current_quantity','min_quantity','min_stock','cost','unit_cost','category'],professionals:['id','slug','name','phone','email','role','funcao','start_time','end_time','commission_percent','commission','commission_type'],cash_entries:['id','slug','type','amount','value','date','entry_date','created_at','category','payment_method','form','description'],barbershops:['id','slug','name','whatsapp','phone','logo_url','start_time','end_time','interval_minutes','lunch_start','lunch_end','working_days','working_hours','opening_hours','schedule'],customers:['id','slug','name','phone','birthdate'],product_catalog:['id','slug','name'],inventory_movements:['id','slug','product','product_name','type','quantity','cost','unit_cost','date','movement_date','supplier','reason','motivo','obs','created_at'],professional_payments:['id','slug','professional_id','employee_id','employee_name','professional_name','start_date','end_date','total','commission','amount','paid_at','status']};
+  schemaCache[table]=fallback[table]||[]; return schemaCache[table];
 }
 function filterObj(obj, cols){ let o={}; Object.keys(obj).forEach(function(k){ if(cols.indexOf(k)!==-1) o[k]=obj[k]; }); return o; }
-async function detectDateField(table){
-  let cols=await getCols(table);
-  let cands=['date','appointment_date','scheduled_date','booking_date','created_at'];
-  for(let i=0;i<cands.length;i++){ if(cols.indexOf(cands[i])!==-1) return cands[i]; }
-  return 'created_at';
-}
 document.addEventListener('DOMContentLoaded', async function(){
   currentSlug=getSlug(); localStorage.setItem('dnh_slug',currentSlug);
   if($id('slugDisplay')) $id('slugDisplay').textContent=currentSlug;
   if($id('barberSlug')) $id('barberSlug').textContent=currentSlug;
   try{ if(window.supabase && window.DNH_CONFIG){ sb=window.supabase.createClient(window.DNH_CONFIG.supabaseUrl, window.DNH_CONFIG.supabaseAnonKey); window.sb=sb; } }catch(e){ console.log(e); }
-  if(sb){ const res=await sb.from('barbershops').select('*').eq('slug',currentSlug).single(); if(res.data){ currentShop=res.data; if($id('barberName')) $id('barberName').textContent=(res.data.name||'BARBEARIA').toUpperCase(); if($id('shopNameLogin')) $id('shopNameLogin').textContent=(res.data.name||'BARBEARIA').toUpperCase(); if(res.data.logo_url){ ['logoSidebar','logoLogin','logoDash'].forEach(function(i){let el=$id(i); if(el) el.src=res.data.logo_url;}); } } }
+  if(sb){ const res=await sb.from('barbershops').select('*').eq('slug',currentSlug).single(); if(res.data){ currentShop=res.data; if($id('barberName')) $id('barberName').textContent=(res.data.name||'BARBEARIA').toUpperCase(); if($id('shopNameLogin')) $id('shopNameLogin').textContent=(res.data.name||'BARBEARIA').toUpperCase(); if(res.data.logo_url){ ['logoSidebar','logoLogin'].forEach(function(i){let el=$id(i); if(el) el.src=res.data.logo_url;}); } } }
   document.querySelectorAll('[data-close-modal]').forEach(function(b){ b.addEventListener('click', function(){ closeModal(b.dataset.closeModal); }); });
   document.querySelectorAll('.nav button').forEach(function(btn){ btn.addEventListener('click', function(){ document.querySelectorAll('.nav button').forEach(function(x){x.classList.remove('active');}); btn.classList.add('active'); document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');}); let pg=$id('page-'+btn.dataset.page); if(pg) pg.classList.add('active'); let s=$id('sidebar'); if(s) s.classList.remove('open'); let o=$id('overlay'); if(o) o.classList.remove('show'); if(btn.dataset.page==='clientes') carregarAniversariantes(); if(btn.dataset.page==='dashboard') carregarDashboard(); }); });
   if($id('btnHamburger')) $id('btnHamburger').addEventListener('click', function(){ $id('sidebar').classList.toggle('open'); $id('overlay').classList.toggle('show'); });
@@ -66,7 +59,7 @@ function bindEvents(){
   if($id('btnRetirar')) $id('btnRetirar').addEventListener('click', retirarEstoque);
   if($id('btnToggleEstoque')) $id('btnToggleEstoque').addEventListener('click', function(){ estoqueVisible=!estoqueVisible; if($id('listaEstoque')) $id('listaEstoque').style.display=estoqueVisible?'block':'none'; });
   if($id('btnFiltrarEst')) $id('btnFiltrarEst').addEventListener('click', carregarMovimentos);
-  if($id('btnLimparEst')) $id('btnLimparEst').addEventListener('click', function(){ if($id('estFiltroInicio')) $id('estFiltroInicio').value=''; if($id('estFiltroFim')) $id('estFiltroFim').value=''; carregarMovimentos(); });
+  if($id('btnLimparEst')) $id('btnLimparEst').addEventListener('click', function(){ if($id('estFiltroInicio')) $id('estFiltroInicio').value=''; if($id('estFiltroFim')) $id('estFiltroFim').value=''; if($id('estFiltroProduto')) $id('estFiltroProduto').value=''; carregarMovimentos(); });
   if($id('btnSaveEditEst')) $id('btnSaveEditEst').addEventListener('click', salvarEditEst);
   if($id('btnSaveEditMov')) $id('btnSaveEditMov').addEventListener('click', salvarEditMov);
   if($id('btnAddFunc')) $id('btnAddFunc').addEventListener('click', addFunc);
@@ -91,35 +84,38 @@ function bindEvents(){
   if($id('agClienteNome')) $id('agClienteNome').addEventListener('change', onNomeClienteChange);
   if($id('btnFiltrarAgendaLista')) $id('btnFiltrarAgendaLista').addEventListener('click', carregarAgendaAdmin);
   if($id('btnLimparAgendaLista')) $id('btnLimparAgendaLista').addEventListener('click', function(){ if($id('agFiltroInicio')) $id('agFiltroInicio').value=''; if($id('agFiltroFim')) $id('agFiltroFim').value=''; if($id('agFiltroFunc')) $id('agFiltroFunc').value=''; carregarAgendaAdmin(); });
+  if($id('estFiltroInicio')) $id('estFiltroInicio').addEventListener('change', carregarMovimentos);
+  if($id('estFiltroFim')) $id('estFiltroFim').addEventListener('change', carregarMovimentos);
+  if($id('estFiltroProduto')) $id('estFiltroProduto').addEventListener('change', carregarMovimentos);
+  if($id('finInicio')) $id('finInicio').addEventListener('change', carregarFinanceiro);
+  if($id('finFim')) $id('finFim').addEventListener('change', carregarFinanceiro);
   let hoje=new Date().toISOString().slice(0,10);
   if($id('agData')) $id('agData').value=hoje;
   if($id('estEntradaData')) $id('estEntradaData').value=hoje;
   if($id('retiradaData')) $id('retiradaData').value=hoje;
   if($id('finData')) $id('finData').value=hoje;
 }
-function onNomeClienteChange(){
-  let nome=$id('agClienteNome').value.trim().toLowerCase();
-  let found=cacheClientes.find(function(c){ return String(c.name||'').trim().toLowerCase()===nome; });
-  if(found && $id('agClientePhone')) $id('agClientePhone').value=found.phone||'';
+function onNomeClienteChange(){ let nome=$id('agClienteNome').value.trim().toLowerCase(); let found=cacheClientes.find(function(c){ return String(c.name||'').trim().toLowerCase()===nome; }); if(found && $id('agClientePhone')) $id('agClientePhone').value=found.phone||''; }
+async function fetchAllBookings(){
+  let r=await sb.from('bookings').select('*, services(name,price)').eq('slug',currentSlug).order('created_at',{ascending:false}).limit(1000);
+  if(r.error){ r=await sb.from('bookings').select('*').eq('slug',currentSlug).limit(1000); }
+  return r.data||[];
 }
 async function carregarDashboard(){
   if(!sb) return;
   let hoje=new Date().toISOString().slice(0,10);
   if($id('dashDate')) $id('dashDate').textContent=new Date().toLocaleDateString('pt-BR');
-  let df=await detectDateField('bookings');
-  let q=sb.from('bookings').select('*, services(name,price)').eq('slug',currentSlug);
-  if(df==='date') q=q.eq('date',hoje); else if(df==='created_at') q=q.gte('created_at',hoje+'T00:00:00').lte('created_at',hoje+'T23:59:59'); else q=q.eq(df,hoje);
-  let r=await q;
-  let bookings=r.data||[];
-  let pagos=bookings.filter(function(b){ return b.status==='paid'||b.payment_status==='paid'; });
+  let bookings=await fetchAllBookings();
+  let hojeList=bookings.filter(function(b){ return rowDate(b)===hoje; });
+  let pagos=hojeList.filter(function(b){ return b.status==='paid'||b.payment_status==='paid'; });
   let receita=0; pagos.forEach(function(b){ receita+=Number(b.price||(b.services&&b.services.price)||0); });
-  if($id('dashHoje')) $id('dashHoje').textContent=bookings.length;
-  if($id('dashClientes')) $id('dashClientes').textContent=new Set(bookings.map(function(b){return b.phone;})).size;
+  if($id('dashHoje')) $id('dashHoje').textContent=hojeList.length;
+  if($id('dashClientes')) $id('dashClientes').textContent=new Set(hojeList.map(function(b){return b.phone;})).size;
   if($id('dashReceita')) $id('dashReceita').textContent=fmtMoney(receita);
-  if($id('dashTicket')) $id('dashTicket').textContent=fmtMoney(bookings.length?receita/bookings.length:0);
+  if($id('dashTicket')) $id('dashTicket').textContent=fmtMoney(hojeList.length?receita/hojeList.length:0);
   if($id('todayAgenda')){
-    if(bookings.length===0){ $id('todayAgenda').innerHTML='Nenhum atendimento hoje'; }
-    else { let h=''; bookings.forEach(function(b){ let d=b.date||(b.created_at?String(b.created_at).slice(0,10):''); h+='<div class="list-row"><div><b>'+(b.time||'')+' - '+(b.customer_name||b.name||'')+'</b><br><small>'+((b.services&&b.services.name)||'')+' - '+(b.employee_name||b.professional_name||'')+'</small></div><span>'+(b.status||'')+'</span></div>'; }); $id('todayAgenda').innerHTML=h; }
+    if(hojeList.length===0){ $id('todayAgenda').innerHTML='Nenhum atendimento hoje'; }
+    else { let h=''; hojeList.forEach(function(b){ h+='<div class="list-row"><div><b>'+(b.time||'')+' - '+(b.customer_name||b.name||'')+'</b><br><small>'+((b.services&&b.services.name)||'')+' - '+(b.employee_name||b.professional_name||'')+'</small></div><span>'+(b.status||'')+'</span></div>'; }); $id('todayAgenda').innerHTML=h; }
   }
   let re=await sb.from('inventory').select('*').eq('slug',currentSlug);
   let estoque=re.data||[];
@@ -134,16 +130,14 @@ async function filtrarDashboard(){
   let ini=$id('filtroInicio')? $id('filtroInicio').value : '';
   let fim=$id('filtroFim')? $id('filtroFim').value : '';
   if(!ini||!fim) return toast('Escolha inicio e fim');
-  let df=await detectDateField('bookings');
-  let q=sb.from('bookings').select('*').eq('slug',currentSlug);
-  if(df==='date'){ q=q.gte('date',ini).lte('date',fim); }
-  else if(df==='created_at'){ q=q.gte('created_at',ini+'T00:00:00').lte('created_at',fim+'T23:59:59'); }
-  else { q=q.gte(df,ini).lte(df,fim); }
-  let res=await q;
-  if(res.error) return toast(res.error.message);
-  let fil=res.data||[];
-  let rec=0; fil.forEach(function(b){ if(b.status==='paid') rec+=Number(b.price||0); });
+  let all=await fetchAllBookings();
+  let fil=all.filter(function(b){ let d=rowDate(b); return d>=ini && d<=fim; });
+  let rec=0; fil.forEach(function(b){ if(b.status==='paid'||b.payment_status==='paid') rec+=Number(b.price||0); });
   if($id('filtroResultado')) $id('filtroResultado').innerHTML='<b>'+fil.length+'</b> atendimentos - Receita: <b>'+fmtMoney(rec)+'</b> - '+ini+' ate '+fim;
+  if($id('filtroLista')){
+    if(fil.length===0) $id('filtroLista').innerHTML='Nenhum atendimento no periodo';
+    else { let h=''; fil.forEach(function(b){ h+='<div class="list-row"><div><b>'+rowDate(b)+' '+(b.time||'')+' - '+(b.customer_name||b.name)+'</b><br><small>'+(b.phone||'')+' - '+(b.employee_name||b.professional_name||'')+' - '+fmtMoney(b.price||0)+'</small></div><span>'+(b.status||'')+'</span></div>'; }); $id('filtroLista').innerHTML=h; }
+  }
 }
 async function carregarAgendaAdmin(){
   if(!sb) return;
@@ -154,41 +148,21 @@ async function carregarAgendaAdmin(){
   cacheFuncionarios=rf.data||[];
   let rs=await sb.from('services').select('*').eq('slug',currentSlug);
   cacheServicos=rs.data||[];
-  if($id('agFuncionario')){
-    if(cacheFuncionarios.length===0) $id('agFuncionario').innerHTML='<option value="">Cadastre um barbeiro em Funcionarios</option>';
-    else { let h=''; cacheFuncionarios.forEach(function(f){ h+='<option value="'+f.id+'">'+f.name+'</option>'; }); $id('agFuncionario').innerHTML=h; }
-  }
-  if($id('agServico')){
-    if(cacheServicos.length===0) $id('agServico').innerHTML='<option value="">Cadastre um servico</option>';
-    else { let h=''; cacheServicos.forEach(function(s){ h+='<option value="'+s.id+'">'+s.name+' - '+fmtMoney(s.price)+'</option>'; }); $id('agServico').innerHTML=h; }
-  }
+  if($id('agFuncionario')){ if(cacheFuncionarios.length===0) $id('agFuncionario').innerHTML='<option value="">Cadastre um barbeiro em Funcionarios</option>'; else { let h=''; cacheFuncionarios.forEach(function(f){ h+='<option value="'+f.id+'">'+f.name+'</option>'; }); $id('agFuncionario').innerHTML=h; } }
+  if($id('agServico')){ if(cacheServicos.length===0) $id('agServico').innerHTML='<option value="">Cadastre um servico</option>'; else { let h=''; cacheServicos.forEach(function(s){ h+='<option value="'+s.id+'">'+s.name+' - '+fmtMoney(s.price)+'</option>'; }); $id('agServico').innerHTML=h; } }
   if($id('editBookFunc')){ let h=''; cacheFuncionarios.forEach(function(f){ h+='<option value="'+f.id+'">'+f.name+'</option>'; }); $id('editBookFunc').innerHTML=h; }
   if($id('editBookServ')){ let h=''; cacheServicos.forEach(function(s){ h+='<option value="'+s.id+'">'+s.name+'</option>'; }); $id('editBookServ').innerHTML=h; }
   if($id('agFiltroFunc')){ let cur=$id('agFiltroFunc').value; let h='<option value="">Todos barbeiros</option>'; cacheFuncionarios.forEach(function(f){ h+='<option value="'+f.id+'">'+f.name+'</option>'; }); $id('agFiltroFunc').innerHTML=h; if(cur) $id('agFiltroFunc').value=cur; }
   await carregarHorarios();
-  let df=await detectDateField('bookings');
-  let q=sb.from('bookings').select('*, services(name)').eq('slug',currentSlug);
+  let all=await fetchAllBookings();
   let fIni=$id('agFiltroInicio')? $id('agFiltroInicio').value : '';
   let fFim=$id('agFiltroFim')? $id('agFiltroFim').value : '';
   let fFunc=$id('agFiltroFunc')? $id('agFiltroFunc').value : '';
-  if(fIni && df==='date') q=q.gte('date',fIni);
-  if(fFim && df==='date') q=q.lte('date',fFim);
-  if(fIni && df==='created_at') q=q.gte('created_at',fIni+'T00:00:00');
-  if(fFim && df==='created_at') q=q.lte('created_at',fFim+'T23:59:59');
-  if(fFunc){ let cols=await getCols('bookings'); if(cols.indexOf('professional_id')!==-1) q=q.eq('professional_id',fFunc); else if(cols.indexOf('employee_id')!==-1) q=q.eq('employee_id',fFunc); }
-  q=q.order('date',{ascending:false}).limit(200);
-  let rb=await q;
-  if(rb.error){ rb=await sb.from('bookings').select('*, services(name)').eq('slug',currentSlug).order('created_at',{ascending:false}).limit(200); }
-  let bookings=rb.data||[];
+  let bookings=all.filter(function(b){ let d=rowDate(b); if(fIni && d<fIni) return false; if(fFim && d>fFim) return false; if(fFunc && String(b.professional_id)!==String(fFunc) && String(b.employee_id)!==String(fFunc)) return false; return true; });
+  bookings.sort(function(a,b){ return rowDate(b).localeCompare(rowDate(a)); });
   if($id('adminAgendaList')){
     if(bookings.length===0){ $id('adminAgendaList').innerHTML='Sem agendamentos'; }
-    else {
-      let h=''; bookings.forEach(function(b){ let d=b.date||(b.created_at?String(b.created_at).slice(0,10):''); h+='<div class="list-row"><div><b>'+d+' '+(b.time||'')+' - '+(b.customer_name||b.name)+'</b><br><small>'+((b.services&&b.services.name)||'')+' - '+(b.phone||'')+' - '+(b.status||'')+' - '+(b.employee_name||b.professional_name||'')+'</small></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-pago="'+b.id+'">Pago</button><button class="btn small" data-edit-book="'+b.id+'">Editar</button><button class="btn small danger" data-del-book="'+b.id+'">Excluir</button></div></div>'; });
-      $id('adminAgendaList').innerHTML=h;
-      $id('adminAgendaList').querySelectorAll('[data-pago]').forEach(function(x){ x.addEventListener('click', function(){ marcarPago(x.dataset.pago); }); });
-      $id('adminAgendaList').querySelectorAll('[data-edit-book]').forEach(function(x){ x.addEventListener('click', function(){ editarBooking(x.dataset.editBook); }); });
-      $id('adminAgendaList').querySelectorAll('[data-del-book]').forEach(function(x){ x.addEventListener('click', function(){ excluirBooking(x.dataset.delBook); }); });
-    }
+    else { let h=''; bookings.forEach(function(b){ h+='<div class="list-row"><div><b>'+rowDate(b)+' '+(b.time||'')+' - '+(b.customer_name||b.name)+'</b><br><small>'+((b.services&&b.services.name)||'')+' - '+(b.phone||'')+' - '+(b.status||'')+' - '+(b.employee_name||b.professional_name||'')+'</small></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-pago="'+b.id+'">Pago</button><button class="btn small" data-edit-book="'+b.id+'">Editar</button><button class="btn small danger" data-del-book="'+b.id+'">Excluir</button></div></div>'; }); $id('adminAgendaList').innerHTML=h; $id('adminAgendaList').querySelectorAll('[data-pago]').forEach(function(x){ x.addEventListener('click', function(){ marcarPago(x.dataset.pago); }); }); $id('adminAgendaList').querySelectorAll('[data-edit-book]').forEach(function(x){ x.addEventListener('click', function(){ editarBooking(x.dataset.editBook); }); }); $id('adminAgendaList').querySelectorAll('[data-del-book]').forEach(function(x){ x.addEventListener('click', function(){ excluirBooking(x.dataset.delBook); }); }); }
   }
 }
 async function carregarHorarios(){
@@ -196,16 +170,14 @@ async function carregarHorarios(){
   let data=$id('agData')? $id('agData').value : '';
   let funcId=$id('agFuncionario')? $id('agFuncionario').value : '';
   if(!data) return;
+  let all=await fetchAllBookings();
   let ocupados=new Set();
-  if(funcId){
-    let r1=await sb.from('bookings').select('time').eq('slug',currentSlug).eq('date',data).eq('professional_id',funcId).neq('status','cancelled');
-    let arr=(r1.data||[]);
-    if(arr.length===0){ let r2=await sb.from('bookings').select('time').eq('slug',currentSlug).eq('date',data).eq('employee_id',funcId).neq('status','cancelled'); arr=(r2.data||[]); }
-    arr.forEach(function(b){ ocupados.add(b.time); });
-  }
+  all.forEach(function(b){ if(rowDate(b)===data && (String(b.professional_id)===String(funcId)||String(b.employee_id)===String(funcId)) && b.status!=='cancelled') ocupados.add(b.time); });
   let horarios=[]; let start=8*60, end=18*60, interval=Number((currentShop&&currentShop.interval_minutes)||30);
-  if(currentShop && currentShop.start_time){ let p=currentShop.start_time.split(':'); start=parseInt(p[0])*60+parseInt(p[1]||0); }
-  if(currentShop && currentShop.end_time){ let p=currentShop.end_time.split(':'); end=parseInt(p[0])*60+parseInt(p[1]||0); }
+  if(currentShop && currentShop.start_time){ let p=String(currentShop.start_time).split(':'); start=parseInt(p[0])*60+parseInt(p[1]||0); }
+  if(currentShop && currentShop.end_time){ let p=String(currentShop.end_time).split(':'); end=parseInt(p[0])*60+parseInt(p[1]||0); }
+  let sched=window._daySchedule||null;
+  if(sched && data){ let dow=new Date(data+'T12:00:00').getDay(); let ds=sched[dow]; if(ds && ds.active){ let a=String(ds.start).split(':'); let bb=String(ds.end).split(':'); start=parseInt(a[0])*60+parseInt(a[1]||0); end=parseInt(bb[0])*60+parseInt(bb[1]||0); } }
   for(let m=start;m<end;m+=interval){ let hh=String(Math.floor(m/60)); if(hh.length<2) hh='0'+hh; let mm=String(m%60); if(mm.length<2) mm='0'+mm; horarios.push(hh+':'+mm); }
   if($id('agHoraGrid')){
     let h=''; horarios.forEach(function(hr){ let occ=ocupados.has(hr); let bg=occ?'#2a1515':'#0a0e1a'; let col=occ?'#666':'#fff'; let cur=occ?'not-allowed':'pointer'; if(selectedHora===hr){ bg='var(--gold)'; col='#000'; } h+='<button type="button" '+(occ?'disabled':'')+' data-hora="'+hr+'" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:'+bg+';color:'+col+';cursor:'+cur+'">'+hr+'</button>'; });
@@ -220,24 +192,20 @@ async function agendarCliente(){
   let serv=cacheServicos.find(function(s){ return String(s.id)===String(service_id); })||{};
   let func=cacheFuncionarios.find(function(f){ return String(f.id)===String(professional_id); })||{};
   let cols=await getCols('bookings');
-  let raw={slug:currentSlug,date:date,time:selectedHora,professional_id:professional_id||null,employee_id:professional_id||null,employee_name:func.name||'',professional_name:func.name||'',service_id:service_id,customer_name:name,name:name,phone:phone,obs:obs,notes:obs,price:serv.price||0,status:'pending'};
+  let raw={slug:currentSlug,booking_date:date,date:date,appointment_date:date,scheduled_date:date,time:selectedHora,professional_id:professional_id||null,employee_id:professional_id||null,employee_name:func.name||'',professional_name:func.name||'',service_id:service_id,customer_name:name,name:name,phone:phone,obs:obs,notes:obs,price:serv.price||0,status:'pending'};
   let payload=filterObj(raw, cols);
   let res=await sb.from('bookings').insert([payload]);
   if(res.error) return toast('Erro: '+res.error.message);
   let ccols=await getCols('customers');
   let existing=cacheClientes.find(function(c){ return String(c.name||'').trim().toLowerCase()===name.toLowerCase() && cleanPhone(c.phone)===cleanPhone(phone); });
-  if(!existing){
-    let cp=filterObj({slug:currentSlug,name:name,phone:phone}, ccols);
-    let cr=await sb.from('customers').upsert(cp,{onConflict:'slug,phone'});
-    if(cr.error){ await sb.from('customers').insert([cp]); }
-  }
+  if(!existing){ let cp=filterObj({slug:currentSlug,name:name,phone:phone}, ccols); let cr=await sb.from('customers').upsert(cp,{onConflict:'slug,phone'}); if(cr.error){ await sb.from('customers').insert([cp]); } }
   toast('Agendado!'); selectedHora=''; $id('agClienteNome').value=''; $id('agClientePhone').value=''; $id('agObs').value='';
   carregarDashboard(); carregarAgendaAdmin();
 }
 async function marcarPago(id){ await sb.from('bookings').update({status:'paid',payment_status:'paid'}).eq('id',id); toast('Marcado como pago'); carregarDashboard(); carregarAgendaAdmin(); carregarFinanceiro(); }
 async function excluirBooking(id){ if(!confirm('Excluir agendamento?')) return; await sb.from('bookings').delete().eq('id',id); carregarDashboard(); carregarAgendaAdmin(); }
-async function editarBooking(id){ editingBookId=id; let r=await sb.from('bookings').select('*').eq('id',id).single(); let b=r.data; if(!b) return; $id('editBookData').value=b.date||(b.created_at?String(b.created_at).slice(0,10):''); $id('editBookHora').value=b.time; $id('editBookCliente').value=b.customer_name||b.name||''; $id('editBookPhone').value=b.phone||''; $id('editBookObs').value=b.obs||b.notes||''; $id('editBookFunc').value=b.professional_id||b.employee_id||''; $id('editBookServ').value=b.service_id||''; openModal('editBookingModal'); }
-async function salvarEditBook(){ let cols=await getCols('bookings'); let raw={date:$id('editBookData').value,time:$id('editBookHora').value,customer_name:$id('editBookCliente').value,name:$id('editBookCliente').value,phone:$id('editBookPhone').value,obs:$id('editBookObs').value,professional_id:$id('editBookFunc').value,employee_id:$id('editBookFunc').value,service_id:$id('editBookServ').value}; let payload=filterObj(raw, cols); let res=await sb.from('bookings').update(payload).eq('id',editingBookId); if(res.error) return toast(res.error.message); closeModal('editBookingModal'); toast('Salvo'); carregarAgendaAdmin(); carregarDashboard(); }
+async function editarBooking(id){ editingBookId=id; let r=await sb.from('bookings').select('*').eq('id',id).single(); let b=r.data; if(!b) return; $id('editBookData').value=rowDate(b); $id('editBookHora').value=b.time; $id('editBookCliente').value=b.customer_name||b.name||''; $id('editBookPhone').value=b.phone||''; $id('editBookObs').value=b.obs||b.notes||''; $id('editBookFunc').value=b.professional_id||b.employee_id||''; $id('editBookServ').value=b.service_id||''; openModal('editBookingModal'); }
+async function salvarEditBook(){ let cols=await getCols('bookings'); let d=$id('editBookData').value; let raw={booking_date:d,date:d,appointment_date:d,scheduled_date:d,time:$id('editBookHora').value,customer_name:$id('editBookCliente').value,name:$id('editBookCliente').value,phone:$id('editBookPhone').value,obs:$id('editBookObs').value,professional_id:$id('editBookFunc').value,employee_id:$id('editBookFunc').value,service_id:$id('editBookServ').value}; let payload=filterObj(raw, cols); let res=await sb.from('bookings').update(payload).eq('id',editingBookId); if(res.error) return toast(res.error.message); closeModal('editBookingModal'); toast('Salvo'); carregarAgendaAdmin(); carregarDashboard(); }
 async function carregarServicos(){
   if(!sb) return;
   let r=await sb.from('services').select('*').eq('slug',currentSlug).order('name');
@@ -278,10 +246,7 @@ async function addCatalog(){
   let cols=await getCols('product_catalog');
   let payload=filterObj({slug:currentSlug,name:name}, cols);
   let res=await sb.from('product_catalog').insert([payload]);
-  if(res.error){
-    if(String(res.error.message).indexOf('duplicate')!==-1 || String(res.error.message).indexOf('unique')!==-1){ alert('Ja existe o produto: '+name); return; }
-    return toast('Erro catalogo: '+res.error.message);
-  }
+  if(res.error){ if(String(res.error.message).indexOf('duplicate')!==-1 || String(res.error.message).indexOf('unique')!==-1){ alert('Ja existe o produto: '+name); return; } return toast('Erro catalogo: '+res.error.message); }
   $id('newCatalogName').value=''; alert('Salvo com sucesso: '+name); toast('Salvo no catalogo'); carregarCatalogoSelects();
 }
 async function carregarEstoque(){
@@ -304,7 +269,7 @@ async function addEntrada(){
   if(atual){ let base=atual.quantity; if(base==null) base=atual.current_quantity; if(base==null) base=0; let novaQtd=Number(base)+qtd; let payload=filterObj({quantity:novaQtd,current_quantity:novaQtd,cost:custo||atual.cost,unit_cost:custo||atual.unit_cost}, icols); let res=await sb.from('inventory').update(payload).eq('id',atual.id); if(res.error) return toast(res.error.message); }
   else { let payload=filterObj({slug:currentSlug,name:produto,product_name:produto,quantity:qtd,current_quantity:qtd,min_quantity:5,min_stock:5,cost:custo,unit_cost:custo,category:''}, icols); let res2=await sb.from('inventory').insert([payload]); if(res2.error) return toast(res2.error.message); }
   let mcols=await getCols('inventory_movements');
-  let mp=filterObj({slug:currentSlug,product:produto,product_name:produto,type:'entrada',quantity:qtd,cost:custo,unit_cost:custo,date:dataCompra,supplier:forn,obs:forn}, mcols);
+  let mp=filterObj({slug:currentSlug,product:produto,product_name:produto,type:'entrada',quantity:qtd,cost:custo,unit_cost:custo,date:dataCompra,movement_date:dataCompra,supplier:forn,obs:forn}, mcols);
   await sb.from('inventory_movements').insert([mp]);
   toast('Compra registrada'); carregarEstoque(); $id('estEntradaQtd').value='';
 }
@@ -321,25 +286,25 @@ async function retirarEstoque(){
   let icols=await getCols('inventory');
   await sb.from('inventory').update(filterObj({quantity:novaQtd,current_quantity:novaQtd}, icols)).eq('id',atual.id);
   let mcols=await getCols('inventory_movements');
-  await sb.from('inventory_movements').insert([filterObj({slug:currentSlug,product:produto,product_name:produto,type:'saida',quantity:qtd,date:dataUso,reason:motivo,motivo:motivo,obs:motivo}, mcols)]);
+  await sb.from('inventory_movements').insert([filterObj({slug:currentSlug,product:produto,product_name:produto,type:'saida',quantity:qtd,date:dataUso,movement_date:dataUso,reason:motivo,motivo:motivo,obs:motivo}, mcols)]);
   toast('Saida registrada'); carregarEstoque(); $id('retiradaQtd').value='';
 }
 async function salvarEditEst(){ let icols=await getCols('inventory'); let payload=filterObj({quantity:parseFloat($id('editEstQtd').value),current_quantity:parseFloat($id('editEstQtd').value),min_quantity:parseFloat($id('editEstMin').value),min_stock:parseFloat($id('editEstMin').value),cost:parseFloat($id('editEstCusto').value),unit_cost:parseFloat($id('editEstCusto').value),category:$id('editEstCat').value}, icols); let res=await sb.from('inventory').update(payload).eq('id',editingEstId); if(res.error) return toast(res.error.message); closeModal('editEstModal'); toast('Salvo'); carregarEstoque(); }
 async function carregarMovimentos(){
   if(!sb) return;
-  let q=sb.from('inventory_movements').select('*').eq('slug',currentSlug).order('date',{ascending:false}).limit(100);
+  let r=await sb.from('inventory_movements').select('*').eq('slug',currentSlug).order('created_at',{ascending:false}).limit(500);
+  let data=r.data||[];
   let ini=$id('estFiltroInicio')? $id('estFiltroInicio').value : '';
   let fim=$id('estFiltroFim')? $id('estFiltroFim').value : '';
   let prod=$id('estFiltroProduto')? $id('estFiltroProduto').value : '';
-  if(ini) q=q.gte('date',ini); if(fim) q=q.lte('date',fim); if(prod) q=q.eq('product',prod);
-  let r=await q; let data=r.data||[];
-  if(r.error){ let r2=await sb.from('inventory_movements').select('*').eq('slug',currentSlug).order('created_at',{ascending:false}).limit(100); data=r2.data||[]; if(ini) data=data.filter(function(m){ return String(m.date||m.created_at||'').slice(0,10)>=ini; }); if(fim) data=data.filter(function(m){ return String(m.date||m.created_at||'').slice(0,10)<=fim; }); if(prod) data=data.filter(function(m){ return (m.product||m.product_name)===prod; }); }
+  data=data.filter(function(m){ let d=movDate(m); if(ini && d<ini) return false; if(fim && d>fim) return false; if(prod && (m.product||m.product_name)!==prod) return false; return true; });
+  data.sort(function(a,b){ return movDate(b).localeCompare(movDate(a)); });
   if($id('listaMovimentos')){
-    if(data.length===0){ $id('listaMovimentos').innerHTML='Sem movimentos'; }
-    else { let h=''; data.forEach(function(m){ h+='<div class="list-row"><div><b>'+(m.type==='entrada'?'Entrada':'Saida')+' '+(m.product||m.product_name)+' - '+m.quantity+'</b><br><small>'+(m.date||String(m.created_at||'').slice(0,10))+' - '+(m.supplier||m.reason||m.obs||'')+'</small></div><button class="btn small" data-edit-mov="'+m.id+'">Editar</button></div>'; }); $id('listaMovimentos').innerHTML=h; $id('listaMovimentos').querySelectorAll('[data-edit-mov]').forEach(function(b){ b.addEventListener('click', function(){ let m=data.find(function(x){ return String(x.id)===b.dataset.editMov; }); if(m){ editingMovId=m.id; $id('editMovProduto').value=m.product||m.product_name; $id('editMovTipo').value=m.type; $id('editMovQtd').value=m.quantity; $id('editMovData').value=m.date||String(m.created_at||'').slice(0,10); $id('editMovCusto').value=m.cost||0; $id('editMovObs').value=m.supplier||m.reason||''; openModal('editMovModal'); } }); }); }
+    if(data.length===0){ $id('listaMovimentos').innerHTML='Sem movimentos - ajuste o filtro'; }
+    else { let h=''; data.forEach(function(m){ let custo=m.cost!=null?m.cost:m.unit_cost||0; h+='<div class="list-row"><div><b>'+(m.type==='entrada'?'Entrada':'Saida')+' '+(m.product||m.product_name)+' - Qtd: '+m.quantity+'</b><br><small>Data: '+movDate(m)+' - Custo unitario: '+fmtMoney(custo)+' - Total: '+fmtMoney(Number(m.quantity||0)*Number(custo||0))+' - '+(m.supplier||m.reason||m.obs||'')+'</small></div><button class="btn small" data-edit-mov="'+m.id+'">Editar</button></div>'; }); $id('listaMovimentos').innerHTML=h; $id('listaMovimentos').querySelectorAll('[data-edit-mov]').forEach(function(b){ b.addEventListener('click', function(){ let m=data.find(function(x){ return String(x.id)===b.dataset.editMov; }); if(m){ editingMovId=m.id; $id('editMovProduto').value=m.product||m.product_name; $id('editMovTipo').value=m.type; $id('editMovQtd').value=m.quantity; $id('editMovData').value=movDate(m); $id('editMovCusto').value=m.cost!=null?m.cost:m.unit_cost||0; $id('editMovObs').value=m.supplier||m.reason||''; openModal('editMovModal'); } }); }); }
   }
 }
-async function salvarEditMov(){ let mcols=await getCols('inventory_movements'); let payload=filterObj({type:$id('editMovTipo').value,quantity:parseFloat($id('editMovQtd').value),date:$id('editMovData').value,cost:parseFloat($id('editMovCusto').value),supplier:$id('editMovObs').value,obs:$id('editMovObs').value}, mcols); let res=await sb.from('inventory_movements').update(payload).eq('id',editingMovId); if(res.error) return toast(res.error.message); closeModal('editMovModal'); toast('Movimentacao atualizada'); carregarEstoque(); }
+async function salvarEditMov(){ let mcols=await getCols('inventory_movements'); let payload=filterObj({type:$id('editMovTipo').value,quantity:parseFloat($id('editMovQtd').value),date:$id('editMovData').value,movement_date:$id('editMovData').value,cost:parseFloat($id('editMovCusto').value),unit_cost:parseFloat($id('editMovCusto').value),supplier:$id('editMovObs').value,obs:$id('editMovObs').value}, mcols); let res=await sb.from('inventory_movements').update(payload).eq('id',editingMovId); if(res.error) return toast(res.error.message); closeModal('editMovModal'); toast('Movimentacao atualizada'); carregarEstoque(); }
 async function carregarFuncionarios(){
   if(!sb) return;
   let r=await sb.from('professionals').select('*').eq('slug',currentSlug).order('name');
@@ -349,10 +314,7 @@ async function carregarFuncionarios(){
     if(cacheFuncionarios.length===0){ $id('listaFuncionarios').innerHTML='Sem funcionarios'; }
     else { let h=''; cacheFuncionarios.forEach(function(f){ h+='<div class="list-row"><div><b>'+f.name+'</b><br><small>'+(f.phone||'')+' - '+(f.role||f.funcao||'barbeiro')+' - '+(f.commission_percent||f.commission||50)+(f.commission_type==='fixed'?' R fixo':'%')+'</small></div><div style="display:flex;gap:6px"><button class="btn small" data-edit-func="'+f.id+'">Editar</button><button class="btn small danger" data-del-func="'+f.id+'">Excluir</button></div></div>'; }); $id('listaFuncionarios').innerHTML=h; $id('listaFuncionarios').querySelectorAll('[data-edit-func]').forEach(function(b){ b.addEventListener('click', function(){ let f=cacheFuncionarios.find(function(x){ return String(x.id)===b.dataset.editFunc; }); if(f){ editingFuncId=f.id; $id('editFuncNome').value=f.name; $id('editFuncPhone').value=f.phone||''; $id('editFuncFuncao').value=f.role||f.funcao||'barbeiro'; $id('editFuncInicio').value=f.start_time||'08:00'; $id('editFuncFim').value=f.end_time||'18:00'; $id('editFuncComissao').value=f.commission_percent||f.commission||50; $id('editFuncComissaoTipo').value=f.commission_type||'percent'; $id('editFuncEmail').value=f.email||''; openModal('editFuncModal'); } }); }); $id('listaFuncionarios').querySelectorAll('[data-del-func]').forEach(function(b){ b.addEventListener('click', function(){ excluirFunc(b.dataset.delFunc); }); }); }
   }
-  if($id('comBarbeiro')){
-    if(cacheFuncionarios.length===0) $id('comBarbeiro').innerHTML='<option value="">Sem barbeiros - cadastre em Funcionarios</option>';
-    else { let h=''; cacheFuncionarios.forEach(function(f){ h+='<option value="'+f.id+'">'+f.name+'</option>'; }); $id('comBarbeiro').innerHTML=h; }
-  }
+  if($id('comBarbeiro')){ if(cacheFuncionarios.length===0) $id('comBarbeiro').innerHTML='<option value="">Sem barbeiros - cadastre em Funcionarios</option>'; else { let h=''; cacheFuncionarios.forEach(function(f){ h+='<option value="'+f.id+'">'+f.name+'</option>'; }); $id('comBarbeiro').innerHTML=h; } }
 }
 async function addFunc(){
   let name=$id('funcNome').value.trim(), phone=$id('funcPhone').value.trim();
@@ -370,22 +332,19 @@ let comissaoAtual=null;
 async function calcularComissao(){
   if(!sb) return; let barbeiroId=$id('comBarbeiro').value; let per=getPeriodo(); let ini=per.ini, fim=per.fim; if(!barbeiroId||!ini||!fim) return toast('Escolha barbeiro e periodo');
   let func=cacheFuncionarios.find(function(f){ return String(f.id)===String(barbeiroId); })||{};
-  let df=await detectDateField('bookings');
-  let q=sb.from('bookings').select('*, services(price)').eq('slug',currentSlug).eq('status','paid');
-  if(df==='date') q=q.gte('date',ini).lte('date',fim); else q=q.gte('created_at',ini+'T00:00:00').lte('created_at',fim+'T23:59:59');
-  let r=await q; let books=r.data||[];
-  let filtrados=books.filter(function(b){ return String(b.professional_id)===String(barbeiroId)||String(b.employee_id)===String(barbeiroId); });
+  if(!func.id){ let rf=await sb.from('professionals').select('*').eq('slug',currentSlug); cacheFuncionarios=rf.data||[]; func=cacheFuncionarios.find(function(f){ return String(f.id)===String(barbeiroId); })||{}; }
+  let all=await fetchAllBookings();
+  let filtrados=all.filter(function(b){ let d=rowDate(b); if(d<ini||d>fim) return false; let isPaid=(b.status==='paid'||b.payment_status==='paid'); if(!isPaid) return false; let byId=String(b.professional_id)===String(barbeiroId)||String(b.employee_id)===String(barbeiroId); let byName=(b.employee_name||b.professional_name)===(func.name||''); return byId||byName; });
   let total=0; filtrados.forEach(function(b){ total+=Number(b.price||(b.services&&b.services.price)||0); });
   let comissao=0; let perc=Number(func.commission_percent||func.commission||50);
   if(func.commission_type==='fixed') comissao=filtrados.length*perc; else comissao=total*(perc/100);
   comissaoAtual={professional_id:barbeiroId,employee_name:func.name,professional_name:func.name,ini:ini,fim:fim,total:total,comissao:comissao,qtd:filtrados.length};
-  if($id('comResumo')) $id('comResumo').innerHTML='<div class="grid-3"><div class="metric-card"><small>ATENDIMENTOS</small><b>'+filtrados.length+'</b></div><div class="metric-card"><small>FATURAMENTO</small><b>'+fmtMoney(total)+'</b></div><div class="metric-card"><small>COMISSAO</small><b style="color:var(--gold)">'+fmtMoney(comissao)+'</b></div></div>';
-  let pagos=await sb.from('professional_payments').select('*').eq('slug',currentSlug).eq('professional_id',barbeiroId);
-  let pagosList=pagos.data||[];
-  if(pagosList.length===0){ let p2=await sb.from('professional_payments').select('*').eq('slug',currentSlug).eq('employee_id',barbeiroId); pagosList=p2.data||[]; }
+  if($id('comResumo')) $id('comResumo').innerHTML='<div class="grid-3"><div class="metric-card"><small>ATENDIMENTOS PAGOS</small><b>'+filtrados.length+'</b></div><div class="metric-card"><small>FATURAMENTO</small><b>'+fmtMoney(total)+'</b></div><div class="metric-card"><small>COMISSAO ('+(func.commission_type==='fixed'?'R$ '+perc+' por atendimento':perc+'%')+')</small><b style="color:var(--gold)">'+fmtMoney(comissao)+'</b></div></div>';
+  let pagos=await sb.from('professional_payments').select('*').eq('slug',currentSlug);
+  let pagosList=(pagos.data||[]).filter(function(p){ return String(p.professional_id)===String(barbeiroId)||String(p.employee_id)===String(barbeiroId)||(p.professional_name||p.employee_name)===(func.name||''); });
   if($id('listaComissoes')){
-    if(filtrados.length===0) $id('listaComissoes').innerHTML='Sem atendimentos pagos no periodo';
-    else { let h=''; filtrados.forEach(function(b){ let d=b.date||String(b.created_at||'').slice(0,10); let isPago=pagosList.some(function(p){ return String(p.start_date)===ini && String(p.end_date)===fim; }); let badge=isPago?'<span style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">Pago</span>':'<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">Nao pago</span>'; h+='<div class="list-row"><div><b>'+d+' '+(b.time||'')+' - '+(b.customer_name||b.name)+'</b><br><small>'+fmtMoney(b.price||0)+'</small></div>'+badge+'</div>'; }); $id('listaComissoes').innerHTML=h; }
+    if(filtrados.length===0) $id('listaComissoes').innerHTML='Sem atendimentos pagos no periodo - marque o agendamento como Pago na Agenda ou na tela do Barbeiro';
+    else { let h=''; filtrados.forEach(function(b){ let d=rowDate(b); let isPago=pagosList.some(function(p){ return String(p.start_date)<=d && String(p.end_date)>=d; }); let badge=isPago?'<span style="background:#16a34a;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">Pago</span>':'<span style="background:#dc2626;color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">Nao pago</span>'; h+='<div class="list-row"><div><b>'+d+' '+(b.time||'')+' - '+(b.customer_name||b.name)+'</b><br><small>'+fmtMoney(b.price||0)+' - '+(b.employee_name||b.professional_name||'')+'</small></div>'+badge+'</div>'; }); $id('listaComissoes').innerHTML=h; }
   }
   let bp=$id('btnPagarComissao'); if(bp) bp.style.display='block';
   carregarPagamentos();
@@ -394,61 +353,70 @@ async function pagarComissao(){ if(!comissaoAtual) return; let cols=await getCol
 async function carregarPagamentos(){ let r=await sb.from('professional_payments').select('*').eq('slug',currentSlug).order('paid_at',{ascending:false}).limit(20); let data=r.data||[]; if($id('listaPagamentos')){ if(data.length===0) $id('listaPagamentos').innerHTML='Nenhum pagamento ainda'; else { let h=''; data.forEach(function(p){ let st=(p.status==='paid'||p.paid_at)?'Pago':'Nao pago'; let bg=st==='Pago'?'#16a34a':'#dc2626'; h+='<div class="list-row"><div><b>'+(p.professional_name||p.employee_name)+' - '+fmtMoney(p.commission||p.amount)+'</b><br><small>'+p.start_date+' ate '+p.end_date+'</small></div><span style="background:'+bg+';color:#fff;padding:2px 8px;border-radius:99px;font-size:11px">'+st+'</span></div>'; }); $id('listaPagamentos').innerHTML=h; } } }
 async function carregarFinanceiro(){
   if(!sb) return;
-  let df=await detectDateField('cash_entries');
-  let q=sb.from('cash_entries').select('*').eq('slug',currentSlug).order('created_at',{ascending:false}).limit(100);
-  let ini=$id('finInicio')? $id('finInicio').value : ''; let fim=$id('finFim')? $id('finFim').value : '';
-  if(ini && df==='date') q=q.gte('date',ini);
-  if(fim && df==='date') q=q.lte('date',fim);
-  if(ini && df==='created_at') q=q.gte('created_at',ini+'T00:00:00');
-  if(fim && df==='created_at') q=q.lte('created_at',fim+'T23:59:59');
-  let r=await q; if(r.error) return toast('Financeiro: '+r.error.message);
+  let r=await sb.from('cash_entries').select('*').eq('slug',currentSlug).order('created_at',{ascending:false}).limit(500);
+  if(r.error) return toast('Financeiro: '+r.error.message);
   let data=r.data||[];
-  let bdf=await detectDateField('bookings');
-  let qb=sb.from('bookings').select('*').eq('slug',currentSlug).eq('status','paid');
-  if(ini && bdf==='date') qb=qb.gte('date',ini);
-  if(fim && bdf==='date') qb=qb.lte('date',fim);
-  let rb=await qb; let paidBooks=rb.data||[];
-  paidBooks.forEach(function(b){ let d=b.date||String(b.created_at||'').slice(0,10); let exists=data.some(function(f){ return String(f.description||'').indexOf(String(b.id).slice(0,8))!==-1; }); if(!exists) data.unshift({id:'book-'+b.id,type:'income',amount:Number(b.price||0),value:Number(b.price||0),date:d,created_at:b.created_at,category:'Agendamento',payment_method:'',description:'Agendamento '+(b.customer_name||b.name)+' '+(b.time||'')}); });
+  let ini=$id('finInicio')? $id('finInicio').value : ''; let fim=$id('finFim')? $id('finFim').value : '';
+  data=data.filter(function(f){ let d=finDate(f); if(ini && d<ini) return false; if(fim && d>fim) return false; return true; });
+  let allBooks=await fetchAllBookings();
+  let paidBooks=allBooks.filter(function(b){ if(b.status!=='paid' && b.payment_status!=='paid') return false; let d=rowDate(b); if(ini && d<ini) return false; if(fim && d>fim) return false; return true; });
+  paidBooks.forEach(function(b){ let d=rowDate(b); let exists=data.some(function(f){ return String(f.description||'').indexOf(String(b.id).slice(0,8))!==-1; }); if(!exists) data.unshift({id:'book-'+b.id,type:'income',amount:Number(b.price||0),value:Number(b.price||0),date:d,created_at:b.created_at,category:'Agendamento',payment_method:'',description:'Agendamento '+(b.customer_name||b.name)+' '+(b.time||'')}); });
   let ent=0, sai=0; data.forEach(function(f){ if(f.type==='income') ent+=Number(f.amount||f.value||0); else sai+=Number(f.amount||f.value||0); });
   if($id('finResumo')) $id('finResumo').innerHTML='<div class="metric-card"><small>ENTRADAS</small><b style="color:#4ade80">'+fmtMoney(ent)+'</b></div><div class="metric-card"><small>SAIDAS</small><b style="color:#f87171">'+fmtMoney(sai)+'</b></div><div class="metric-card"><small>LUCRO</small><b style="color:var(--gold)">'+fmtMoney(ent-sai)+'</b></div>';
   if($id('listaFinanceiro')){
-    if(data.length===0) $id('listaFinanceiro').innerHTML='Sem lancamentos';
-    else { let h=''; data.forEach(function(f){ let d=f.date||String(f.created_at||'').slice(0,10); h+='<div class="list-row"><div><b>'+(f.type==='income'?'Entrada':'Saida')+' '+(f.description||f.category)+' - '+fmtMoney(f.amount||f.value)+'</b><br><small>'+d+' - '+(f.category||'')+' - '+(f.payment_method||f.form||'')+'</small></div>'+(String(f.id).indexOf('book-')===0?'':('<button class="btn small danger" data-del-fin="'+f.id+'">Excluir</button>'))+'</div>'; }); $id('listaFinanceiro').innerHTML=h; $id('listaFinanceiro').querySelectorAll('[data-del-fin]').forEach(function(b){ b.addEventListener('click', function(){ excluirFin(b.dataset.delFin); }); }); }
+    if(data.length===0) $id('listaFinanceiro').innerHTML='Sem lancamentos no periodo';
+    else { let h=''; data.forEach(function(f){ let d=finDate(f); h+='<div class="list-row"><div><b>'+(f.type==='income'?'Entrada':'Saida')+' '+(f.description||'')+' - '+fmtMoney(f.amount||f.value)+'</b><br><small>'+d+' - Categoria: '+(f.category||'Sem categoria')+' - '+(f.payment_method||f.form||'')+'</small></div>'+(String(f.id).indexOf('book-')===0?'':('<button class="btn small danger" data-del-fin="'+f.id+'">Excluir</button>'))+'</div>'; }); $id('listaFinanceiro').innerHTML=h; $id('listaFinanceiro').querySelectorAll('[data-del-fin]').forEach(function(b){ b.addEventListener('click', function(){ excluirFin(b.dataset.delFin); }); }); }
   }
   window._finData=data;
+  let cats={}; data.forEach(function(f){ if(f.category) cats[f.category]=1; });
+  let dl=$id('listaCategorias'); if(dl){ let h=''; Object.keys(cats).forEach(function(c){ h+='<option value="'+c+'">'; }); let base=['Corte','Barba','Produto','Aluguel','Compra estoque','Comissão','Outros']; base.forEach(function(c){ if(!cats[c]) h+='<option value="'+c+'">'; }); dl.innerHTML=h; }
 }
-async function addFinanceiro(){ let valor=parseFloat($id('finValor').value); let data=$id('finData').value||new Date().toISOString().slice(0,10); if(!valor) return toast('Preencha valor'); let cols=await getCols('cash_entries'); let payload=filterObj({slug:currentSlug,type:$id('finTipo').value,amount:valor,value:valor,date:data,created_at:data+'T12:00:00',category:$id('finCategoria').value,payment_method:$id('finForma').value,form:$id('finForma').value,description:$id('finDesc').value}, cols); let res=await sb.from('cash_entries').insert([payload]); if(res.error) return toast(res.error.message); toast('Lancado'); let f=$id('formLancarManual'); if(f) f.classList.add('hidden'); carregarFinanceiro(); }
+async function addFinanceiro(){ let valor=parseFloat($id('finValor').value); let data=$id('finData').value||new Date().toISOString().slice(0,10); if(!valor) return toast('Preencha valor'); let cat=$id('finCategoria').value||'Outros'; let cols=await getCols('cash_entries'); let payload=filterObj({slug:currentSlug,type:$id('finTipo').value,amount:valor,value:valor,date:data,entry_date:data,created_at:data+'T12:00:00',category:cat,payment_method:$id('finForma').value,form:$id('finForma').value,description:$id('finDesc').value||cat}, cols); let res=await sb.from('cash_entries').insert([payload]); if(res.error) return toast(res.error.message); toast('Lancado - Categoria: '+cat); let f=$id('formLancarManual'); if(f) f.classList.add('hidden'); $id('finCategoria').value=''; $id('finValor').value=''; carregarFinanceiro(); }
 async function excluirFin(id){ if(!confirm('Excluir lancamento?')) return; await sb.from('cash_entries').delete().eq('id',id); carregarFinanceiro(); }
-function desenharGrafico(){ let canvas=$id('finChart'); if(!canvas) return; let ctx=canvas.getContext('2d'); let data=window._finData||[]; ctx.clearRect(0,0,canvas.width,canvas.height); let porDia={}; data.forEach(function(f){ let d=f.date||String(f.created_at||'').slice(0,10); porDia[d]=(porDia[d]||0)+(f.type==='income'?Number(f.amount||0):-Number(f.amount||0)); }); let dias=Object.keys(porDia).sort().slice(-15); let max=1; dias.forEach(function(d){ let a=Math.abs(porDia[d]); if(a>max) max=a; }); ctx.font='12px Inter'; dias.forEach(function(d,i){ let h=Math.abs(porDia[d])/max*200; let x=20+i*50; let y=280-h; ctx.fillStyle=porDia[d]>=0?'#4ade80':'#f87171'; ctx.fillRect(x,y,30,h); ctx.fillStyle='#fff'; ctx.fillText(d.slice(5),x,300); }); if($id('graficoLegenda')) $id('graficoLegenda').textContent='Verde = lucro do dia, Vermelho = prejuizo'; }
+function desenharGrafico(){ let canvas=$id('finChart'); if(!canvas) return; let ctx=canvas.getContext('2d'); let data=window._finData||[]; ctx.clearRect(0,0,canvas.width,canvas.height); let porDia={}; data.forEach(function(f){ let d=finDate(f); porDia[d]=(porDia[d]||0)+(f.type==='income'?Number(f.amount||f.value||0):-Number(f.amount||f.value||0)); }); let dias=Object.keys(porDia).sort().slice(-15); let max=1; dias.forEach(function(d){ let a=Math.abs(porDia[d]); if(a>max) max=a; }); ctx.font='12px Inter'; dias.forEach(function(d,i){ let h=Math.abs(porDia[d])/max*200; let x=20+i*50; let y=280-h; ctx.fillStyle=porDia[d]>=0?'#4ade80':'#f87171'; ctx.fillRect(x,y,30,h); ctx.fillStyle='#fff'; ctx.fillText(d.slice(5),x,300); }); if($id('graficoLegenda')) $id('graficoLegenda').textContent='Verde = lucro do dia, Vermelho = prejuizo'; }
+function parseSchedule(){
+  let sched={};
+  if(currentShop){
+    let raw=currentShop.working_hours||currentShop.opening_hours||currentShop.schedule||null;
+    if(typeof raw==='string'){ try{ raw=JSON.parse(raw); }catch(e){ raw=null; } }
+    if(raw && typeof raw==='object'){ Object.keys(raw).forEach(function(k){ sched[k]=raw[k]; }); return sched; }
+    let days=currentShop.working_days||[0,1,2,3,4,5,6];
+    for(let i=0;i<7;i++){ sched[i]={active:days.indexOf(i)!==-1,start:currentShop.start_time||'08:00',end:currentShop.end_time||'18:00'}; }
+    return sched;
+  }
+  for(let i=0;i<7;i++){ sched[i]={active:true,start:'08:00',end:'18:00'}; }
+  return sched;
+}
 async function carregarSettings(){
-  let diasNomes=['Dom','Seg','Ter','Qua','Qui','Sex','Sab'];
-  let abertos=(currentShop&&currentShop.working_days)||[0,1,2,3,4,5,6];
-  if($id('weeklyBox')){ let h='<label style="font-size:10px;color:var(--text)">DIAS DE FUNCIONAMENTO</label><div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">'; diasNomes.forEach(function(d,i){ let chk=abertos.indexOf(i)!==-1?'checked':''; h+='<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="dia-semana" value="'+i+'" '+chk+'> '+d+'</label>'; }); h+='</div>'; $id('weeklyBox').innerHTML=h; }
+  let sched=parseSchedule(); window._daySchedule=sched;
+  let diasNomes=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  if($id('weeklyBox')){
+    let h='<label class="lbl">Dias de funcionamento - personalize cada dia</label>';
+    diasNomes.forEach(function(d,i){ let s=sched[i]||{active:true,start:'08:00',end:'18:00'}; h+='<div class="dia-row"><input type="checkbox" class="dia-check" data-dia="'+i+'" '+(s.active?'checked':'')+'><b style="min-width:80px">'+d+'</b><label style="font-size:11px;color:var(--text)">Abre</label><input type="time" class="dia-start" data-dia="'+i+'" value="'+(s.start||'08:00')+'"><label style="font-size:11px;color:var(--text)">Fecha</label><input type="time" class="dia-end" data-dia="'+i+'" value="'+(s.end||'18:00')+'"></div>'; });
+    h+='<small style="color:var(--text)">Desmarque o dia para fechar. O horário de cada dia vale para a Agenda.</small>';
+    $id('weeklyBox').innerHTML=h;
+  }
   if(!currentShop) return;
   if($id('setName')) $id('setName').value=currentShop.name||'';
   if($id('setWhatsapp')) $id('setWhatsapp').value=currentShop.whatsapp||currentShop.phone||'';
   if($id('setLogoUrl')) $id('setLogoUrl').value=currentShop.logo_url||'';
-  if($id('setStart')) $id('setStart').value=currentShop.start_time||'08:00';
-  if($id('setEnd')) $id('setEnd').value=currentShop.end_time||'18:00';
   if($id('setInterval')) $id('setInterval').value=currentShop.interval_minutes||30;
   if($id('setLunchStart')) $id('setLunchStart').value=currentShop.lunch_start||'12:00';
   if($id('setLunchEnd')) $id('setLunchEnd').value=currentShop.lunch_end||'13:00';
   if($id('logoPreview')&&currentShop.logo_url){ $id('logoPreview').src=currentShop.logo_url; $id('logoPreview').style.display='block'; }
 }
 async function salvarSettings(){
-  let dias=[]; document.querySelectorAll('.dia-semana:checked').forEach(function(c){ dias.push(parseInt(c.value)); });
+  let sched={}; let dias=[];
+  document.querySelectorAll('.dia-check').forEach(function(c){ let i=parseInt(c.dataset.dia); let st=document.querySelector('.dia-start[data-dia="'+i+'"]').value; let en=document.querySelector('.dia-end[data-dia="'+i+'"]').value; sched[i]={active:c.checked,start:st,end:en}; if(c.checked) dias.push(i); });
+  window._daySchedule=sched;
   let logoUrl=$id('setLogoUrl').value;
   let file=$id('setLogoFile').files[0];
   if(file && sb){
-    try{
-      let path=currentSlug+'/'+Date.now()+'_'+file.name;
-      let up=await sb.storage.from('logos').upload(path,file);
-      if(!up.error){ let pub=sb.storage.from('logos').getPublicUrl(path); logoUrl=pub.data.publicUrl; }
-      else { logoUrl=await new Promise(function(res){ let r=new FileReader(); r.onload=function(e){ res(e.target.result); }; r.readAsDataURL(file); }); toast('Logo salva local, vai aparecer'); }
-    }catch(e){ console.log(e); }
+    try{ let path=currentSlug+'/'+Date.now()+'_'+file.name; let up=await sb.storage.from('logos').upload(path,file); if(!up.error){ let pub=sb.storage.from('logos').getPublicUrl(path); logoUrl=pub.data.publicUrl; } else { logoUrl=await new Promise(function(res){ let r=new FileReader(); r.onload=function(e){ res(e.target.result); }; r.readAsDataURL(file); }); toast('Logo salva local, vai aparecer'); } }catch(e){ console.log(e); }
   }
   let cols=await getCols('barbershops');
-  let raw={name:$id('setName').value,whatsapp:$id('setWhatsapp').value,phone:$id('setWhatsapp').value,logo_url:logoUrl,start_time:$id('setStart').value,end_time:$id('setEnd').value,interval_minutes:parseInt($id('setInterval').value)||30,lunch_start:$id('setLunchStart').value,lunch_end:$id('setLunchEnd').value,working_days:dias};
+  let firstActive=null; for(let i=0;i<7;i++){ if(sched[i] && sched[i].active){ firstActive=sched[i]; break; } }
+  let raw={name:$id('setName').value,whatsapp:$id('setWhatsapp').value,phone:$id('setWhatsapp').value,logo_url:logoUrl,start_time:firstActive?firstActive.start:'08:00',end_time:firstActive?firstActive.end:'18:00',interval_minutes:parseInt($id('setInterval').value)||30,lunch_start:$id('setLunchStart').value,lunch_end:$id('setLunchEnd').value,working_days:dias,working_hours:JSON.stringify(sched),opening_hours:JSON.stringify(sched),schedule:JSON.stringify(sched)};
   let payload=filterObj(raw, cols);
   let res=await sb.from('barbershops').update(payload).eq('slug',currentSlug);
   if(res.error) return toast('Erro ao salvar: '+res.error.message);
@@ -459,8 +427,7 @@ async function carregarAniversariantes(){
   try{
     let r=await sb.from('customers').select('*').eq('slug',currentSlug);
     if(r.error) return console.log(r.error);
-    let clientes=r.data||[];
-    cacheClientes=clientes;
+    let clientes=r.data||[]; cacheClientes=clientes;
     let elTotal=$id('totalClientes'); if(elTotal) elTotal.textContent=clientes.length;
     let hoje=new Date(); let mesHoje=hoje.getMonth()+1; let diaHoje=hoje.getDate();
     let comNasc=clientes.filter(function(c){ return c.birthdate; });
@@ -470,10 +437,10 @@ async function carregarAniversariantes(){
     let elMes=$id('totalAniversarioMes'); if(elMes) elMes.textContent=doMes.length;
     let elLista=$id('listaAniversarioMes');
     if(elLista){
-      if(doMes.length===0) elLista.innerHTML='Nenhum esse mes';
-      else { let h=''; doMes.forEach(function(c){ let d=new Date(c.birthdate+'T12:00:00'); let ehHoje=d.getDate()===diaHoje?' - HOJE':''; let msg=encodeURIComponent('Fala '+c.name+'! Aqui e da Barbearia! Parabens pelo seu dia! Passa aqui essa semana que voce tem 20% DE DESCONTO DE ANIVERSARIANTE! Quer agendar?'); h+='- '+c.name+' - '+String(d.getDate())+'/'+String(d.getMonth()+1)+' - '+c.phone+' <a href="https://wa.me/55'+cleanPhone(c.phone)+'?text='+msg+'" target="_blank" style="color:#25D366">WhatsApp</a>'+ehHoje+'<br>'; }); elLista.innerHTML=h; }
+      if(doMes.length===0) elLista.innerHTML='Nenhum aniversariante esse mes';
+      else { let h=''; doMes.forEach(function(c){ let d=new Date(c.birthdate+'T12:00:00'); let ehHoje=d.getDate()===diaHoje?' <b style="color:var(--gold)">- HOJE</b>':''; let msg=encodeURIComponent('Fala '+c.name+'! Aqui e da Barbearia! Parabens pelo seu dia! Passa aqui essa semana que voce tem 20% DE DESCONTO DE ANIVERSARIANTE! Quer agendar?'); h+='<div class="list-row"><div><b>'+c.name+' - '+String(d.getDate())+'/'+String(d.getMonth()+1)+'</b><br><small>'+c.phone+'</small></div><a href="https://wa.me/55'+cleanPhone(c.phone)+'?text='+msg+'" target="_blank" style="color:#25D366">WhatsApp</a>'+ehHoje+'</div>'; }); elLista.innerHTML=h; }
     }
-    if(deHoje.length>0){ let card=$id('cardAniversario'); if(card){ card.style.display='block'; let h1=''; deHoje.forEach(function(c){ h1+='Aniversario hoje: <b>'+c.name+'</b> - '+c.phone+'<br>'; }); $id('listaAniversarioHoje').innerHTML=h1; let hb=''; deHoje.forEach(function(c){ let msg=encodeURIComponent('Fala '+c.name+'! Parabens pelo seu dia! Hoje voce tem 20% DE DESCONTO DE ANIVERSARIANTE, quer aproveitar e agendar seu corte?'); hb+='<a href="https://wa.me/55'+cleanPhone(c.phone)+'?text='+msg+'" target="_blank" style="display:inline-block;margin:6px 6px 0 0;background:#25D366;color:#fff;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:700">WhatsApp '+c.name+'</a>'; }); $id('botoesAniversarioHoje').innerHTML=hb; } }
+    if(deHoje.length>0){ let card=$id('cardAniversario'); if(card){ card.style.display='block'; let h1=''; deHoje.forEach(function(c){ h1+='Aniversario hoje: <b>'+c.name+'</b> - '+c.phone+'<br>'; }); if($id('listaAniversarioHoje')) $id('listaAniversarioHoje').innerHTML=h1; let hb=''; deHoje.forEach(function(c){ let msg=encodeURIComponent('Fala '+c.name+'! Parabens pelo seu dia! Hoje voce tem 20% DE DESCONTO DE ANIVERSARIANTE, quer aproveitar e agendar seu corte?'); hb+='<a href="https://wa.me/55'+cleanPhone(c.phone)+'?text='+msg+'" target="_blank" style="display:inline-block;margin:6px 6px 0 0;background:#25D366;color:#fff;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:700">WhatsApp '+c.name+'</a>'; }); if($id('botoesAniversarioHoje')) $id('botoesAniversarioHoje').innerHTML=hb; } } else { let card=$id('cardAniversario'); if(card) card.style.display='none'; }
     let lista=$id('listaClientes');
     if(lista){
       let filtro=($id('buscaCliente')? $id('buscaCliente').value : '').toLowerCase();
