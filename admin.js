@@ -1,3 +1,4 @@
+
 // ==================================================
 // admin.js - ARQUIVO ÚNICO DE FUNÇÕES - NÃO CRIAR OUTRO
 // Cada módulo tem seu lugar marcado. Só colar dentro do lugar certo.
@@ -874,7 +875,187 @@ listarAgenda();
 // ==================================================
 // ========== MÓDULO 7 - FINANCEIRO - JS AQUI ==========
 // ==================================================
-// AQUI ENTRA O CÓDIGO DO MÓDULO 7 - NÃO COLAR FORA DAQUI
+// ========== MÓDULO 7 - FINANCEIRO - CÓDIGO REAL ==========
+let financeiro = lerLocal('financeiro');
+let filtroFinAtual = 'todos';
+let categoriasFinSalvas = lerLocal('categoriasFinSalvas');
+if(categoriasFinSalvas.length===0){ categoriasFinSalvas=['Corte','Barba','Combo','Produto','Aluguel','Luz','Água','Internet','Material','Comissão','Outros']; }
+
+function hojeISO2(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtBRL(v){ return 'R$ '+Number(v||0).toFixed(2).replace('.',','); }
+
+function atualizarCategoriasFin(){
+  const tipo=document.getElementById('finTipo').value;
+  const dl=document.getElementById('listaCatFin'); if(!dl) return;
+  dl.innerHTML='';
+  const cats = tipo==='entrada' ? ['Corte','Barba','Combo','Produto','Outros'] : ['Aluguel','Luz','Água','Internet','Material','Comissão','Outros'];
+  // Junta com as salvas
+  [...new Set([...cats, ...categoriasFinSalvas])].forEach(c=>{ const o=document.createElement('option'); o.value=c; dl.appendChild(o); });
+}
+function carregarSelectsFin(){
+  const selF=document.getElementById('finFuncionario'); if(selF){
+    selF.innerHTML='<option value="">Nenhum / Barbearia</option>';
+    (typeof funcionarios!=='undefined'?funcionarios:[]).forEach(f=>{
+      const o=document.createElement('option'); o.value=f.id; o.textContent=f.nome+' - '+f.funcao; selF.appendChild(o);
+    });
+  }
+  const selA=document.getElementById('finAgendamento'); if(selA){
+    selA.innerHTML='<option value="">Nenhum</option>';
+    (typeof agendamentos!=='undefined'?agendamentos:[]).filter(a=>a.status==='concluido').slice().reverse().slice(0,50).forEach(a=>{
+      const o=document.createElement('option'); o.value=a.id; o.textContent=a.data+' '+a.hora+' - '+a.clienteNome+' - '+a.servicoNome+' - R$ '+a.preco; selA.appendChild(o);
+    });
+  }
+}
+
+function salvarFinanceiro(){
+  const tipo=document.getElementById('finTipo').value;
+  const desc=document.getElementById('finDesc').value.trim();
+  const valor=document.getElementById('finValor').value;
+  const data=document.getElementById('finData').value;
+  const categoria=document.getElementById('finCategoria').value.trim();
+  const forma=document.getElementById('finForma').value;
+  const funcId=document.getElementById('finFuncionario').value;
+  const agId=document.getElementById('finAgendamento').value;
+  const id=document.getElementById('finId').value;
+
+  if(!desc || !valor || !data){
+    document.getElementById('erroFin').style.display='block'; return;
+  }
+  document.getElementById('erroFin').style.display='none';
+
+  if(categoria && !categoriasFinSalvas.includes(categoria)){
+    categoriasFinSalvas.push(categoria); salvarLocal('categoriasFinSalvas', categoriasFinSalvas);
+  }
+
+  const funcNome = funcId ? (funcionarios.find(f=>f.id===funcId)?.nome||'') : '';
+  const dados={ id: id || Date.now().toString(), tipo, desc, valor:Number(valor), data, categoria: categoria||'Outros', forma, funcId, funcNome, agId };
+
+  if(id){ financeiro=financeiro.map(f=> f.id===id ? dados : f); }
+  else { financeiro.push(dados); }
+
+  salvarLocal('financeiro', financeiro);
+  limparFormFin();
+  listarFinanceiro();
+  listarPendentesFin();
+}
+
+function listarFinanceiro(){
+  const el=document.getElementById('listaFinanceiro'); if(!el) return;
+  const busca=(document.getElementById('buscaFin')?.value || '').toLowerCase();
+  const de=document.getElementById('finDe')?.value;
+  const ate=document.getElementById('finAte')?.value;
+  let lista=financeiro.filter(f=> f.desc.toLowerCase().includes(busca) || (f.categoria||'').toLowerCase().includes(busca));
+  if(filtroFinAtual!=='todos') lista=lista.filter(f=> f.tipo===filtroFinAtual);
+  if(de) lista=lista.filter(f=> f.data>=de);
+  if(ate) lista=lista.filter(f=> f.data<=ate);
+  lista.sort((a,b)=> b.data.localeCompare(a.data));
+
+  // Resumo - respeita o período filtrado
+  let ent=0, sai=0;
+  lista.forEach(f=>{ if(f.tipo==='entrada') ent+=Number(f.valor); else sai+=Number(f.valor); });
+  document.getElementById('finEntradas').textContent=fmtBRL(ent);
+  document.getElementById('finSaidas').textContent=fmtBRL(sai);
+  const saldoEl=document.getElementById('finSaldo');
+  saldoEl.textContent=fmtBRL(ent-sai);
+  saldoEl.style.color = (ent-sai)>=0 ? '#22C55E' : '#EF4444';
+
+  if(lista.length===0){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum lançamento nesse filtro.</p>'; return; }
+  el.innerHTML='';
+  lista.forEach(f=>{
+    const div=document.createElement('div');
+    div.className='item-lista';
+    div.style.borderLeft='4px solid '+(f.tipo==='entrada'?'#22C55E':'#EF4444');
+    div.innerHTML=`<div><b>${f.desc}</b><br><small>${f.data} - ${f.categoria} - ${f.forma} ${f.funcNome?' - '+f.funcNome:''}</small></div>
+    <div style="text-align:right"><b style="color:${f.tipo==='entrada'?'#22C55E':'#EF4444'}">${f.tipo==='entrada'?'+':'-'} ${fmtBRL(f.valor)}</b><br>
+    <div class="acoes" style="margin-top:6px">
+      <button class="btn-sec" onclick="editarFin('${f.id}')">Editar</button>
+      <button class="btn-danger" onclick="excluirFin('${f.id}')">Excluir</button>
+    </div></div>`;
+    el.appendChild(div);
+  });
+}
+
+function listarPendentesFin(){
+  const el=document.getElementById('listaPendenteFin'); if(!el) return;
+  const concluidos=(typeof agendamentos!=='undefined'?agendamentos:[]).filter(a=>a.status==='concluido');
+  const jaLancados=new Set(financeiro.filter(f=>f.agId).map(f=>f.agId));
+  const pendentes=concluidos.filter(a=> !jaLancados.has(a.id));
+  if(pendentes.length===0){ el.innerHTML='<p style="color:#22C55E;font-size:13px">✅ Tudo lançado, nenhum pendente.</p>'; return; }
+  el.innerHTML='';
+  pendentes.slice().reverse().forEach(a=>{
+    const div=document.createElement('div');
+    div.style.cssText='background:#23232B;border:1px solid #3A3A44;border-radius:10px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:center';
+    div.innerHTML=`<div><b>${a.clienteNome}</b><br><small>${a.data} ${a.hora} - ${a.servicoNome} - ${a.barbeiroNome} - R$ ${a.preco}</small></div><button class="btn-sec" onclick="lancarAgendamentoFin('${a.id}')">Lançar</button>`;
+    el.appendChild(div);
+  });
+}
+
+function lancarAgendamentoFin(agId){
+  const a=(typeof agendamentos!=='undefined'?agendamentos:[]).find(x=>x.id===agId); if(!a) return;
+  // Preenche o formulário pra você só confirmar
+  document.getElementById('finTipo').value='entrada';
+  document.getElementById('finDesc').value=a.servicoNome+' - '+a.clienteNome;
+  document.getElementById('finValor').value=a.preco;
+  document.getElementById('finData').value=a.data;
+  document.getElementById('finCategoria').value='Corte';
+  document.getElementById('finFuncionario').value=a.barbeiroId||'';
+  document.getElementById('finAgendamento').value=a.id;
+  atualizarCategoriasFin();
+  window.scrollTo(0,0);
+  alert('Preenchido! É só apertar Lançar pra confirmar. Se quiser, muda a forma de pagamento antes.');
+}
+
+function filtrarFin(tipo,btn){
+  filtroFinAtual=tipo;
+  document.querySelectorAll('#tela-financeiro .btn-sec').forEach(b=>{b.style.background='#23232B';b.style.color='#fff'});
+  if(btn){ btn.style.background='#FACC15'; btn.style.color='#111'; }
+  listarFinanceiro();
+}
+function limparFiltroFin(){
+  document.getElementById('finDe').value=''; document.getElementById('finAte').value=''; document.getElementById('buscaFin').value='';
+  filtroFinAtual='todos'; listarFinanceiro();
+}
+function editarFin(id){
+  const f=financeiro.find(x=>x.id===id); if(!f) return;
+  document.getElementById('finId').value=f.id;
+  document.getElementById('finTipo').value=f.tipo;
+  document.getElementById('finDesc').value=f.desc;
+  document.getElementById('finValor').value=f.valor;
+  document.getElementById('finData').value=f.data;
+  document.getElementById('finCategoria').value=f.categoria;
+  document.getElementById('finForma').value=f.forma;
+  document.getElementById('finFuncionario').value=f.funcId||'';
+  document.getElementById('finAgendamento').value=f.agId||'';
+  atualizarCategoriasFin();
+  document.getElementById('btnCancelarFin').style.display='block';
+  document.querySelector('#tela-financeiro .btn-save').textContent='💾 Salvar Alterações';
+  window.scrollTo(0,0);
+}
+function cancelarEdicaoFin(){ limparFormFin(); }
+function limparFormFin(){
+  ['finId','finDesc','finValor','finCategoria'].forEach(i=> document.getElementById(i).value='');
+  document.getElementById('finTipo').value='entrada';
+  document.getElementById('finData').value=hojeISO2();
+  document.getElementById('finForma').value='Dinheiro';
+  document.getElementById('finFuncionario').value='';
+  document.getElementById('finAgendamento').value='';
+  document.getElementById('btnCancelarFin').style.display='none';
+  const btn=document.querySelector('#tela-financeiro .btn-save'); if(btn) btn.textContent='💾 Lançar';
+  atualizarCategoriasFin();
+}
+function excluirFin(id){
+  if(!confirm('Excluir esse lançamento?')) return;
+  financeiro=financeiro.filter(f=>f.id!==id);
+  salvarLocal('financeiro', financeiro);
+  listarFinanceiro(); listarPendentesFin();
+}
+
+// Inicializa
+if(document.getElementById('finData')) document.getElementById('finData').value=hojeISO2();
+atualizarCategoriasFin();
+carregarSelectsFin();
+listarFinanceiro();
+listarPendentesFin();
 
 // ==================================================
 // ========== MÓDULO 8 - DASHBOARD - JS AQUI ==========
