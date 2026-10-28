@@ -1,92 +1,275 @@
-<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Admin - Barbearia</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Barbearia - Sistema</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}:root{--gold:#d4af37;--bg:#0a0a0f;--card:#111525;--border:#1e2230;--text:#8a8fa3}
-body{background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}
-input,select,textarea{background:#0a0e1a;border:1px solid var(--border);color:#fff;padding:10px;border-radius:8px;width:100%;margin:4px 0}
-button{cursor:pointer}
-.btn{background:var(--gold);color:#000;border:none;padding:10px 14px;border-radius:8px;font-weight:700}
-.btn.small{padding:6px 10px;font-size:12px}
-.btn.danger{background:#dc2626;color:#fff}
-.btn.pago{background:#16a34a!important;color:#fff!important}
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin:12px 0}
-.list-row{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#0a0e1a;border:1px solid var(--border);border-radius:10px;padding:10px;margin:6px 0}
-.estoque-alerta{border-color:#dc2626!important;background:#2a1515!important}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.metric-card{background:#0a0e1a;border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
-.metric-card small{display:block;color:var(--text);font-size:10px}
-.metric-card b{font-size:20px}
-.layout{display:flex;min-height:100vh}
-.sidebar{width:240px;background:#0d101c;border-right:1px solid var(--border);padding:16px;position:fixed;left:0;top:0;bottom:0;z-index:20;overflow:auto}
-.sidebar img{width:70px;height:70px;border-radius:14px;object-fit:cover;border:2px solid var(--gold);display:block;margin-bottom:8px}
-.nav{display:flex;flex-direction:column;gap:6px;margin-top:14px}
-.nav button{background:transparent;color:#fff;border:1px solid var(--border);padding:10px;border-radius:8px;text-align:left}
-.nav button.active{background:var(--gold);color:#000}
-.main{flex:1;margin-left:240px;padding:16px;max-width:1100px;width:100%}
-.page{display:none}.page.active{display:block}
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;align-items:center;justify-content:center;padding:16px}
-.modal.show{display:flex}
-.modal .box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;width:100%;max-width:460px}
-.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:12px 18px;border-radius:99px;z-index:99;display:none;font-weight:700}
-.toast.show{display:block}
-#btnHamburger{display:none}
-.hidden{display:none!important}
-#authAdmin{display:none;min-height:100vh;align-items:center;justify-content:center;padding:16px}
-#authAdmin.ready{display:flex}
-label.lbl{display:block;font-size:11px;color:var(--text);margin-top:10px;text-transform:uppercase;letter-spacing:.5px}
-.dia-row{display:flex;gap:8px;align-items:center;background:#0a0e1a;border:1px solid var(--border);border-radius:10px;padding:8px;margin:6px 0}
-.dia-row input[type=checkbox]{width:18px}
-.dia-row input[type=time]{width:110px}
-@media (max-width:768px){
-.sidebar{transform:translateX(-100%);transition:.2s}.sidebar.open{transform:none}
-.main{margin-left:0}
-#btnHamburger{display:block;background:var(--gold);color:#000;border:none;padding:10px 14px;border-radius:8px;font-weight:700;margin-bottom:10px}
-.grid-2,.grid-3{grid-template-columns:1fr!important}
-#page-estoque .grid-2, #page-estoque .estoque-grid{display:flex!important;flex-direction:column!important}
-#page-estoque .grid-2>div, #page-estoque .estoque-grid>div{width:100%!important}
-}
-</style></head><body>
-<div id="authAdmin"><div class="card" style="max-width:400px;width:100%;text-align:center"><img id="logoLogin" src="/dnh-logo.png" style="width:80px;height:80px;border-radius:16px;object-fit:cover;margin:0 auto 10px"><h2 id="shopNameLogin">BARBEARIA</h2><p style="color:var(--text)">Painel Admin</p><input id="adminEmail" placeholder="E-mail" type="email"><input id="adminPass" placeholder="Senha" type="password"><button class="btn" id="btnAdminLogin" style="width:100%;margin-top:8px">Entrar</button></div></div>
-<div id="appLoader" style="padding:20px;text-align:center;color:var(--text)">Carregando...</div>
-<div id="appAdmin" class="hidden"><div class="layout">
-<aside class="sidebar" id="sidebar"><img id="logoSidebar" src="/dnh-logo.png"><b id="barberName">BARBEARIA</b><br><small id="slugDisplay" style="color:var(--text)"></small><br><small id="barberSlug" style="color:var(--text)"></small><br><small id="adminEmailDisplay" style="color:var(--text)"></small><nav class="nav"><button data-page="dashboard" class="active">📊 Dashboard</button><button data-page="agenda">📅 Agenda</button><button data-page="servicos">✂️ Serviços</button><button data-page="estoque">📦 Estoque</button><button data-page="funcionarios">💈 Funcionários</button><button data-page="comissoes">💰 Comissões</button><button data-page="financeiro">💵 Financeiro</button><button data-page="clientes">👥 Clientes</button><button data-page="configuracoes">⚙️ Configurações</button></nav><a id="linkBarbeiroAdmin" href="#" target="_blank" style="color:var(--gold);font-size:12px;margin-top:10px;display:block">→ Abrir App Barbeiro</a><button class="btn small" id="btnLogoutAdmin" style="margin-top:12px">Sair</button></aside>
-<div id="overlay"></div>
-<main class="main"><button id="btnHamburger">☰ Menu</button>
-<section id="page-dashboard" class="page active"><h2>Dashboard - <span id="dashDate"></span></h2>
-<div class="grid-3"><div class="metric-card"><small>ATENDIMENTOS HOJE</small><b id="dashHoje">0</b></div><div class="metric-card"><small>CLIENTES HOJE</small><b id="dashClientes">0</b></div><div class="metric-card"><small>RECEITA HOJE</small><b id="dashReceita">R$ 0,00</b></div></div>
-<div class="card"><small>TICKET MÉDIO HOJE</small><br><b id="dashTicket">R$ 0,00</b></div>
-<div class="card"><h3>🔎 Filtrar intervalo - Atendimentos</h3><label class="lbl">Data início</label><input type="date" id="filtroInicio"><label class="lbl">Data fim</label><input type="date" id="filtroFim"><button class="btn" id="btnFiltrarAgenda">Filtrar</button><div id="filtroResultado" style="margin-top:10px"></div><div id="filtroLista"></div></div>
-<div class="card"><h3>📅 Agenda de hoje</h3><div id="todayAgenda"></div></div>
-<div class="card"><h3>📦 Estoque baixo</h3><div id="dashEstoque"></div></div>
-<div class="card" id="cardAniversario" style="display:none"><h3>🎉 Aniversariantes de HOJE</h3><div id="listaAniversarioHoje"></div><div id="botoesAniversarioHoje"></div></div>
-<div class="card"><h3>🎂 Aniversariantes do MÊS (<span id="totalAniversarioMes">0</span>)</h3><div id="listaAniversarioMes"></div></div>
-<div class="card"><h3>👥 Total de clientes: <span id="totalClientes">0</span></h3></div>
+  /* ========== CSS GLOBAL - NÃO MEXER - VALE PRA TODAS AS TELAS ========== */
+  *{box-sizing:border-box;font-family:Inter,system-ui,Arial,sans-serif}
+  body{margin:0;background:#1E1E24;color:#F2F2F5;padding:0 16px 90px}
+  h1{font-size:22px;margin:16px 0 4px}
+  p.sub{color:#A1A1AA;margin:0 0 16px;font-size:14px}
+  .card{background:#2A2A33;border:1px solid #3A3A44;border-radius:14px;padding:16px;margin-bottom:16px}
+  .card h2{font-size:16px;margin:0 0 12px}
+  label{font-size:13px;color:#A1A1AA;display:block;margin:12px 0 6px}
+  input,select,textarea{width:100%;background:#23232B;border:1px solid #3A3A44;color:#fff;padding:12px;border-radius:10px;font-size:15px;outline:none}
+  input:disabled{background:#1A1A20;color:#666}
+  input:focus,select:focus,textarea:focus{border-color:#FACC15}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .btn-save{width:100%;background:#FACC15;color:#111;border:0;padding:15px;border-radius:12px;font-weight:800;font-size:16px;cursor:pointer}
+  .btn-sec{background:#23232B;border:1px solid #3A3A44;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
+  .btn-danger{background:#3A1A1A;border:1px solid #7F1D1D;color:#FCA5A5;padding:10px 14px;border-radius:10px;cursor:pointer}
+  .tag{display:inline-block;background:#FACC15;color:#111;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+  .item-lista{background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+  .item-lista b{font-size:15px}
+  .item-lista small{color:#A1A1AA}
+  .item-lista .acoes{display:flex;gap:6px;flex-wrap:wrap}
+  .erro{color:#EF4444;font-size:13px;display:none;margin-top:6px}
+  .ok{color:#22C55E;font-weight:700;text-align:center;display:none}
+  /* Menu inferior - NÃO MEXER */
+  nav{position:fixed;bottom:0;left:0;right:0;background:#2A2A33;border-top:1px solid #3A3A44;display:flex;overflow-x:auto;padding:6px;z-index:99}
+  nav button{flex:1;min-width:78px;background:transparent;border:0;color:#A1A1AA;padding:10px 6px;cursor:pointer;font-size:12px;border-radius:10px}
+  nav button.active{background:#FACC15;color:#111;font-weight:800}
+  .tela{display:none}
+  .tela.ativa{display:block}
+  .placeholder{border:1px dashed #3A3A44;border-radius:14px;padding:20px;text-align:center;color:#A1A1AA}
+  @media(max-width:768px){
+    .grid,.row,.row3{grid-template-columns:1fr}
+    .item-lista{flex-direction:column;align-items:stretch}
+    .item-lista .acoes{justify-content:stretch}
+    .item-lista .acoes button{flex:1}
+  }
+</style>
+</head>
+<body>
+
+<h1 id="tituloTopo">Barbearia</h1>
+
+<!-- ========== MÓDULO 9 - LOGIN - VAI FICAR AQUI DEPOIS ========== -->
+<!-- AQUI ENTRA O CÓDIGO DO LOGIN - NÃO COLAR FORA DAQUI -->
+
+<!-- ========== MÓDULO 8 - DASHBOARD ========== -->
+<section id="tela-dashboard" class="tela ativa">
+  <p class="sub">Módulo 8 - Visão geral</p>
+  <div class="placeholder">
+    <!-- MÓDULO 8 - AQUI -->
+    <b>DASHBOARD - AGUARDANDO CÓDIGO</b><br>
+    Aqui vai: Hoje / Semana / Mês / Agendados / Pendentes / Faturamento
+  </div>
 </section>
-<section id="page-agenda" class="page"><h2>Agenda</h2><div class="card"><label class="lbl">Data</label><input type="date" id="agData"><label class="lbl">Barbeiro</label><select id="agFuncionario"></select><label class="lbl">Serviço</label><select id="agServico"></select><label class="lbl">Horários</label><div id="agHoraGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0"></div><label class="lbl">Nome do cliente</label><input id="agClienteNome" list="listaClientesAgenda" placeholder="Nome do cliente - digite ou escolha" autocomplete="off"><datalist id="listaClientesAgenda"></datalist><label class="lbl">Telefone</label><input id="agClientePhone" placeholder="Telefone"><label class="lbl">Observação</label><input id="agObs" placeholder="Obs"><button class="btn" id="btnAgendarCliente" style="margin-top:8px">Agendar</button></div><div class="card"><h3>Agendamentos - Filtro</h3><label class="lbl">Início</label><input type="date" id="agFiltroInicio"><label class="lbl">Fim</label><input type="date" id="agFiltroFim"><label class="lbl">Barbeiro</label><select id="agFiltroFunc"><option value="">Todos barbeiros</option></select><button class="btn small" id="btnFiltrarAgendaLista">Filtrar Agendamentos</button><button class="btn small" id="btnLimparAgendaLista">Limpar</button><div id="adminAgendaList" style="margin-top:10px"></div></div></section>
-<section id="page-servicos" class="page"><h2>Serviços</h2><div class="card"><label class="lbl">Nome do serviço</label><input id="servNome" placeholder="Nome do serviço"><label class="lbl">Preço</label><input id="servPreco" type="number" placeholder="Preço"><label class="lbl">Duração (min)</label><input id="servDuracao" type="number" value="30"><button class="btn" id="btnAddServico">Adicionar Serviço</button></div><div id="listaServicos"></div></section>
-<section id="page-estoque" class="page"><h2>Estoque</h2>
-<div class="card"><h3>Catálogo</h3><label class="lbl">Novo produto</label><input id="newCatalogName" placeholder="Novo produto no catálogo"><label class="lbl">Quantidade mínima</label><input id="newCatalogMin" type="number" value="5" placeholder="Quantidade mínima"><div style="display:flex;gap:8px"><button class="btn" id="btnAddCatalog">Salvar Catálogo</button><button class="btn small" id="btnEditarCatalogo" style="background:#1e2230;color:#fff">Editar</button></div><div id="listaCatalogo" class="hidden" style="margin-top:10px"></div><small style="color:var(--text)">Clique em Editar, depois clique no nome do produto para alterar nome e quantidade mínima.</small></div>
-<div class="grid-2 estoque-grid"><div class="card"><h3>Entrada / Compra</h3><label class="lbl">Produto</label><select id="estEntradaProduto"></select><label class="lbl">Quantidade</label><input id="estEntradaQtd" type="number"><label class="lbl">Custo unitário</label><input id="estEntradaCusto" type="number"><label class="lbl">Quantidade mínima</label><input id="estEntradaMin" type="number" placeholder="Quantidade mínima"><label class="lbl">Data</label><input id="estEntradaData" type="date"><label class="lbl">Fornecedor</label><input id="estEntradaForn" placeholder="Fornecedor"><button class="btn" id="btnAddEntrada">Registrar Entrada</button></div><div class="card"><h3>Saída / Uso / Venda</h3><label class="lbl">Produto</label><select id="retiradaProduto"></select><div id="retiradaInfo" style="font-size:12px;color:var(--gold)"></div><label class="lbl">Quantidade</label><input id="retiradaQtd" type="number"><label class="lbl">Data</label><input id="retiradaData" type="date"><label class="lbl">Motivo</label><input id="retiradaMotivo" placeholder="Motivo"><button class="btn" id="btnRetirar">Registrar Saída</button></div></div>
-<div class="card"><button class="btn small" id="btnToggleEstoque">Mostrar / Ocultar Estoque</button><div id="listaEstoque"></div></div>
-<div class="card"><h3>Histórico - Entradas e Saídas</h3><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><div style="flex:1"><label class="lbl">Início</label><input type="date" id="estFiltroInicio"></div><div style="flex:1"><label class="lbl">Fim</label><input type="date" id="estFiltroFim"></div><div style="flex:1"><label class="lbl">Produto</label><select id="estFiltroProduto"><option value="">Todos produtos</option></select></div><button class="btn small" id="btnFiltrarEst">Filtrar</button><button class="btn small" id="btnLimparEst">Limpar</button></div><div id="listaMovimentos" style="margin-top:10px"></div></div></section>
-<section id="page-funcionarios" class="page"><h2>Funcionários</h2><div class="card"><label class="lbl">Nome</label><input id="funcNome" placeholder="Nome"><label class="lbl">Telefone</label><input id="funcPhone" placeholder="Telefone"><label class="lbl">E-mail</label><input id="funcEmail" placeholder="E-mail"><label class="lbl">Função</label><select id="funcFuncao"><option value="barbeiro">Barbeiro</option><option value="recepcionista">Recepcionista</option><option value="gerente">Gerente</option></select><label class="lbl">Horário início</label><input id="funcInicio" type="time" value="08:00"><label class="lbl">Horário fim</label><input id="funcFim" type="time" value="18:00"><label class="lbl">Comissão</label><input id="funcComissao" type="number" value="50"><label class="lbl">Tipo de comissão</label><select id="funcComissaoTipo"><option value="percent">Percentual %</option><option value="fixed">Valor fixo R$ por atendimento</option></select><button class="btn" id="btnAddFunc">Cadastrar Funcionário</button></div><div id="listaFuncionarios"></div></section>
-<section id="page-comissoes" class="page"><h2>Comissões</h2><div class="card"><label class="lbl">Barbeiro</label><select id="comBarbeiro"></select><label class="lbl">Período</label><select id="comPeriodo"><option value="hoje">Hoje</option><option value="semana">Últimos 7 dias</option><option value="quinzena">Últimos 15 dias</option><option value="mes">Este mês</option><option value="custom">Personalizado</option></select><div id="comCustomBox" style="display:none;grid-template-columns:1fr 1fr;gap:8px"><div><label class="lbl">Início</label><input type="date" id="comInicio"></div><div><label class="lbl">Fim</label><input type="date" id="comFim"></div></div><button class="btn" id="btnCalcularCom" style="margin-top:8px">Calcular Comissão</button></div><div id="comResumo"></div><div id="listaComissoes"></div><button class="btn" id="btnPagarComissao" style="display:none;margin-top:10px">Marcar como Paga</button><h3 style="margin-top:14px">Pagamentos</h3><div id="listaPagamentos"></div></section>
-<section id="page-financeiro" class="page"><h2>Financeiro</h2><button class="btn" id="btnLancarManualTop">+ Lançar Manual</button><div id="formLancarManual" class="card hidden"><label class="lbl">Tipo</label><select id="finTipo"><option value="income">Entrada</option><option value="expense">Saída</option></select><label class="lbl">Valor</label><input id="finValor" type="number" placeholder="Valor"><label class="lbl">Data</label><input id="finData" type="date"><label class="lbl">Categoria</label><input id="finCategoria" list="listaCategorias" placeholder="Ex: Corte, Produto, Aluguel"><datalist id="listaCategorias"><option value="Corte"><option value="Barba"><option value="Produto"><option value="Aluguel"><option value="Compra estoque"><option value="Comissão"><option value="Outros"></datalist><label class="lbl">Forma de pagamento</label><select id="finForma"><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option><option value="transferencia">Transferência</option></select><label class="lbl">Descrição</label><input id="finDesc" placeholder="Descrição"><button class="btn" id="btnAddFinanceiro">Confirmar Lançamento</button></div><div id="finResumo" class="grid-3"></div><div class="card"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><div><label class="lbl">Início</label><input type="date" id="finInicio"></div><div><label class="lbl">Fim</label><input type="date" id="finFim"></div><button class="btn small" id="btnFiltrarFin">Filtrar</button><button class="btn small" id="btnLimparFin">Limpar</button><button class="btn small" id="btnToggleFin">Mostrar / Ocultar</button><button class="btn small" id="btnGraficoFin">Gráfico</button></div><div id="graficoWrap" class="hidden"><canvas id="finChart" width="700" height="320" style="width:100%;background:#0a0e1a;border-radius:10px;margin-top:10px"></canvas><div id="graficoLegenda"></div></div><div id="listaFinanceiro" style="margin-top:10px"></div></div></section>
-<section id="page-clientes" class="page"><h2>Clientes</h2><div class="card"><small>Total clientes: <b id="totalClientes">0</b> | Aniversariantes do mês: <b id="totalAniversarioMes">0</b></small><div id="listaAniversarioMes" style="margin-top:8px"></div></div><input id="buscaCliente" placeholder="Buscar cliente por nome ou telefone"><div id="listaClientes"></div></section>
-<section id="page-configuracoes" class="page"><h2>Configurações</h2><div class="card"><label class="lbl">Nome da barbearia</label><input id="setName" placeholder="Nome da barbearia"><label class="lbl">WhatsApp</label><input id="setWhatsapp" placeholder="WhatsApp"><label class="lbl">URL da logo</label><input id="setLogoUrl" placeholder="URL da logo"><label class="lbl">Ou enviar logo</label><input id="setLogoFile" type="file" accept="image/*"><img id="logoPreview" style="display:none;width:80px;height:80px;border-radius:12px;object-fit:cover;margin-top:8px"><label class="lbl">Intervalo entre atendimentos (minutos)</label><input id="setInterval" type="number" value="30"><label class="lbl">Início almoço</label><input id="setLunchStart" type="time" value="12:00"><label class="lbl">Fim almoço</label><input id="setLunchEnd" type="time" value="13:00"><div id="weeklyBox" style="margin-top:10px"></div><button class="btn" id="saveSettings" style="margin-top:10px">Salvar Configurações</button></div></section>
-</main></div></div>
-<div class="modal" id="editServModal"><div class="box"><h3>Editar Serviço</h3><label class="lbl">Nome</label><input id="editServNome"><label class="lbl">Preço</label><input id="editServPreco" type="number"><label class="lbl">Duração</label><input id="editServDuracao" type="number"><button class="btn" id="btnSaveEditServ">Salvar</button><button class="btn small" data-close-modal="editServModal">Fechar</button></div></div>
-<div class="modal" id="editEstModal"><div class="box"><h3>Editar Estoque</h3><label class="lbl">Nome</label><input id="editEstNome"><label class="lbl">Quantidade</label><input id="editEstQtd" type="number"><label class="lbl">Mínimo</label><input id="editEstMin" type="number"><label class="lbl">Custo</label><input id="editEstCusto" type="number"><label class="lbl">Categoria</label><input id="editEstCat"><button class="btn" id="btnSaveEditEst">Salvar</button><button class="btn small" data-close-modal="editEstModal">Fechar</button></div></div>
-<div class="modal" id="editMovModal"><div class="box"><h3>Editar Movimentação</h3><label class="lbl">Produto</label><input id="editMovProduto"><label class="lbl">Tipo</label><select id="editMovTipo"><option value="entrada">Entrada</option><option value="saida">Saída</option></select><label class="lbl">Quantidade</label><input id="editMovQtd" type="number"><label class="lbl">Data</label><input id="editMovData" type="date"><label class="lbl">Custo unitário</label><input id="editMovCusto" type="number"><label class="lbl">Obs / Fornecedor</label><input id="editMovObs"><button class="btn" id="btnSaveEditMov">Salvar</button><button class="btn small" data-close-modal="editMovModal">Fechar</button></div></div>
-<div class="modal" id="editFuncModal"><div class="box"><h3>Editar Funcionário</h3><label class="lbl">Nome</label><input id="editFuncNome"><label class="lbl">Telefone</label><input id="editFuncPhone"><label class="lbl">E-mail</label><input id="editFuncEmail"><label class="lbl">Função</label><select id="editFuncFuncao"><option value="barbeiro">Barbeiro</option><option value="recepcionista">Recepcionista</option><option value="gerente">Gerente</option></select><label class="lbl">Início</label><input id="editFuncInicio" type="time"><label class="lbl">Fim</label><input id="editFuncFim" type="time"><label class="lbl">Comissão</label><input id="editFuncComissao" type="number"><label class="lbl">Tipo comissão</label><select id="editFuncComissaoTipo"><option value="percent">Percentual %</option><option value="fixed">Valor fixo R$</option></select><button class="btn" id="btnSaveEditFunc">Salvar</button><button class="btn small" data-close-modal="editFuncModal">Fechar</button></div></div>
-<div class="modal" id="editBookingModal"><div class="box"><h3>Editar Agendamento</h3><label class="lbl">Data</label><input id="editBookData" type="date"><label class="lbl">Hora</label><input id="editBookHora" type="time"><label class="lbl">Cliente</label><input id="editBookCliente"><label class="lbl">Telefone</label><input id="editBookPhone"><label class="lbl">Obs</label><input id="editBookObs"><label class="lbl">Barbeiro</label><select id="editBookFunc"></select><label class="lbl">Serviço</label><select id="editBookServ"></select><button class="btn" id="btnSaveEditBook">Salvar</button><button class="btn small" data-close-modal="editBookingModal">Fechar</button></div></div>
-<div id="toast" class="toast"></div>
-<script src="/config.js"></script>
-<script src="/admin.js"></script>
+
+<!-- ========== MÓDULO 6 - AGENDA ========== -->
+<section id="tela-agenda" class="tela">
+  <p class="sub">Módulo 6 - Agenda</p>
+  <div class="placeholder">
+    <!-- MÓDULO 6 - AQUI -->
+    <b>AGENDA - AGUARDANDO CÓDIGO</b><br>
+    Aqui vai: Calendário / Lista do dia / Novo agendamento
+  </div>
+</section>
+
+<!-- ========== MÓDULO 2 - FUNCIONÁRIOS ========== -->
+<section id="tela-funcionarios" class="tela">
+  <p class="sub">Módulo 2 - Funcionários</p>
+  <div class="placeholder">
+    <!-- MÓDULO 2 - AQUI -->
+    <b>FUNCIONÁRIOS - AGUARDANDO CÓDIGO</b><br>
+    Aqui vai: Nome / Telefone / E-mail / Função / Horário / Comissão / Pix / PIN
+  </div>
+</section>
+
+<!-- ========== MÓDULO 3 - SERVIÇOS ========== -->
+<section id="tela-servicos" class="tela">
+  <p class="sub">Módulo 3 - Serviços</p>
+  <div class="placeholder">
+    <!-- MÓDULO 3 - AQUI -->
+    <b>SERVIÇOS - AGUARDANDO CÓDIGO</b><br>
+    Aqui vai: Nome / Preço / Duração / Ativo / Barbeiros / Combo
+  </div>
+</section>
+
+<!-- ========== MÓDULO 4 - CLIENTES ========== -->
+<section id="tela-clientes" class="tela">
+  <p class="sub">Módulo 4 - Clientes</p>
+  <div class="placeholder">
+    <!-- MÓDULO 4 - AQUI -->
+    <b>CLIENTES - AGUARDANDO CÓDIGO</b><br>
+    Aqui vai: Nome / Telefone / Histórico / Bloqueio / Saldo
+  </div>
+</section>
+
+<!-- ========== MÓDULO 5 - ESTOQUE ========== -->
+<section id="tela-estoque" class="tela">
+  <p class="sub">Módulo 5 - Estoque</p>
+  <div class="placeholder">
+    <!-- MÓDULO 5 - AQUI -->
+    <b>ESTOQUE - AGUARDANDO CÓDIGO</b><br>
+    Aqui vai: Produto / Categoria / Quantidade / Mínimo / Preço
+  </div>
+</section>
+
+<!-- ========== MÓDULO 7 - FINANCEIRO ========== -->
+<section id="tela-financeiro" class="tela">
+  <p class="sub">Módulo 7 - Financeiro</p>
+  <div class="placeholder">
+    <!-- MÓDULO 7 - AQUI -->
+    <b>FINANCEIRO - AGUARDANDO CÓDIGO</b><br>
+    Aqui vai: Entradas / Saídas / Categoria / Forma Pagamento / Saldo
+  </div>
+</section>
+
+<!-- ========== MÓDULO 1 - CONFIGURAÇÕES ========== -->
+<section id="tela-configuracoes" class="tela">
+  <p class="sub">Módulo 1 - Define como a barbearia funciona</p>
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>Dados da Barbearia</h2>
+        <label>Nome da barbearia *</label>
+        <input id="nome" placeholder="Ex: Barbearia do Zé">
+        <label>WhatsApp * (obrigatório)</label>
+        <input id="whats" placeholder="(21) 99999-9999">
+        <div class="erro" id="erroWhats">Preencha o WhatsApp para salvar.</div>
+        <label>Telefone</label>
+        <input id="telefone" placeholder="(21) 3333-3333">
+        <label>Endereço</label>
+        <input id="endereco" placeholder="Rua, número, bairro, cidade">
+      </div>
+      <div class="card">
+        <h2>Pix da Barbearia</h2>
+        <label>Tipo da chave</label>
+        <select id="tipoPix"><option>Celular</option><option>CPF</option><option>CNPJ</option><option>E-mail</option><option>Aleatória</option></select>
+        <label>Chave Pix</label>
+        <input id="pix" placeholder="Digite a chave Pix">
+      </div>
+      <div class="card">
+        <h2>Logo</h2>
+        <button class="btn-sec" style="width:100%" onclick="document.getElementById('fileLogo').click()">📷 Enviar logo</button>
+        <input type="file" id="fileLogo" accept="image/*" hidden>
+        <img id="previewLogo" style="width:72px;height:72px;border-radius:50%;object-fit:cover;display:none;margin-top:10px">
+      </div>
+      <div class="card">
+        <h2>Intervalo entre atendimentos</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="boxIntervalos">
+          <button type="button" class="btn-sec" onclick="setIntervalo(30,this)">30 min</button>
+          <button type="button" class="btn-sec" onclick="setIntervalo(60,this)">60 min</button>
+          <button type="button" class="btn-sec" onclick="setIntervalo(90,this)">90 min</button>
+          <button type="button" class="btn-sec" onclick="setIntervalo(120,this)">120 min</button>
+          <button type="button" class="btn-sec" onclick="setIntervalo('outro',this)">Outro</button>
+        </div>
+        <div id="boxOutro" style="display:none"><label>Digite o intervalo (min)</label><input id="intervaloOutro" type="number" placeholder="Ex: 45"></div>
+      </div>
+      <div class="card">
+        <h2>Almoço - Global para todos os dias</h2>
+        <div class="row"><div><label>Início almoço</label><input id="almocoInicio" type="time" value="12:00"></div><div><label>Fim almoço</label><input id="almocoFim" type="time" value="13:00"></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>Dias de Funcionamento</h2>
+        <p style="color:#A1A1AA;font-size:13px;margin:0 0 12px">Dia desmarcado = não atende, horário trava e fica cinza</p>
+        <div id="dias"></div>
+      </div>
+      <button class="btn-save" onclick="salvarConfig()">💾 Salvar Configurações</button>
+      <p id="msgOk" class="ok">✅ Salvo com sucesso!</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== MENU - NÃO MEXER ========== -->
+<nav>
+  <button class="active" onclick="trocarTela('dashboard',this)">📊<br>Dashboard</button>
+  <button onclick="trocarTela('agenda',this)">📅<br>Agenda</button>
+  <button onclick="trocarTela('funcionarios',this)">✂️<br>Funcionários</button>
+  <button onclick="trocarTela('servicos',this)">💈<br>Serviços</button>
+  <button onclick="trocarTela('clientes',this)">👤<br>Clientes</button>
+  <button onclick="trocarTela('estoque',this)">📦<br>Estoque</button>
+  <button onclick="trocarTela('financeiro',this)">💰<br>Financeiro</button>
+  <button onclick="trocarTela('configuracoes',this)">⚙️<br>Config</button>
+</nav>
+
 <script>
-let _p=location.pathname.split('/').filter(Boolean);
-let _s=(_p.length>=1 && _p[0].indexOf('.html')===-1) ? _p[0] : (localStorage.getItem('dnh_slug')||'dnh');
-let _lb=document.getElementById('linkBarbeiroAdmin');
-if(_lb) _lb.href='/' + _s + '/barbeiro.html';
-</script>
-</body></html>
+/* ========== JS GLOBAL - NÃO MEXER ========== */
+function trocarTela(nome,btn){
+  document.querySelectorAll('.tela').forEach(t=>t.classList.remove('ativa'));
+  document.getElementById('tela-'+nome).classList.add('ativa');
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  window.scrollTo(0,0);
+}
+
+/* ========== MÓDULO 1 - CONFIGURAÇÕES - JS AQUI ========== */
+let intervaloSelecionado = 30;
+const diasSemana = [
+  {nome:'Domingo',ativo:false,abre:'09:00',fecha:'18:00'},
+  {nome:'Segunda',ativo:false,abre:'09:00',fecha:'19:00'},
+  {nome:'Terça',ativo:true,abre:'09:00',fecha:'19:00'},
+  {nome:'Quarta',ativo:true,abre:'09:00',fecha:'19:00'},
+  {nome:'Quinta',ativo:true,abre:'09:00',fecha:'19:00'},
+  {nome:'Sexta',ativo:true,abre:'09:00',fecha:'19:00'},
+  {nome:'Sábado',ativo:true,abre:'09:00',fecha:'18:00'},
+];
+function renderDias(){
+  const el=document.getElementById('dias'); el.innerHTML='';
+  diasSemana.forEach((d,i)=>{
+    const div=document.createElement('div');
+    div.style.cssText='display:flex;align-items:center;gap:10px;background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:10px;margin-bottom:8px;'+(d.ativo?'':'opacity:.45');
+    div.innerHTML=`<input type="checkbox" ${d.ativo?'checked':''} onchange="toggleDia(${i},this.checked)" style="width:22px;height:22px;accent-color:#FACC15">
+    <b style="width:80px">${d.nome}</b>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><span style="font-size:11px;color:#A1A1AA">Abre</span><input type="time" value="${d.abre}" ${d.ativo?'':'disabled'} onchange="diasSemana[${i}].abre=this.value"></div><div><span style="font-size:11px;color:#A1A1AA">Fecha</span><input type="time" value="${d.fecha}" ${d.ativo?'':'disabled'} onchange="diasSemana[${i}].fecha=this.value"></div></div>`;
+    el.appendChild(div);
+  });
+}
+function toggleDia(i,c){ diasSemana[i].ativo=c; renderDias(); }
+function setIntervalo(v,btn){
+  document.querySelectorAll('#boxIntervalos button').forEach(b=>{b.style.background='#23232B';b.style.color='#fff'});
+  btn.style.background='#FACC15';btn.style.color='#111';
+  intervaloSelecionado=v;
+  document.getElementById('boxOutro').style.display = v==='outro' ? 'block' : 'none';
+}
+function salvarConfig(){
+  const whats=document.getElementById('whats').value.trim();
+  if(!whats){ document.getElementById('erroWhats').style.display='block'; return; }
+  document.getElementById('erroWhats').style.display='none';
+  let intervaloFinal = intervaloSelecionado==='outro' ? document.getElementById('intervaloOutro').value : intervaloSelecionado;
+  const dados={ nome:document.getElementById('nome').value, whats, telefone:document.getElementById('telefone').value, endereco:document.getElementById('endereco').value, tipoPix:document.getElementById('tipoPix').value, pix:document.getElementById('pix').value, intervalo:intervaloFinal, almocoInicio:document.getElementById('almocoInicio').value, almocoFim:document.getElementById('almocoFim').value, dias:diasSemana };
+  localStorage.setItem('configBarbearia', JSON.stringify(dados));
+  document.getElementById('msgOk').style.display='block';
+  setTimeout(()=>document.getElementById('msgOk').style.display='none',2000);
+}
+document.getElementById('fileLogo').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const img=document.getElementById('previewLogo'); img.src=URL.createObjectURL(f); img.style.display='block';
+});
+renderDias();
+
+/* ========== MÓDULO 2 - FUNCIONÁRIOS - JS AQUI ========== */
+// AGUARDANDO CÓDIGO DO MÓDULO 2
+
+/* ========== MÓDULO 3 - SERVIÇOS - JS AQUI ========== */
+// AGUARDANDO CÓDIGO DO MÓDULO 3
+
+/* ========== MÓDULO 4 - CLIENTES - JS AQUI ========== */
+// AGUARDANDO CÓDIGO DO MÓDULO 4
+
+/* ========== MÓDULO 5 - ESTOQUE - JS AQUI ========== */
+// AGUARDANDO CÓDIGO DO MÓDULO 5
+
+/* ========== MÓDULO 6 - AGENDA - JS AQUI ========== */
+// AGUARDANDO CÓDIGO DO MÓDULO 6
+
+/* ========== MÓDULO 7 - FINANCEIRO - JS AQUI ========== */
+// AGUARDANDO CÓDIGO DO MÓDULO 7
+
+/* ========== MÓDULO 8 - DASHBOARD - JS AQUI ========== */
+// AGUARDANDO CÓDIGO DO MÓDULO 8
+
+/* ========== MÓDULO 9 - LOGIN - JS AQUI ========== */
+// AGUARDANDO CÓDIGO DO MÓDULO 9
+<!-- ========== JS - NÃO MEXER ========== -->
+<script src="admin.js"></script>
+</body>
+</html>
