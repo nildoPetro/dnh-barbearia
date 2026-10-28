@@ -134,8 +134,43 @@
   <p class="sub">Módulo 3 - Serviços</p>
   <div class="placeholder">
     <!-- MÓDULO 3 - AQUI -->
-    <b>SERVIÇOS - AGUARDANDO CÓDIGO</b><br>
-    Aqui vai: Nome / Preço / Duração / Ativo / Barbeiros / Combo
+    <!-- MÓDULO 3 - AQUI -->
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>Cadastrar / Editar Serviço</h2>
+      <input type="hidden" id="servId">
+      <label>Nome do serviço *</label>
+      <input id="servNome" placeholder="Ex: Corte Degradê">
+      <div class="row">
+        <div><label>Preço (R$) *</label><input id="servPreco" type="number" step="0.01" placeholder="Ex: 50"></div>
+        <div><label>Duração (min) *</label><input id="servDuracao" type="number" placeholder="Ex: 30"></div>
+      </div>
+      <label><input type="checkbox" id="servCombo" onchange="toggleCombo()" style="width:18px;height:18px;accent-color:#FACC15"> É Combo?</label>
+      <div id="boxCombo" style="display:none;background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;margin-top:10px">
+        <b style="font-size:14px">Serviços que entram no combo</b>
+        <p style="color:#A1A1AA;font-size:12px;margin:4px 0 8px">Marca os serviços. Duração soma sozinha. Preço você digita manual.</p>
+        <div id="listaComboServicos"></div>
+        <small id="infoComboDuracao" style="color:#FACC15">Duração total: 0 min</small>
+      </div>
+      <label>Quais barbeiros fazem esse serviço</label>
+      <p style="color:#A1A1AA;font-size:12px;margin:0 0 8px">Se não marcar nenhum, todos fazem.</p>
+      <div id="listaServBarbeiros"></div>
+      <label>Ativo?</label>
+      <select id="servAtivo"><option value="true">Ativo - Aparece na Agenda</option><option value="false">Inativo - Não aparece na Agenda</option></select>
+      <div class="erro" id="erroServ">Preencha Nome, Preço e Duração.</div>
+      <button class="btn-save" style="margin-top:14px" onclick="salvarServico()">💾 Cadastrar Serviço</button>
+      <button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarServ" onclick="cancelarEdicaoServ()">Cancelar edição</button>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>Serviços Cadastrados</h2>
+      <input id="buscaServ" placeholder="🔍 Buscar serviço..." oninput="listarServicos()">
+      <div id="listaServicos" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
   </div>
 </section>
 
@@ -144,8 +179,42 @@
   <p class="sub">Módulo 4 - Clientes</p>
   <div class="placeholder">
     <!-- MÓDULO 4 - AQUI -->
-    <b>CLIENTES - AGUARDANDO CÓDIGO</b><br>
-    Aqui vai: Nome / Telefone / Histórico / Bloqueio / Saldo
+    <!-- MÓDULO 4 - AQUI -->
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>Cadastrar / Editar Cliente</h2>
+      <input type="hidden" id="cliId">
+      <label>Nome *</label>
+      <input id="cliNome" placeholder="Ex: Carlos Silva">
+      <label>Telefone * (é o que identifica o cliente)</label>
+      <input id="cliTelefone" placeholder="(21) 99999-9999">
+      <label>E-mail (não obrigatório)</label>
+      <input id="cliEmail" placeholder="carlos@email.com">
+      <label>Data de nascimento (não obrigatório)</label>
+      <input id="cliNasc" type="date">
+      <label>Observação (não obrigatório)</label>
+      <textarea id="cliObs" rows="2" placeholder="Ex: Prefere corte degradê, alérgico a produto X"></textarea>
+      <label>Cliente bloqueado?</label>
+      <select id="cliBloqueado"><option value="false">Não - Pode agendar normal</option><option value="true">Sim - Bloqueado, não agenda</option></select>
+      <div class="erro" id="erroCli">Preencha Nome e Telefone.</div>
+      <button class="btn-save" style="margin-top:14px" onclick="salvarCliente()">💾 Cadastrar Cliente</button>
+      <button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarCli" onclick="cancelarEdicaoCli()">Cancelar edição</button>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>Clientes Cadastrados</h2>
+      <input id="buscaCli" placeholder="🔍 Buscar por nome ou telefone..." oninput="listarClientes()">
+      <div id="listaClientes" style="margin-top:12px"></div>
+    </div>
+    <div class="card" id="boxHistoricoCli" style="display:none">
+      <h2>Histórico - <span id="nomeHistoricoCli"></span></h2>
+      <div id="conteudoHistoricoCli"></div>
+      <button class="btn-sec" style="width:100%;margin-top:10px" onclick="fecharHistoricoCli()">Fechar histórico</button>
+    </div>
+  </div>
+</div>
   </div>
 </section>
 
