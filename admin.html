@@ -49,7 +49,48 @@
 <h1 id="tituloTopo">Barbearia</h1>
 
 <!-- ========== MÓDULO 9 - LOGIN - VAI FICAR AQUI DEPOIS ========== -->
-<!-- AQUI ENTRA O CÓDIGO DO LOGIN - NÃO COLAR FORA DAQUI -->
+<!-- MÓDULO 8 - AQUI -->
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <h2 style="margin:0">Visão Geral - <span id="dashHojeTxt"></span></h2>
+    <button class="btn-sec" onclick="atualizarDashboard()">🔄 Atualizar</button>
+  </div>
+  <div class="row3" style="margin-top:12px">
+    <div style="background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center"><small style="color:#A1A1AA">Faturamento Hoje</small><br><b id="dashFatHoje" style="color:#22C55E;font-size:22px">R$ 0,00</b><br><small id="dashQtdHoje" style="color:#A1A1AA">0 atendimentos</small></div>
+    <div style="background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center"><small style="color:#A1A1AA">Faturamento Mês</small><br><b id="dashFatMes" style="color:#FACC15;font-size:22px">R$ 0,00</b><br><small id="dashQtdMes" style="color:#A1A1AA">0 atendimentos</small></div>
+    <div style="background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center"><small style="color:#A1A1AA">Saldo Caixa (Mês)</small><br><b id="dashSaldoMes" style="color:#fff;font-size:22px">R$ 0,00</b><br><small id="dashAgHojeTxt" style="color:#A1A1AA">0 agendados hoje</small></div>
+  </div>
+  <div class="row3" style="margin-top:12px">
+    <div style="background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center"><small style="color:#A1A1AA">Total Clientes</small><br><b id="dashTotalCli" style="font-size:20px">0</b></div>
+    <div style="background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center"><small style="color:#A1A1AA">Total Serviços</small><br><b id="dashTotalServ" style="font-size:20px">0</b></div>
+    <div style="background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center"><small style="color:#A1A1AA">Estoque Baixo</small><br><b id="dashEstBaixo" style="color:#F59E0B;font-size:20px">0 produtos</b></div>
+  </div>
+</div>
+
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>Próximos Agendamentos Hoje</h2>
+      <div id="dashProximos"></div>
+      <button class="btn-sec" style="width:100%;margin-top:10px" onclick="trocarTela('agenda', document.querySelectorAll('nav button')[5])">Ver Agenda Completa →</button>
+    </div>
+    <div class="card">
+      <h2>⚠️ Alertas</h2>
+      <div id="dashAlertas"></div>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>Ranking Barbeiros - Mês</h2>
+      <p style="color:#A1A1AA;font-size:12px;margin:0 0 10px">Por faturamento de agendamentos concluídos + comissão estimada.</p>
+      <div id="dashRanking"></div>
+    </div>
+    <div class="card">
+      <h2>Top Serviços - Mês</h2>
+      <div id="dashTopServ"></div>
+    </div>
+  </div>
+</div>
 
 <!-- ========== MÓDULO 8 - DASHBOARD ========== -->
 <section id="tela-dashboard" class="tela ativa">
