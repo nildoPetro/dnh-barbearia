@@ -66,8 +66,47 @@
   <p class="sub">Módulo 6 - Agenda</p>
   <div class="placeholder">
     <!-- MÓDULO 6 - AQUI -->
-    <b>AGENDA - AGUARDANDO CÓDIGO</b><br>
-    Aqui vai: Calendário / Lista do dia / Novo agendamento
+    <<!-- MÓDULO 6 - AQUI -->
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>Novo Agendamento</h2>
+      <input type="hidden" id="agId">
+      <label>Cliente *</label>
+      <input id="agClienteBusca" placeholder="🔍 Digite nome ou telefone do cliente..." oninput="buscarClienteAgenda()">
+      <div id="listaBuscaCliente" style="display:none;background:#23232B;border:1px solid #FACC15;border-radius:10px;margin-top:6px;max-height:180px;overflow:auto"></div>
+      <div id="clienteSelecionado" style="display:none;background:#23232B;border:1px solid #22C55E;border-radius:10px;padding:10px;margin-top:8px;font-size:14px"></div>
+      <input type="hidden" id="agClienteId">
+      <label>Barbeiro *</label>
+      <select id="agBarbeiro" onchange="atualizarServicosAgenda()"><option value="">Selecione o barbeiro</option></select>
+      <label>Serviço *</label>
+      <select id="agServico" onchange="atualizarInfoServico()"><option value="">Selecione o serviço</option></select>
+      <div id="infoServico" style="color:#A1A1AA;font-size:13px;margin-top:6px"></div>
+      <div class="row">
+        <div><label>Data *</label><input id="agData" type="date" onchange="gerarHorariosAgenda()"></div>
+        <div><label>Horário *</label><select id="agHora"><option value="">Escolha a data primeiro</option></select></div>
+      </div>
+      <label>Observação</label>
+      <input id="agObs" placeholder="Ex: Cliente prefere navalha">
+      <div class="erro" id="erroAg">Preencha Cliente, Barbeiro, Serviço, Data e Horário.</div>
+      <button class="btn-save" style="margin-top:14px" onclick="salvarAgendamento()">💾 Agendar</button>
+      <button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarAg" onclick="cancelarEdicaoAg()">Cancelar edição</button>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>Agenda do Dia</h2>
+      <input id="agDataFiltro" type="date" onchange="listarAgenda()">
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn-sec" onclick="filtrarAgendaDia('todos',this)">Todos</button>
+        <button class="btn-sec" onclick="filtrarAgendaDia('agendado',this)">Agendado</button>
+        <button class="btn-sec" onclick="filtrarAgendaDia('concluido',this)">Concluído</button>
+        <button class="btn-sec" onclick="filtrarAgendaDia('cancelado',this)">Cancelado</button>
+      </div>
+      <div id="listaAgenda" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
   </div>
 </section>
 
