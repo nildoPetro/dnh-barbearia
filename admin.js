@@ -1060,7 +1060,119 @@ listarPendentesFin();
 // ==================================================
 // ========== MÓDULO 8 - DASHBOARD - JS AQUI ==========
 // ==================================================
-// AQUI ENTRA O CÓDIGO DO MÓDULO 8 - NÃO COLAR FORA DAQUI
+//// ========== MÓDULO 8 - DASHBOARD - CÓDIGO REAL ==========
+function hojeISO3(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtBRL2(v){ return 'R$ '+Number(v||0).toFixed(2).replace('.',','); }
+
+function atualizarDashboard(){
+  const hoje=hojeISO3();
+  const mesAtual=hoje.slice(0,7); // YYYY-MM
+
+  const ags = typeof agendamentos!=='undefined' ? agendamentos : lerLocal('agendamentos');
+  const fins = typeof financeiro!=='undefined' ? financeiro : lerLocal('financeiro');
+  const clis = typeof clientes!=='undefined' ? clientes : lerLocal('clientes');
+  const servs = typeof servicos!=='undefined' ? servicos : lerLocal('servicos');
+  const est = typeof estoque!=='undefined' ? estoque : lerLocal('estoque');
+  const funcs = typeof funcionarios!=='undefined' ? funcionarios : lerLocal('funcionarios');
+
+  const hojeEl=document.getElementById('dashHojeTxt');
+  if(hojeEl) hojeEl.textContent = new Date(hoje+'T12:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+
+  // Hoje - só concluído conta como faturamento
+  const hojeConcluidos=ags.filter(a=> a.data===hoje && a.status==='concluido');
+  const fatHoje=hojeConcluidos.reduce((s,a)=> s+Number(a.preco||0),0);
+  document.getElementById('dashFatHoje').textContent=fmtBRL2(fatHoje);
+  document.getElementById('dashQtdHoje').textContent=hojeConcluidos.length+' atendimentos concluídos';
+
+  const hojeAgendados=ags.filter(a=> a.data===hoje && a.status==='agendado');
+  document.getElementById('dashAgHojeTxt').textContent=hojeAgendados.length+' agendados hoje';
+
+  // Mês - usa Financeiro que é o caixa real + Agendamentos concluidos
+  const finsMes=fins.filter(f=> (f.data||'').slice(0,7)===mesAtual);
+  let entMes=0, saiMes=0;
+  finsMes.forEach(f=>{ if(f.tipo==='entrada') entMes+=Number(f.valor); else saiMes+=Number(f.valor); });
+  const mesConcluidos=ags.filter(a=> (a.data||'').slice(0,7)===mesAtual && a.status==='concluido');
+  // Se não lançou no Financeiro ainda, mostra o maior entre os dois pra não ficar 0 à toa
+  const fatMesEstimado=mesConcluidos.reduce((s,a)=> s+Number(a.preco||0),0);
+  const fatMes=Math.max(entMes, fatMesEstimado);
+  document.getElementById('dashFatMes').textContent=fmtBRL2(fatMes);
+  document.getElementById('dashQtdMes').textContent=mesConcluidos.length+' atendimentos no mês';
+  const saldoEl=document.getElementById('dashSaldoMes');
+  saldoEl.textContent=fmtBRL2(entMes - saiMes);
+  saldoEl.style.color = (entMes - saiMes)>=0 ? '#22C55E' : '#EF4444';
+
+  document.getElementById('dashTotalCli').textContent=clis.length;
+  document.getElementById('dashTotalServ').textContent=servs.filter(s=>s.ativo).length+' ativos';
+  const baixo=est.filter(e=> e.qtd <= e.minimo);
+  document.getElementById('dashEstBaixo').textContent=baixo.length+' produtos';
+
+  // Próximos hoje - só agendado, ordenado por hora
+  const proxEl=document.getElementById('dashProximos');
+  if(hojeAgendados.length===0) proxEl.innerHTML='<p style="color:#A1A1AA">Nenhum agendamento pra hoje.</p>';
+  else {
+    proxEl.innerHTML='';
+    hojeAgendados.sort((a,b)=> a.hora.localeCompare(b.hora)).slice(0,5).forEach(a=>{
+      const d=document.createElement('div');
+      d.style.cssText='background:#23232B;border:1px solid #3A3A44;border-radius:10px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px';
+      d.innerHTML=`<div><b>${a.hora} - ${a.clienteNome}</b><br><small>${a.servicoNome} - ${a.barbeiroNome} - R$ ${a.preco}</small></div><span class="tag">${a.status}</span>`;
+      proxEl.appendChild(d);
+    });
+  }
+
+  // Alertas
+  const alEl=document.getElementById('dashAlertas');
+  let alertas=[];
+  if(baixo.length>0) alertas.push(`⚠️ <b>${baixo.length} produto(s) abaixo do mínimo:</b> ${baixo.map(b=>b.nome).join(', ')} - <a href="#" onclick="trocarTela('estoque', document.querySelectorAll('nav button')[4]);return false" style="color:#FACC15">ver estoque</a>`);
+  const pendFin=ags.filter(a=> a.status==='concluido' && !fins.find(f=> f.agId===a.id));
+  if(pendFin.length>0) alertas.push(`💰 <b>${pendFin.length} agendamento(s) concluído(s) sem lançamento no caixa</b> - <a href="#" onclick="trocarTela('financeiro', document.querySelectorAll('nav button')[6]);return false" style="color:#FACC15">lançar agora</a>`);
+  if(hojeAgendados.length>0) alertas.push(`📅 <b>${hojeAgendados.length} agendamento(s) hoje</b> - próximo às ${hojeAgendados.sort((a,b)=>a.hora.localeCompare(b.hora))[0].hora}`);
+  if(alertas.length===0) alertas.push('✅ Tudo certo, nenhum alerta.');
+  alEl.innerHTML=alertas.map(a=>`<div style="background:#23232B;border:1px solid #3A3A44;border-radius:10px;padding:10px;margin-bottom:8px;font-size:14px">${a}</div>`).join('');
+
+  // Ranking Barbeiros - Mês
+  const rankEl=document.getElementById('dashRanking');
+  if(mesConcluidos.length===0) rankEl.innerHTML='<p style="color:#A1A1AA">Nenhum atendimento concluído esse mês ainda.</p>';
+  else {
+    const porBarb={};
+    mesConcluidos.forEach(a=>{
+      if(!porBarb[a.barbeiroId]) porBarb[a.barbeiroId]={ nome:a.barbeiroNome, total:0, qtd:0 };
+      porBarb[a.barbeiroId].total+=Number(a.preco||0);
+      porBarb[a.barbeiroId].qtd++;
+    });
+    const lista=Object.values(porBarb).sort((a,b)=> b.total-a.total);
+    const max=Math.max(...lista.map(x=>x.total),1);
+    rankEl.innerHTML='';
+    lista.forEach((b,i)=>{
+      const func=funcs.find(f=>f.nome===b.nome);
+      let comissaoTxt='';
+      if(func && func.comissao){
+        const com = func.tipoComissao==='%' ? b.total * Number(func.comissao)/100 : Number(func.comissao)*b.qtd;
+        comissaoTxt=` | Comissão est: ${fmtBRL2(com)}`;
+      }
+      const d=document.createElement('div');
+      d.style.cssText='margin-bottom:12px';
+      d.innerHTML=`<div style="display:flex;justify-content:space-between;font-size:14px"><b>${i+1}º ${b.nome}</b><span>${fmtBRL2(b.total)} - ${b.qtd} atend.${comissaoTxt}</span></div><div style="background:#23232B;height:10px;border-radius:6px;margin-top:4px;overflow:hidden"><div style="width:${Math.round(b.total/max*100)}%;height:100%;background:#FACC15;border-radius:6px"></div></div>`;
+      rankEl.appendChild(d);
+    });
+  }
+
+  // Top Serviços - Mês
+  const topEl=document.getElementById('dashTopServ');
+  if(mesConcluidos.length===0) topEl.innerHTML='<p style="color:#A1A1AA">Nenhum serviço esse mês ainda.</p>';
+  else {
+    const porServ={};
+    mesConcluidos.forEach(a=>{ if(!porServ[a.servicoNome]) porServ[a.servicoNome]={qtd:0,total:0}; porServ[a.servicoNome].qtd++; porServ[a.servicoNome].total+=Number(a.preco||0); });
+    const lista=Object.entries(porServ).sort((a,b)=> b[1].qtd-a[1].qtd).slice(0,5);
+    topEl.innerHTML=lista.map(([nome,d],i)=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #3A3A44;font-size:14px"><span><b>${i+1}º</b> ${nome}</span><span>${d.qtd}x - ${fmtBRL2(d.total)}</span></div>`).join('');
+  }
+}
+
+// Atualiza quando abrir a tela Dashboard
+const _trocarOriginal = typeof trocarTela!=='undefined' ? trocarTela : null;
+if(_trocarOriginal){
+  // Não sobrescreve, só chama atualizar quando clicar - o botão Atualizar já faz isso
+}
+atualizarDashboard();
 
 // ==================================================
 // ========== MÓDULO 9 - LOGIN - JS AQUI ==========
