@@ -78,11 +78,127 @@ renderDias();
 // ==================================================
 // ========== MÓDULO 2 - FUNCIONÁRIOS - JS AQUI ==========
 // ==================================================
-// AQUI ENTRA O CÓDIGO DO MÓDULO 2 - NÃO COLAR FORA DAQUI
-// Exemplo do que vai entrar aqui:
-// function salvarFuncionario(){}
-// function listarFuncionarios(){}
-// function redefinirPIN(){}
+// ========== MÓDULO 2 - FUNCIONÁRIOS - CÓDIGO REAL ==========
+let funcionarios = lerLocal('funcionarios');
+let funcoesSalvas = lerLocal('funcoesSalvas');
+if(funcoesSalvas.length===0){ funcoesSalvas=['Barbeiro','Auxiliar','Recepcionista','Gerente']; }
+
+function atualizarDatalistFuncoes(){
+  const dl=document.getElementById('listaFuncoes');
+  if(!dl) return;
+  dl.innerHTML='';
+  funcoesSalvas.forEach(f=>{
+    const o=document.createElement('option'); o.value=f; dl.appendChild(o);
+  });
+}
+
+function salvarFuncionario(){
+  const nome=document.getElementById('funcNome').value.trim();
+  const tel=document.getElementById('funcTelefone').value.trim();
+  const email=document.getElementById('funcEmail').value.trim();
+  const funcao=document.getElementById('funcFuncao').value.trim();
+  const inicio=document.getElementById('funcInicio').value;
+  const fim=document.getElementById('funcFim').value;
+  const comissao=document.getElementById('funcComissao').value;
+  const tipoComissao=document.getElementById('funcTipoComissao').value;
+  const pix=document.getElementById('funcPix').value.trim();
+  const tipoPix=document.getElementById('funcTipoPix').value;
+  const pin=document.getElementById('funcPIN').value.trim();
+  const id=document.getElementById('funcId').value;
+
+  if(!nome || !tel || !/^\d{4,6}$/.test(pin) || !funcao){
+    document.getElementById('erroFunc').style.display='block';
+    return;
+  }
+  document.getElementById('erroFunc').style.display='none';
+
+  // Salva função nova pra usar depois, sem duplicar
+  if(!funcoesSalvas.includes(funcao)){
+    funcoesSalvas.push(funcao);
+    salvarLocal('funcoesSalvas', funcoesSalvas);
+    atualizarDatalistFuncoes();
+  }
+
+  const dados={ id: id || Date.now().toString(), nome, telefone:tel, email, funcao, inicio, fim, comissao, tipoComissao, pix, tipoPix, pin };
+
+  if(id){
+    funcionarios = funcionarios.map(f=> f.id===id ? dados : f);
+  } else {
+    funcionarios.push(dados);
+  }
+  salvarLocal('funcionarios', funcionarios);
+  limparFormFunc();
+  listarFuncionarios();
+}
+
+function listarFuncionarios(){
+  const el=document.getElementById('listaFuncionarios');
+  if(!el) return;
+  const busca=(document.getElementById('buscaFunc')?.value || '').toLowerCase();
+  const lista=funcionarios.filter(f=> f.nome.toLowerCase().includes(busca));
+  if(lista.length===0){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum funcionário ainda.</p>'; return; }
+  el.innerHTML='';
+  lista.forEach(f=>{
+    const div=document.createElement('div');
+    div.className='item-lista';
+    div.innerHTML=`<div><b>${f.nome}</b><br><small>${f.telefone} - ${f.funcao} - ${f.comissao || 0}${f.tipoComissao}</small><br><small>${f.pix ? 'Pix: '+f.pix : 'Sem Pix'} | ${f.inicio} às ${f.fim}</small></div>
+    <div class="acoes">
+      <button class="btn-sec" onclick="editarFuncionario('${f.id}')">Editar</button>
+      <button class="btn-sec" onclick="redefinirPIN('${f.id}')">Redefinir PIN</button>
+      <button class="btn-danger" onclick="excluirFuncionario('${f.id}')">Excluir</button>
+    </div>`;
+    el.appendChild(div);
+  });
+}
+
+function editarFuncionario(id){
+  const f=funcionarios.find(x=>x.id===id); if(!f) return;
+  document.getElementById('funcId').value=f.id;
+  document.getElementById('funcNome').value=f.nome;
+  document.getElementById('funcTelefone').value=f.telefone;
+  document.getElementById('funcEmail').value=f.email||'';
+  document.getElementById('funcFuncao').value=f.funcao;
+  document.getElementById('funcInicio').value=f.inicio;
+  document.getElementById('funcFim').value=f.fim;
+  document.getElementById('funcComissao').value=f.comissao;
+  document.getElementById('funcTipoComissao').value=f.tipoComissao;
+  document.getElementById('funcPix').value=f.pix||'';
+  document.getElementById('funcTipoPix').value=f.tipoPix||'Celular';
+  document.getElementById('funcPIN').value=f.pin;
+  document.getElementById('btnCancelarFunc').style.display='block';
+  document.querySelector('.btn-save').textContent='💾 Salvar Alterações';
+  trocarTela('funcionarios', document.querySelectorAll('nav button')[2]);
+  window.scrollTo(0,0);
+}
+
+function cancelarEdicaoFunc(){ limparFormFunc(); }
+
+function limparFormFunc(){
+  ['funcId','funcNome','funcTelefone','funcEmail','funcFuncao','funcComissao','funcPix','funcPIN'].forEach(id=> document.getElementById(id).value='');
+  document.getElementById('funcInicio').value='09:00';
+  document.getElementById('funcFim').value='19:00';
+  document.getElementById('btnCancelarFunc').style.display='none';
+  const btn=document.querySelector('#tela-funcionarios .btn-save'); if(btn) btn.textContent='💾 Cadastrar Funcionário';
+}
+
+function redefinirPIN(id){
+  const novo=prompt('Digite o novo PIN (4 a 6 dígitos, só números):');
+  if(!novo) return;
+  if(!/^\d{4,6}$/.test(novo.trim())){ alert('PIN inválido. Tem que ser 4 a 6 dígitos só números.'); return; }
+  funcionarios=funcionarios.map(f=> f.id===id ? {...f, pin:novo.trim()} : f);
+  salvarLocal('funcionarios', funcionarios);
+  alert('PIN redefinido com sucesso!');
+}
+
+function excluirFuncionario(id){
+  if(!confirm('Excluir esse funcionário?')) return;
+  funcionarios=funcionarios.filter(f=>f.id!==id);
+  salvarLocal('funcionarios', funcionarios);
+  listarFuncionarios();
+}
+
+atualizarDatalistFuncoes();
+listarFuncionarios();
 
 // ==================================================
 // ========== MÓDULO 3 - SERVIÇOS - JS AQUI ==========
