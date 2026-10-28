@@ -75,9 +75,57 @@
 <section id="tela-funcionarios" class="tela">
   <p class="sub">Módulo 2 - Funcionários</p>
   <div class="placeholder">
-    <!-- MÓDULO 2 - AQUI -->
-    <b>FUNCIONÁRIOS - AGUARDANDO CÓDIGO</b><br>
-    Aqui vai: Nome / Telefone / E-mail / Função / Horário / Comissão / Pix / PIN
+     <!-- MÓDULO 2 - AQUI -->
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>Cadastrar / Editar Funcionário</h2>
+      <input type="hidden" id="funcId">
+      <label>Nome *</label>
+      <input id="funcNome" placeholder="Ex: João Barbeiro">
+      <label>Telefone *</label>
+      <input id="funcTelefone" placeholder="(21) 99999-9999">
+      <label>E-mail (não obrigatório)</label>
+      <input id="funcEmail" placeholder="joao@email.com">
+      <label>Função *</label>
+      <input id="funcFuncao" list="listaFuncoes" placeholder="Barbeiro / Auxiliar / Recepcionista / Gerente ou digite outra">
+      <datalist id="listaFuncoes">
+        <option value="Barbeiro"></option>
+        <option value="Auxiliar"></option>
+        <option value="Recepcionista"></option>
+        <option value="Gerente"></option>
+      </datalist>
+      <div class="row">
+        <div><label>Horário Início</label><input id="funcInicio" type="time" value="09:00"></div>
+        <div><label>Horário Fim</label><input id="funcFim" type="time" value="19:00"></div>
+      </div>
+      <div class="row">
+        <div><label>Comissão</label><input id="funcComissao" type="number" placeholder="Ex: 50"></div>
+        <div><label>Tipo Comissão</label>
+          <select id="funcTipoComissao"><option value="%">Percentual %</option><option value="R$">R$ fixo</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div><label>Chave Pix (não obrigatório)</label><input id="funcPix" placeholder="Chave Pix"></div>
+        <div><label>Tipo Pix</label>
+          <select id="funcTipoPix"><option>Celular</option><option>CPF</option><option>CNPJ</option><option>E-mail</option><option>Aleatória</option></select>
+        </div>
+      </div>
+      <label>PIN de acesso - 4 a 6 dígitos, só números *</label>
+      <input id="funcPIN" type="password" inputmode="numeric" maxlength="6" placeholder="Ex: 1234">
+      <div class="erro" id="erroFunc">Preencha Nome, Telefone e PIN de 4 a 6 dígitos só números.</div>
+      <button class="btn-save" style="margin-top:14px" onclick="salvarFuncionario()">💾 Cadastrar Funcionário</button>
+      <button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarFunc" onclick="cancelarEdicaoFunc()">Cancelar edição</button>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>Funcionários Cadastrados</h2>
+      <input id="buscaFunc" placeholder="🔍 Buscar por nome..." oninput="listarFuncionarios()">
+      <div id="listaFuncionarios" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
   </div>
 </section>
 
