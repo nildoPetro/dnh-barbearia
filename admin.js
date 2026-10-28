@@ -619,7 +619,257 @@ listarEstoque();
 // ==================================================
 // ========== MÓDULO 6 - AGENDA - JS AQUI ==========
 // ==================================================
-// AQUI ENTRA O CÓDIGO DO MÓDULO 6 - NÃO COLAR FORA DAQUI
+// ========== MÓDULO 6 - AGENDA - CÓDIGO REAL ==========
+let agendamentos = lerLocal('agendamentos');
+let filtroAgendaAtual = 'todos';
+
+function hojeISO(){
+  const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function getConfigAgenda(){
+  try{ return JSON.parse(localStorage.getItem('configBarbearia')) || null; }catch(e){ return null; }
+}
+function buscarClienteAgenda(){
+  const busca=document.getElementById('agClienteBusca').value.trim().toLowerCase();
+  const box=document.getElementById('listaBuscaCliente');
+  if(!busca){ box.style.display='none'; return; }
+  const achados=(typeof clientes!=='undefined'?clientes:[]).filter(c=> c.nome.toLowerCase().includes(busca) || c.telefone.includes(busca));
+  if(achados.length===0){ box.innerHTML='<p style="padding:10px;color:#A1A1AA">Nenhum cliente. Cadastre no Módulo 4 ou <b onclick="criarClienteRapido()" style="color:#FACC15;cursor:pointer">cadastrar rápido aqui</b></p>'; box.style.display='block'; return; }
+  box.innerHTML='';
+  achados.forEach(c=>{
+    const div=document.createElement('div');
+    div.style.cssText='padding:10px;border-bottom:1px solid #3A3A44;cursor:pointer'+(c.bloqueado?'opacity:.5':'');
+    div.innerHTML=`<b>${c.nome}</b> ${c.bloqueado?'<span class="tag" style="background:#EF4444;color:#fff">BLOQUEADO</span>':''}<br><small>${c.telefone}</small>`;
+    div.onclick=()=> selecionarClienteAgenda(c.id);
+    box.appendChild(div);
+  });
+  box.style.display='block';
+}
+function selecionarClienteAgenda(id){
+  const c=clientes.find(x=>x.id===id); if(!c) return;
+  if(c.bloqueado){ alert('Cliente bloqueado! Não pode agendar. Desbloqueie no Módulo 4.'); return; }
+  document.getElementById('agClienteId').value=c.id;
+  document.getElementById('agClienteBusca').value=c.nome;
+  document.getElementById('listaBuscaCliente').style.display='none';
+  const box=document.getElementById('clienteSelecionado');
+  box.style.display='block';
+  box.innerHTML=`✅ <b>${c.nome}</b> - ${c.telefone} <button onclick="limparClienteAgenda()" style="background:none;border:0;color:#EF4444;cursor:pointer">✕ trocar</button>`;
+}
+function limparClienteAgenda(){
+  document.getElementById('agClienteId').value='';
+  document.getElementById('agClienteBusca').value='';
+  document.getElementById('clienteSelecionado').style.display='none';
+}
+function criarClienteRapido(){
+  const nome=document.getElementById('agClienteBusca').value.trim();
+  if(!nome) return;
+  const tel=prompt('Telefone do cliente '+nome+':');
+  if(!tel) return;
+  const novo={ id: Date.now().toString(), nome, telefone:tel, email:'', nasc:'', obs:'', bloqueado:false, criadoEm:new Date().toISOString() };
+  if(typeof clientes==='undefined') clientes=[];
+  clientes.push(novo); salvarLocal('clientes', clientes);
+  selecionarClienteAgenda(novo.id);
+  if(typeof listarClientes==='function') listarClientes();
+}
+function carregarBarbeirosAgenda(){
+  const sel=document.getElementById('agBarbeiro'); if(!sel) return;
+  const atual=sel.value;
+  sel.innerHTML='<option value="">Selecione o barbeiro</option>';
+  (typeof funcionarios!=='undefined'?funcionarios:[]).forEach(f=>{
+    const o=document.createElement('option'); o.value=f.id; o.textContent=f.nome+' - '+f.funcao; sel.appendChild(o);
+  });
+  if(atual) sel.value=atual;
+}
+function atualizarServicosAgenda(){
+  const barbId=document.getElementById('agBarbeiro').value;
+  const sel=document.getElementById('agServico'); if(!sel) return;
+  sel.innerHTML='<option value="">Selecione o serviço</option>';
+  (typeof servicos!=='undefined'?servicos:[]).filter(s=> s.ativo).forEach(s=>{
+    // Se o serviço tem barbeiros definidos, só mostra se esse barbeiro faz
+    if(s.barbeiros && s.barbeiros.length>0 && !s.barbeiros.includes(barbId)) return;
+    const o=document.createElement('option'); o.value=s.id; o.textContent=s.nome+' - R$ '+s.preco+' - '+s.duracao+' min'+(s.isCombo?' [COMBO]':''); sel.appendChild(o);
+  });
+  atualizarInfoServico();
+  gerarHorariosAgenda();
+}
+function atualizarInfoServico(){
+  const id=document.getElementById('agServico').value;
+  const s=(typeof servicos!=='undefined'?servicos:[]).find(x=>x.id===id);
+  const el=document.getElementById('infoServico');
+  if(!s){ el.textContent=''; return; }
+  el.textContent=`${s.nome} | R$ ${s.preco} | Duração: ${s.duracao} min ${s.isCombo? '| COMBO' : ''}`;
+  gerarHorariosAgenda();
+}
+function gerarHorariosAgenda(){
+  const dataVal=document.getElementById('agData').value;
+  const sel=document.getElementById('agHora');
+  const barbId=document.getElementById('agBarbeiro').value;
+  const servId=document.getElementById('agServico').value;
+  if(!dataVal || !barbId){ sel.innerHTML='<option value="">Escolha barbeiro e data</option>'; return; }
+  const cfg=getConfigAgenda();
+  const data=new Date(dataVal+'T12:00:00');
+  const diaSemana=data.getDay(); // 0=Domingo
+  const nomesDias=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  let abre='09:00', fecha='19:00', intervalo=30, almocoI='12:00', almocoF='13:00', ativo=true;
+  if(cfg){
+    const d = cfg.dias ? cfg.dias[diaSemana] : null;
+    if(d){ abre=d.abre; fecha=d.fecha; ativo=d.ativo; }
+    if(cfg.intervalo) intervalo=Number(cfg.intervalo)||30;
+    almocoI=cfg.almocoInicio||almocoI; almocoF=cfg.almocoFim||almocoF;
+  }
+  // Horário do funcionário
+  const func=(typeof funcionarios!=='undefined'?funcionarios:[]).find(f=>f.id===barbId);
+  if(func){ if(func.inicio) abre=func.inicio; if(func.fim) fecha=func.fim; }
+  if(!ativo){ sel.innerHTML='<option value="">Barbearia fechada nesse dia</option>'; return; }
+
+  const serv=(typeof servicos!=='undefined'?servicos:[]).find(s=>s.id===servId);
+  const duracao= serv ? Number(serv.duracao) : intervalo;
+
+  // Gera slots
+  const slots=[];
+  let [h,m]=abre.split(':').map(Number);
+  const [fh,fm]=fecha.split(':').map(Number);
+  const fimMin=fh*60+fm;
+  let cur=h*60+m;
+  const [ah,am]=almocoI.split(':').map(Number);
+  const [bh,bm]=almocoF.split(':').map(Number);
+  const almI=ah*60+am, almF=bh*60+bm;
+
+  const ocupados = agendamentos.filter(a=> a.data===dataVal && a.barbeiroId===barbId && a.status!=='cancelado' && a.id!==document.getElementById('agId').value);
+  function conflita(inicioMin, dur){
+    // Almoço
+    if(inicioMin < almF && inicioMin+dur > almI) return true;
+    // Outros agendamentos
+    for(let a of ocupados){
+      const [ah2,am2]=a.hora.split(':').map(Number);
+      const aIni=ah2*60+am2;
+      const aDur=Number(a.duracao||30);
+      if(inicioMin < aIni+aDur && inicioMin+dur > aIni) return true;
+    }
+    return false;
+  }
+
+  while(cur+duracao <= fimMin){
+    if(!conflita(cur, duracao)){
+      const hh=String(Math.floor(cur/60)).padStart(2,'0');
+      const mm=String(cur%60).padStart(2,'0');
+      slots.push(hh+':'+mm);
+    }
+    cur+=intervalo;
+  }
+  if(slots.length===0){ sel.innerHTML='<option value="">Sem horário livre</option>'; return; }
+  const atual=sel.value;
+  sel.innerHTML='<option value="">Selecione o horário</option>'+slots.map(s=>`<option value="${s}">${s}</option>`).join('');
+  if(atual && slots.includes(atual)) sel.value=atual;
+}
+function salvarAgendamento(){
+  const clienteId=document.getElementById('agClienteId').value;
+  const barbId=document.getElementById('agBarbeiro').value;
+  const servId=document.getElementById('agServico').value;
+  const data=document.getElementById('agData').value;
+  const hora=document.getElementById('agHora').value;
+  const obs=document.getElementById('agObs').value.trim();
+  const id=document.getElementById('agId').value;
+
+  if(!clienteId || !barbId || !servId || !data || !hora){
+    document.getElementById('erroAg').style.display='block'; return;
+  }
+  document.getElementById('erroAg').style.display='none';
+
+  const cli=clientes.find(c=>c.id===clienteId);
+  const barb=funcionarios.find(f=>f.id===barbId);
+  const serv=servicos.find(s=>s.id===servId);
+  if(!cli || !barb || !serv){ alert('Dados inválidos'); return; }
+
+  const dados={ id: id || Date.now().toString(), clienteId, clienteNome:cli.nome, telefone:cli.telefone, barbeiroId:barbId, barbeiroNome:barb.nome, servicoId:servId, servicoNome:serv.nome, preco:serv.preco, duracao:serv.duracao, data, hora, obs, status: id ? undefined : 'agendado', criadoEm: new Date().toISOString() };
+  if(id){
+    const antigo=agendamentos.find(a=>a.id===id);
+    dados.status=antigo?antigo.status:'agendado';
+    agendamentos=agendamentos.map(a=> a.id===id ? dados : a);
+  } else {
+    agendamentos.push(dados);
+  }
+  salvarLocal('agendamentos', agendamentos);
+  limparFormAg();
+  listarAgenda();
+  alert('Agendado! '+cli.nome+' - '+serv.nome+' - '+data+' às '+hora);
+}
+function listarAgenda(){
+  const el=document.getElementById('listaAgenda'); if(!el) return;
+  const dataFiltro=document.getElementById('agDataFiltro').value || hojeISO();
+  document.getElementById('agDataFiltro').value=dataFiltro;
+  let lista=agendamentos.filter(a=> a.data===dataFiltro);
+  if(filtroAgendaAtual!=='todos') lista=lista.filter(a=> a.status===filtroAgendaAtual);
+  lista.sort((a,b)=> a.hora.localeCompare(b.hora));
+  if(lista.length===0){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum agendamento nesse dia.</p>'; return; }
+  el.innerHTML='';
+  lista.forEach(a=>{
+    const cor = a.status==='concluido' ? '#22C55E' : a.status==='cancelado' ? '#EF4444' : '#FACC15';
+    const div=document.createElement('div');
+    div.className='item-lista';
+    div.style.borderLeft='4px solid '+cor;
+    div.innerHTML=`<div><b>${a.hora} - ${a.clienteNome}</b><br><small>${a.servicoNome} - ${a.barbeiroNome} - ${a.duracao} min - R$ ${a.preco}</small><br><small>Status: ${a.status} ${a.obs?' - '+a.obs:''}</small></div>
+    <div class="acoes">
+      ${a.status==='agendado'?`<button class="btn-sec" onclick="concluirAg('${a.id}')">Concluir</button><button class="btn-sec" onclick="editarAg('${a.id}')">Editar</button><button class="btn-danger" onclick="cancelarAg('${a.id}')">Cancelar</button>`:''}
+      ${a.status==='cancelado'?`<button class="btn-sec" onclick="reativarAg('${a.id}')">Reativar</button>`:''}
+      ${a.status==='concluido'?`<small style="color:#22C55E">✅ Pago? lançar no Financeiro no Módulo 7</small>`:''}
+    </div>`;
+    el.appendChild(div);
+  });
+}
+function filtrarAgendaDia(tipo,btn){
+  filtroAgendaAtual=tipo;
+  document.querySelectorAll('#tela-agenda .btn-sec').forEach(b=>{b.style.background='#23232B';b.style.color='#fff'});
+  if(btn){ btn.style.background='#FACC15'; btn.style.color='#111'; }
+  listarAgenda();
+}
+function concluirAg(id){
+  agendamentos=agendamentos.map(a=> a.id===id ? {...a, status:'concluido'} : a);
+  salvarLocal('agendamentos', agendamentos); listarAgenda();
+}
+function cancelarAg(id){
+  if(!confirm('Cancelar esse agendamento?')) return;
+  agendamentos=agendamentos.map(a=> a.id===id ? {...a, status:'cancelado'} : a);
+  salvarLocal('agendamentos', agendamentos); listarAgenda();
+}
+function reativarAg(id){
+  agendamentos=agendamentos.map(a=> a.id===id ? {...a, status:'agendado'} : a);
+  salvarLocal('agendamentos', agendamentos); listarAgenda();
+}
+function editarAg(id){
+  const a=agendamentos.find(x=>x.id===id); if(!a) return;
+  document.getElementById('agId').value=a.id;
+  document.getElementById('agClienteId').value=a.clienteId;
+  document.getElementById('agClienteBusca').value=a.clienteNome;
+  const box=document.getElementById('clienteSelecionado'); box.style.display='block'; box.innerHTML=`✅ <b>${a.clienteNome}</b> - ${a.telefone}`;
+  carregarBarbeirosAgenda();
+  document.getElementById('agBarbeiro').value=a.barbeiroId;
+  atualizarServicosAgenda();
+  setTimeout(()=>{
+    document.getElementById('agServico').value=a.servicoId;
+    document.getElementById('agData').value=a.data;
+    gerarHorariosAgenda();
+    setTimeout(()=>{ document.getElementById('agHora').value=a.hora; },50);
+    document.getElementById('agObs').value=a.obs||'';
+  },50);
+  document.getElementById('btnCancelarAg').style.display='block';
+  document.querySelector('#tela-agenda .btn-save').textContent='💾 Salvar Alterações';
+  window.scrollTo(0,0);
+}
+function cancelarEdicaoAg(){ limparFormAg(); }
+function limparFormAg(){
+  ['agId','agClienteId','agClienteBusca','agServico','agData','agHora','agObs'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+  document.getElementById('clienteSelecionado').style.display='none';
+  document.getElementById('btnCancelarAg').style.display='none';
+  const btn=document.querySelector('#tela-agenda .btn-save'); if(btn) btn.textContent='💾 Agendar';
+  carregarBarbeirosAgenda();
+}
+
+// Inicializa
+if(document.getElementById('agData')) document.getElementById('agData').value=hojeISO();
+if(document.getElementById('agDataFiltro')) document.getElementById('agDataFiltro').value=hojeISO();
+carregarBarbeirosAgenda();
+listarAgenda();
 
 // ==================================================
 // ========== MÓDULO 7 - FINANCEIRO - JS AQUI ==========
