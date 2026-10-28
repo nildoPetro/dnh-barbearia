@@ -223,8 +223,57 @@
   <p class="sub">Módulo 5 - Estoque</p>
   <div class="placeholder">
     <!-- MÓDULO 5 - AQUI -->
-    <b>ESTOQUE - AGUARDANDO CÓDIGO</b><br>
-    Aqui vai: Produto / Categoria / Quantidade / Mínimo / Preço
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>Cadastrar / Editar Produto</h2>
+      <input type="hidden" id="estId">
+      <label>Nome do produto *</label>
+      <input id="estNome" placeholder="Ex: Pomada Modeladora">
+      <div class="row">
+        <div><label>Categoria *</label>
+          <input id="estCategoria" list="listaCategoriasEst" placeholder="Ex: Pomada / Shampoo / Lâmina">
+          <datalist id="listaCategoriasEst">
+            <option value="Pomada"></option>
+            <option value="Shampoo"></option>
+            <option value="Condicionador"></option>
+            <option value="Lâmina"></option>
+            <option value="Navalha"></option>
+            <option value="Óleo"></option>
+            <option value="Balm"></option>
+            <option value="Outros"></option>
+          </datalist>
+        </div>
+        <div><label>Unidade</label>
+          <select id="estUnidade"><option>Unidade</option><option>Caixa</option><option>Pacote</option><option>Litro</option><option>ml</option><option>kg</option></select>
+        </div>
+      </div>
+      <div class="row3">
+        <div><label>Quantidade *</label><input id="estQtd" type="number" placeholder="Ex: 10"></div>
+        <div><label>Qtd Mínima *</label><input id="estMinimo" type="number" placeholder="Ex: 2"></div>
+        <div><label>Preço (R$)</label><input id="estPreco" type="number" step="0.01" placeholder="Ex: 35"></div>
+      </div>
+      <label>Observação (não obrigatório)</label>
+      <input id="estObs" placeholder="Ex: Fornecedor X, vence em 12/2026">
+      <div class="erro" id="erroEst">Preencha Nome, Categoria, Quantidade e Qtd Mínima.</div>
+      <button class="btn-save" style="margin-top:14px" onclick="salvarEstoque()">💾 Cadastrar Produto</button>
+      <button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarEst" onclick="cancelarEdicaoEst()">Cancelar edição</button>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>Estoque</h2>
+      <input id="buscaEst" placeholder="🔍 Buscar produto ou categoria..." oninput="listarEstoque()">
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn-sec" onclick="filtrarEst('todos',this)" id="btnFiltroTodos">Todos</button>
+        <button class="btn-sec" onclick="filtrarEst('baixo',this)">⚠️ Abaixo do mínimo</button>
+        <button class="btn-sec" onclick="filtrarEst('zerado',this)">❌ Zerado</button>
+      </div>
+      <div id="alertaEst" style="margin-top:12px"></div>
+      <div id="listaEstoque" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
   </div>
 </section>
 
