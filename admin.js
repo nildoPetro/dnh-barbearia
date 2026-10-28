@@ -490,8 +490,132 @@ listarClientes();
 // ==================================================
 // ========== MÓDULO 5 - ESTOQUE - JS AQUI ==========
 // ==================================================
-// AQUI ENTRA O CÓDIGO DO MÓDULO 5 - NÃO COLAR FORA DAQUI
+// ========== MÓDULO 5 - ESTOQUE - CÓDIGO REAL ==========
+let estoque = lerLocal('estoque');
+let filtroEstAtual = 'todos';
+let categoriasEstSalvas = lerLocal('categoriasEstSalvas');
+if(categoriasEstSalvas.length===0){ categoriasEstSalvas=['Pomada','Shampoo','Condicionador','Lâmina','Navalha','Óleo','Balm','Outros']; }
 
+function atualizarDatalistCategoriasEst(){
+  const dl=document.getElementById('listaCategoriasEst');
+  if(!dl) return;
+  dl.innerHTML='';
+  categoriasEstSalvas.forEach(c=>{ const o=document.createElement('option'); o.value=c; dl.appendChild(o); });
+}
+
+function salvarEstoque(){
+  const nome=document.getElementById('estNome').value.trim();
+  const categoria=document.getElementById('estCategoria').value.trim();
+  const unidade=document.getElementById('estUnidade').value;
+  const qtd=document.getElementById('estQtd').value;
+  const minimo=document.getElementById('estMinimo').value;
+  const preco=document.getElementById('estPreco').value;
+  const obs=document.getElementById('estObs').value.trim();
+  const id=document.getElementById('estId').value;
+
+  if(!nome || !categoria || qtd==='' || minimo===''){
+    document.getElementById('erroEst').style.display='block'; return;
+  }
+  document.getElementById('erroEst').style.display='none';
+
+  if(!categoriasEstSalvas.includes(categoria)){
+    categoriasEstSalvas.push(categoria);
+    salvarLocal('categoriasEstSalvas', categoriasEstSalvas);
+    atualizarDatalistCategoriasEst();
+  }
+
+  const dados={ id: id || Date.now().toString(), nome, categoria, unidade, qtd:Number(qtd), minimo:Number(minimo), preco:Number(preco||0), obs };
+
+  if(id){ estoque=estoque.map(e=> e.id===id ? dados : e); }
+  else { estoque.push(dados); }
+
+  salvarLocal('estoque', estoque);
+  limparFormEst();
+  listarEstoque();
+}
+
+function listarEstoque(){
+  const el=document.getElementById('listaEstoque');
+  if(!el) return;
+  const busca=(document.getElementById('buscaEst')?.value || '').toLowerCase();
+  let lista=estoque.filter(e=> e.nome.toLowerCase().includes(busca) || e.categoria.toLowerCase().includes(busca));
+
+  if(filtroEstAtual==='baixo') lista=lista.filter(e=> e.qtd <= e.minimo && e.qtd>0);
+  if(filtroEstAtual==='zerado') lista=lista.filter(e=> e.qtd===0);
+
+  // Alerta no topo
+  const baixo=estoque.filter(e=> e.qtd <= e.minimo);
+  const boxAlerta=document.getElementById('alertaEst');
+  if(boxAlerta){
+    if(baixo.length===0) boxAlerta.innerHTML='<p style="color:#22C55E;font-size:13px">✅ Estoque ok, nada abaixo do mínimo.</p>';
+    else boxAlerta.innerHTML=`<div style="background:#3A1A1A;border:1px solid #7F1D1D;border-radius:10px;padding:10px;font-size:13px;color:#FCA5A5">⚠️ ${baixo.length} produto(s) abaixo do mínimo: ${baixo.map(b=>b.nome).join(', ')}</div>`;
+  }
+
+  if(lista.length===0){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum produto nesse filtro.</p>'; return; }
+  el.innerHTML='';
+  lista.forEach(e=>{
+    const status = e.qtd===0 ? '<span class="tag" style="background:#EF4444;color:#fff">ZERADO</span>' : e.qtd <= e.minimo ? '<span class="tag" style="background:#F59E0B;color:#111">ABAIXO DO MÍNIMO</span>' : '<span class="tag" style="background:#22C55E;color:#fff">OK</span>';
+    const div=document.createElement('div');
+    div.className='item-lista';
+    div.innerHTML=`<div><b>${e.nome}</b> ${status}<br><small>${e.categoria} - ${e.unidade} ${e.obs?' - '+e.obs:''}</small><br><small>Qtd: <b>${e.qtd}</b> | Mínimo: ${e.minimo} | Preço: R$ ${e.preco.toFixed(2)}</small></div>
+    <div class="acoes">
+      <button class="btn-sec" onclick="ajustarEst('${e.id}',1)">+1</button>
+      <button class="btn-sec" onclick="ajustarEst('${e.id}',-1)">-1</button>
+      <button class="btn-sec" onclick="editarEstoque('${e.id}')">Editar</button>
+      <button class="btn-danger" onclick="excluirEstoque('${e.id}')">Excluir</button>
+    </div>`;
+    el.appendChild(div);
+  });
+}
+
+function filtrarEst(tipo,btn){
+  filtroEstAtual=tipo;
+  document.querySelectorAll('#tela-estoque .btn-sec').forEach(b=>{b.style.background='#23232B';b.style.color='#fff'});
+  if(btn){ btn.style.background='#FACC15'; btn.style.color='#111'; }
+  listarEstoque();
+}
+
+function ajustarEst(id,delta){
+  estoque=estoque.map(e=>{
+    if(e.id!==id) return e;
+    let novo=e.qtd+delta;
+    if(novo<0) novo=0;
+    return {...e, qtd:novo};
+  });
+  salvarLocal('estoque', estoque);
+  listarEstoque();
+}
+
+function editarEstoque(id){
+  const e=estoque.find(x=>x.id===id); if(!e) return;
+  document.getElementById('estId').value=e.id;
+  document.getElementById('estNome').value=e.nome;
+  document.getElementById('estCategoria').value=e.categoria;
+  document.getElementById('estUnidade').value=e.unidade;
+  document.getElementById('estQtd').value=e.qtd;
+  document.getElementById('estMinimo').value=e.minimo;
+  document.getElementById('estPreco').value=e.preco;
+  document.getElementById('estObs').value=e.obs||'';
+  document.getElementById('btnCancelarEst').style.display='block';
+  document.querySelector('#tela-estoque .btn-save').textContent='💾 Salvar Alterações';
+  window.scrollTo(0,0);
+}
+function cancelarEdicaoEst(){ limparFormEst(); }
+function limparFormEst(){
+  ['estId','estNome','estCategoria','estQtd','estMinimo','estPreco','estObs'].forEach(i=> document.getElementById(i).value='');
+  document.getElementById('estUnidade').value='Unidade';
+  document.getElementById('btnCancelarEst').style.display='none';
+  const btn=document.querySelector('#tela-estoque .btn-save'); if(btn) btn.textContent='💾 Cadastrar Produto';
+}
+function excluirEstoque(id){
+  if(!confirm('Excluir esse produto?')) return;
+  estoque=estoque.filter(e=>e.id!==id);
+  salvarLocal('estoque', estoque);
+  listarEstoque();
+}
+
+atualizarDatalistCategoriasEst();
+listarEstoque();
 // ==================================================
 // ========== MÓDULO 6 - AGENDA - JS AQUI ==========
 // ==================================================
