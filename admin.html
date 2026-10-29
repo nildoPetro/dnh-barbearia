@@ -4,203 +4,148 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Barbearia - Admin</title>
-<style>:root{--gold:#d4af37;--bg:#0a0a0f;--card:#151a28;--border:#1e2230;--text:#8a8fa3}*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:#fff;font-family:Inter,system-ui}.hidden{display:none!important}.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}.field label{font-size:10px;color:var(--text);text-transform:uppercase}.field input,.field select{background:#0a0e1a;border:1px solid var(--border);color:#fff;padding:12px;border-radius:10px;width:100%}.btn{background:#1e2230;border:1px solid var(--border);color:#fff;padding:10px 16px;border-radius:10px;cursor:pointer}.btn.gold{background:var(--gold);color:#000;font-weight:700}.btn.small{padding:6px 10px;font-size:12px}.btn.success{background:#4ade80;color:#000}.list-row{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);padding:12px;border-radius:10px;margin-bottom:8px;gap:10px;flex-wrap:wrap}.toast{position:fixed;bottom:20px;right:20px;background:#111525;border:1px solid var(--gold);padding:14px;border-radius:10px;transform:translateY(100px);opacity:0;transition:.3s;z-index:999}.toast.show{transform:translateY(0);opacity:1}</style></head><body>
+<link rel="stylesheet" href="style.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#131318;color:#fff;font-family:Arial,sans-serif}
+header{background:#1C1C22;padding:14px 16px;position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #333}
+header b{font-size:18px}
+header small{color:#FACC15}
+.layout{display:flex;width:100%;margin:0}
+.sidebar{width:240px;min-width:240px;background:#1C1C22;border-right:1px solid #333;padding:14px 10px;position:sticky;top:57px;height:calc(100vh - 57px);display:flex;flex-direction:column;gap:6px;margin:0}
+.sidebar button{background:none;border:0;color:#A1A1AA;padding:12px;text-align:left;cursor:pointer;font-size:14px;border-radius:10px;width:100%;margin:0}
+.sidebar button.ativo{background:#FACC15;color:#111;font-weight:bold}
+.sidebar small{color:#666;font-size:11px;padding:10px 12px 4px;text-transform:uppercase}
+.btn-sair{margin-top:auto!important;background:#3A1A1A!important;color:#FCA5A5!important;border:1px solid #7F1D1D!important}
+.btn-sair-top{color:#FCA5A5!important;border-color:#7F1D1D!important}
+.container{flex:1;padding:18px;width:100%;padding-bottom:90px;max-width:1000px;margin:0 auto}
+nav{position:fixed;bottom:0;left:0;right:0;background:#1C1C22;display:none;overflow-x:auto;border-top:1px solid #333;z-index:10}
+nav button{background:none;border:0;color:#A1A1AA;padding:12px 10px;cursor:pointer;white-space:nowrap;font-size:13px}
+nav button.ativo{color:#FACC15;font-weight:bold}
+@media(max-width:850px){ .sidebar{display:none} nav{display:flex} }
+.card{background:#1C1C22;border:1px solid #333;border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{margin:0 0 12px;font-size:18px}
+input,select,textarea{width:100%;background:#23232B;border:1px solid #3A3A44;color:#fff;border-radius:10px;padding:11px;margin:4px 0 10px;font-size:14px}
+label{font-size:13px;color:#D4D4D8;font-weight:bold}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media(max-width:750px){.grid{grid-template-columns:1fr}}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:500px){.row,.row3{grid-template-columns:1fr}}
+button{cursor:pointer}
+.btn-save{width:100%;background:#FACC15;color:#111;border:0;border-radius:10px;padding:13px;font-weight:bold;font-size:15px}
+.btn-sec{background:#23232B;color:#fff;border:1px solid #3A3A44;border-radius:8px;padding:8px 10px;font-size:13px}
+.btn-danger{background:#EF4444;color:#fff;border:0;border-radius:8px;padding:8px 10px;font-size:13px}
+.erro{display:none;background:#3A1A1A;border:1px solid #7F1D1D;color:#FCA5A5;padding:10px;border-radius:10px;font-size:13px}
+.item-lista{background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.tag{background:#FACC15;color:#111;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:bold}
+.tela{display:none}.tela.ativa{display:block}
+.box-resumo{background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center}
+</style>
 </head>
 <body>
-
-<div id="tela-login" class="auth-wrap" style="display:none">
-  <div class="auth-card">
-    <div class="auth-logo">💈</div>
-    <h2><span id="nomeLogin">Barbearia</span><br><small>ADMIN</small></h2>
-    <div class="field"><label>Funcionário</label><select id="loginFunc"></select></div>
-    <div class="field"><label>PIN</label><input id="loginPIN" type="password" inputmode="numeric" maxlength="6" placeholder="1234" style="text-align:center;font-size:20px;letter-spacing:8px"></div>
-    <button class="btn gold full" id="btnEntrar">Entrar</button>
-    <p id="erroLogin" style="display:none;color:#ff8a8a;font-size:13px">PIN errado. Tenta de novo.</p>
-  </div>
+<header><div><b id="nomeHeader">💈 Barbearia</b><br><small>Admin</small></div><div style="display:flex;gap:8px"><button class="btn-sec" onclick="trocarTela('dashboard')">Dashboard</button><button class="btn-sec btn-sair-top" onclick="sair()">🚪 Sair</button></div></header>
+<div id="tela-login" style="display:none;max-width:400px;margin:60px auto;padding:20px;text-align:center">
+<div class="card"><h2>💈 <span id="nomeLogin">Barbearia</span></h2><p style="color:#A1A1AA;font-size:13px">Digite seu PIN pra entrar</p>
+<label style="text-align:left;display:block">Funcionário</label><select id="loginFunc"></select>
+<label style="text-align:left;display:block">PIN</label><input id="loginPIN" type="password" inputmode="numeric" maxlength="6" placeholder="Ex: 1234" style="text-align:center;font-size:20px;letter-spacing:8px">
+<button class="btn-save" onclick="entrar()">Entrar</button>
+<p id="erroLogin" style="display:none;color:#FCA5A5;font-size:13px">PIN errado. Tenta de novo.</p></div>
 </div>
-
-<div class="app" id="appPrincipal">
-  <aside class="sidebar">
-    <div class="brand"><div class="shield">💈</div><div><b id="nomeHeader">Barbearia</b><small>ADMIN</small></div></div>
-    <div class="menu-label">MENU</div>
-    <nav class="nav">
-      <button class="active" data-page="dashboard"><span>📊</span> Dashboard</button>
-      <button data-page="config"><span>⚙️</span> Config</button>
-      <button data-page="funcionarios"><span>👨‍🦰</span> Funcionários</button>
-      <button data-page="servicos"><span>✂️</span> Serviços</button>
-      <button data-page="clientes"><span>👥</span> Clientes</button>
-      <button data-page="estoque"><span>📦</span> Estoque</button>
-      <button data-page="agenda"><span>📅</span> Agenda</button>
-      <button data-page="financeiro"><span>💰</span> Financeiro</button>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="avatar">👤</div>
-      <div class="user-info"><b>Admin</b><small>Gerente</small></div>
-    </div>
-    <button class="btn-logout" id="btnSairLateral">🚪 Sair / Logout</button>
-  </aside>
-
-  <main class="main">
-    <div class="top-bar"><div><h1 id="tituloTopo">Dashboard</h1><p id="dashHojeTxt"></p></div><div class="top-actions"><button class="btn" data-page="dashboard">Dashboard</button><button class="btn" id="btnSairTopo">🚪 Sair</button></div></div>
-
-    <!-- DASHBOARD -->
-    <section id="page-dashboard" class="page active">
-      <div class="metrics-grid">
-        <div class="metric-card"><div class="metric-icon">💰</div><small>Faturamento Hoje</small><b id="dashFatHoje">R$ 0,00</b><div class="trend up" id="dashQtdHoje">0 atendimentos</div></div>
-        <div class="metric-card"><div class="metric-icon">📅</div><small>Faturamento Mês</small><b id="dashFatMes">R$ 0,00</b><div class="trend up" id="dashQtdMes">0 atendimentos</div></div>
-        <div class="metric-card"><div class="metric-icon orange">💵</div><small>Saldo Caixa (Mês)</small><b id="dashSaldoMes">R$ 0,00</b><div class="trend neutral" id="dashAgHojeTxt">0 agendados hoje</div></div>
-        <div class="metric-card"><div class="metric-icon">⚠️</div><small>Alertas</small><b id="dashAlertasQtd">0</b><div class="trend" id="dashAlertasTxt">Tudo certo</div></div>
-      </div>
-      <div class="grid-2">
-        <div><div class="card"><h3>Próximos Hoje</h3><div id="dashProximos" class="list"></div><button class="btn gold full" data-page="agenda" style="margin-top:12px">Ver Agenda Completa →</button></div><div class="card"><h3>⚠️ Alertas</h3><div id="dashAlertas"></div></div></div>
-        <div><div class="card"><h3>Ranking Barbeiros - Mês</h3><div id="dashRanking" class="list"></div></div><div class="card"><h3>Top Serviços - Mês</h3><div id="dashTopServ" class="list"></div></div></div>
-      </div>
-    </section>
-
-    <!-- CONFIG -->
-    <section id="page-config" class="page">
-      <div class="card config-card"><h3>Configurações</h3>
-        <div class="field"><label>Nome da Barbearia *</label><input id="cfgNome" placeholder="Ex: Barbearia do João"></div>
-        <div class="field"><label>Telefone</label><input id="cfgTelefone" placeholder="(21) 99999-9999"></div>
-        <div class="field"><label>Endereço</label><input id="cfgEndereco" placeholder="Rua, número, bairro"></div>
-        <div class="grid-2"><div class="field"><label>Intervalo</label><select id="cfgIntervalo"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></div><div class="field"><label>Antecedência (horas)</label><input id="cfgAntecedencia" type="number" value="1"></div></div>
-        <div class="grid-2"><div class="field"><label>Almoço Início</label><input id="cfgAlmocoInicio" type="time" value="12:00"></div><div class="field"><label>Almoço Fim</label><input id="cfgAlmocoFim" type="time" value="13:00"></div></div>
-        <label style="font-size:10px;color:#8a8fa3">HORÁRIOS DA SEMANA</label><div id="cfgDias" class="weekly-grid"></div>
-        <button class="btn gold full" id="btnSalvarConfig" style="margin-top:12px">💾 Salvar Configurações</button>
-      </div>
-    </section>
-
-    <!-- FUNCIONARIOS -->
-    <section id="page-funcionarios" class="page">
-      <div class="cadastro-layout">
-        <div class="card"><h3>Cadastrar Funcionário</h3><input type="hidden" id="funcId">
-          <div class="field"><label>Nome *</label><input id="funcNome" placeholder="Ex: João"></div>
-          <div class="field"><label>Telefone *</label><input id="funcTelefone" placeholder="(21) 99999-9999"></div>
-          <div class="field"><label>Função *</label><input id="funcFuncao" list="listaFuncoes" placeholder="Barbeiro"><datalist id="listaFuncoes"><option value="Barbeiro"></option><option value="Auxiliar"></option><option value="Recepcionista"></option><option value="Gerente"></option></datalist></div>
-          <div class="grid-2"><div class="field"><label>Início</label><input id="funcInicio" type="time" value="09:00"></div><div class="field"><label>Fim</label><input id="funcFim" type="time" value="19:00"></div></div>
-          <div class="grid-2"><div class="field"><label>Comissão</label><input id="funcComissao" type="number" placeholder="50"></div><div class="field"><label>Tipo</label><select id="funcTipoComissao"><option value="%">% Percentual</option><option value="R$">R$ fixo</option></select></div></div>
-          <div class="field"><label>PIN 4 a 6 dígitos *</label><input id="funcPIN" type="password" inputmode="numeric" maxlength="6" placeholder="1234"></div>
-          <div class="erro-box" id="erroFunc">Preencha Nome, Telefone, Função e PIN de 4 a 6 dígitos.</div>
-          <button class="btn gold full" id="btnSalvarFunc">💾 Cadastrar Funcionário</button>
-          <button class="btn full" id="btnCancelarFunc" style="display:none;margin-top:8px">Cancelar edição</button>
-        </div>
-        <div class="card"><h3>Funcionários</h3><div class="search-box"><input id="buscaFunc" placeholder="🔍 Buscar..."></div><div id="listaFuncionarios" class="list" style="margin-top:12px"></div></div>
-      </div>
-    </section>
-
-    <!-- SERVICOS -->
-    <section id="page-servicos" class="page">
-      <div class="cadastro-layout">
-        <div class="card"><h3>Cadastrar Serviço</h3><input type="hidden" id="servId">
-          <div class="field"><label>Nome *</label><input id="servNome" placeholder="Ex: Corte Degradê"></div>
-          <div class="grid-2"><div class="field"><label>Preço *</label><input id="servPreco" type="number" step="0.01" placeholder="50"></div><div class="field"><label>Duração min *</label><input id="servDuracao" type="number" placeholder="30"></div></div>
-          <label class="check-box"><input type="checkbox" id="servCombo"> É Combo?</label>
-          <div id="boxCombo" class="card" style="display:none;margin-top:12px"><b>Serviços do combo</b><div id="listaComboServicos"></div><small id="infoComboDuracao" style="color:#d4af37">Duração total: 0 min</small></div>
-          <label style="font-size:10px;color:#8a8fa3">QUAIS BARBEIROS FAZEM</label><p style="color:#8a8fa3;font-size:12px">Se não marcar nenhum, todos fazem.</p><div id="listaServBarbeiros"></div>
-          <div class="field"><label>Ativo?</label><select id="servAtivo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
-          <div class="erro-box" id="erroServ">Preencha Nome, Preço e Duração.</div>
-          <button class="btn gold full" id="btnSalvarServ">💾 Cadastrar Serviço</button>
-          <button class="btn full" id="btnCancelarServ" style="display:none;margin-top:8px">Cancelar edição</button>
-        </div>
-        <div class="card"><h3>Serviços</h3><div class="search-box"><input id="buscaServ" placeholder="🔍 Buscar..."></div><div id="listaServicos" class="list" style="margin-top:12px"></div></div>
-      </div>
-    </section>
-
-    <!-- CLIENTES -->
-    <section id="page-clientes" class="page">
-      <div class="cadastro-layout">
-        <div class="card"><h3>Cadastrar Cliente</h3><input type="hidden" id="cliId">
-          <div class="field"><label>Nome *</label><input id="cliNome" placeholder="Ex: Carlos Silva"></div>
-          <div class="field"><label>Telefone *</label><input id="cliTelefone" placeholder="(21) 99999-9999"></div>
-          <div class="field"><label>E-mail</label><input id="cliEmail" placeholder="carlos@email.com"></div>
-          <div class="field"><label>Nascimento</label><input id="cliNasc" type="date"></div>
-          <div class="field"><label>Observação</label><input id="cliObs" placeholder="Ex: Prefere degradê"></div>
-          <div class="field"><label>Bloqueado?</label><select id="cliBloqueado"><option value="false">Não</option><option value="true">Sim - Bloqueado</option></select></div>
-          <div class="erro-box" id="erroCli">Preencha Nome e Telefone.</div>
-          <button class="btn gold full" id="btnSalvarCli">💾 Cadastrar Cliente</button>
-          <button class="btn full" id="btnCancelarCli" style="display:none;margin-top:8px">Cancelar edição</button>
-        </div>
-        <div><div class="card"><h3>Clientes</h3><div class="search-box"><input id="buscaCli" placeholder="🔍 Buscar..."></div><div id="listaClientes" class="list" style="margin-top:12px"></div></div>
-        <div class="card" id="boxHistoricoCli" style="display:none"><h3>Histórico - <span id="nomeHistoricoCli"></span></h3><div id="conteudoHistoricoCli"></div><button class="btn full" id="btnFecharHist">Fechar</button></div></div>
-      </div>
-    </section>
-
-    <!-- ESTOQUE -->
-    <section id="page-estoque" class="page">
-      <div class="cadastro-layout">
-        <div class="card"><h3>Cadastrar Produto</h3><input type="hidden" id="estId">
-          <div class="field"><label>Nome *</label><input id="estNome" placeholder="Ex: Pomada"></div>
-          <div class="grid-2"><div class="field"><label>Categoria *</label><input id="estCategoria" list="listaCategoriasEst"><datalist id="listaCategoriasEst"><option value="Pomada"></option><option value="Shampoo"></option><option value="Lâmina"></option><option value="Outros"></option></datalist></div><div class="field"><label>Unidade</label><select id="estUnidade"><option>Unidade</option><option>Caixa</option><option>Pacote</option></select></div></div>
-          <div class="grid-3"><div class="field"><label>Qtd *</label><input id="estQtd" type="number"></div><div class="field"><label>Mínimo *</label><input id="estMinimo" type="number"></div><div class="field"><label>Preço</label><input id="estPreco" type="number" step="0.01"></div></div>
-          <div class="field"><label>Obs</label><input id="estObs"></div>
-          <div class="erro-box" id="erroEst">Preencha Nome, Categoria, Qtd e Mínimo.</div>
-          <button class="btn gold full" id="btnSalvarEst">💾 Cadastrar Produto</button>
-          <button class="btn full" id="btnCancelarEst" style="display:none;margin-top:8px">Cancelar edição</button>
-        </div>
-        <div class="card"><h3>Estoque</h3><div class="search-box"><input id="buscaEst" placeholder="🔍 Buscar..."></div><div class="filter-row"><button class="btn" data-filtro-est="todos">Todos</button><button class="btn" data-filtro-est="baixo">⚠️ Abaixo</button><button class="btn" data-filtro-est="zerado">❌ Zerado</button></div><div id="alertaEst"></div><div id="listaEstoque" class="list"></div></div>
-      </div>
-    </section>
-
-    <!-- AGENDA -->
-    <section id="page-agenda" class="page">
-      <div class="cadastro-layout">
-        <div class="card"><h3>Novo Agendamento</h3><input type="hidden" id="agId">
-          <div class="field"><label>Cliente *</label><input id="agClienteBusca" placeholder="🔍 Digite nome ou telefone..."></div>
-          <div id="listaBuscaCliente" class="card" style="display:none"></div>
-          <div id="clienteSelecionado" class="card" style="display:none"></div>
-          <input type="hidden" id="agClienteId">
-          <div class="field"><label>Barbeiro *</label><select id="agBarbeiro"><option value="">Selecione</option></select></div>
-          <div class="field"><label>Serviço *</label><select id="agServico"><option value="">Selecione</option></select></div>
-          <div id="infoServico" style="color:#8a8fa3;font-size:13px"></div>
-          <div class="grid-2"><div class="field"><label>Data *</label><input id="agData" type="date"></div><div class="field"><label>Horário *</label><select id="agHora"><option value="">Escolha a data</option></select></div></div>
-          <div class="field"><label>Obs</label><input id="agObs"></div>
-          <div class="erro-box" id="erroAg">Preencha Cliente, Barbeiro, Serviço, Data e Horário.</div>
-          <button class="btn gold full" id="btnSalvarAg">💾 Agendar</button>
-          <button class="btn full" id="btnCancelarAg" style="display:none;margin-top:8px">Cancelar edição</button>
-        </div>
-        <div class="card"><h3>Agenda do Dia</h3><div class="field"><input id="agDataFiltro" type="date"></div><div class="filter-row"><button class="btn" data-filtro-ag="todos">Todos</button><button class="btn" data-filtro-ag="agendado">Agendado</button><button class="btn" data-filtro-ag="concluido">Concluído</button><button class="btn" data-filtro-ag="cancelado">Cancelado</button></div><div id="listaAgenda" class="list"></div></div>
-      </div>
-    </section>
-
-    <!-- FINANCEIRO -->
-    <section id="page-financeiro" class="page">
-      <div class="metrics-grid" style="grid-template-columns:repeat(3,1fr)">
-        <div class="metric-card"><small>Entradas</small><b id="finEntradas" style="color:#6fcf6f">R$ 0,00</b></div>
-        <div class="metric-card"><small>Saídas</small><b id="finSaidas" style="color:#ff8a8a">R$ 0,00</b></div>
-        <div class="metric-card"><small>Saldo</small><b id="finSaldo" style="color:#d4af37">R$ 0,00</b></div>
-      </div>
-      <div class="filter-row"><input id="finDe" type="date" style="width:auto;padding:10px;background:#151a28;border:1px solid #1e2230;color:#fff;border-radius:10px"><input id="finAte" type="date" style="width:auto;padding:10px;background:#151a28;border:1px solid #1e2230;color:#fff;border-radius:10px"><button class="btn" id="btnFiltrarFin">Filtrar</button><button class="btn" id="btnLimparFin">Limpar</button></div>
-      <div class="cadastro-layout">
-        <div><div class="card"><h3>Lançar</h3><input type="hidden" id="finId">
-          <div class="field"><label>Tipo</label><select id="finTipo"><option value="entrada">Entrada</option><option value="saida">Saída</option></select></div>
-          <div class="field"><label>Descrição *</label><input id="finDesc" placeholder="Ex: Corte do João"></div>
-          <div class="grid-2"><div class="field"><label>Valor *</label><input id="finValor" type="number" step="0.01"></div><div class="field"><label>Data *</label><input id="finData" type="date"></div></div>
-          <div class="grid-2"><div class="field"><label>Categoria</label><input id="finCategoria" list="listaCatFin"><datalist id="listaCatFin"></datalist></div><div class="field"><label>Forma</label><select id="finForma"><option>Dinheiro</option><option>Pix</option><option>Cartão Crédito</option><option>Cartão Débito</option></select></div></div>
-          <div class="field"><label>Funcionário</label><select id="finFuncionario"><option value="">Nenhum</option></select></div>
-          <div class="field"><label>Agendamento</label><select id="finAgendamento"><option value="">Nenhum</option></select></div>
-          <div class="erro-box" id="erroFin">Preencha Descrição, Valor e Data.</div>
-          <button class="btn gold full" id="btnSalvarFin">💾 Lançar</button>
-          <button class="btn full" id="btnCancelarFin" style="display:none;margin-top:8px">Cancelar</button>
-        </div><div class="card"><h3>Concluídos sem Lançamento</h3><div id="listaPendenteFin"></div></div></div>
-        <div class="card"><h3>Lançamentos</h3><div class="search-box"><input id="buscaFin" placeholder="🔍 Buscar..."></div><div class="filter-row"><button class="btn" data-filtro-fin="todos">Todos</button><button class="btn" data-filtro-fin="entrada">Entradas</button><button class="btn" data-filtro-fin="saida">Saídas</button></div><div id="listaFinanceiro" class="list"></div></div>
-      </div>
-    </section>
-
-  </main>
+<div class="layout">
+<aside class="sidebar">
+<small>Menu</small>
+<button class="ativo" data-menu="dashboard" onclick="trocarTela('dashboard')">📊 Dashboard</button>
+<button data-menu="config" onclick="trocarTela('config')">⚙️ Config</button>
+<button data-menu="funcionarios" onclick="trocarTela('funcionarios')">👨‍🦰 Funcionários</button>
+<button data-menu="servicos" onclick="trocarTela('servicos')">✂️ Serviços</button>
+<button data-menu="clientes" onclick="trocarTela('clientes')">👥 Clientes</button>
+<button data-menu="estoque" onclick="trocarTela('estoque')">📦 Estoque</button>
+<button data-menu="agenda" onclick="trocarTela('agenda')">📅 Agenda</button>
+<button data-menu="financeiro" onclick="trocarTela('financeiro')">💰 Financeiro</button>
+<button class="btn-sair" onclick="sair()">🚪 Sair / Logout</button>
+</aside>
+<div class="container">
+<div id="tela-dashboard" class="tela ativa">
+<div class="card"><h2>Visão Geral - <span id="dashHojeTxt"></span></h2><button class="btn-sec" onclick="atualizarDashboard()">🔄 Atualizar</button>
+<div class="row3" style="margin-top:12px">
+<div class="box-resumo"><small>Faturamento Hoje</small><br><b id="dashFatHoje" style="color:#22C55E;font-size:22px">R$ 0,00</b><br><small id="dashQtdHoje">0 atendimentos</small></div>
+<div class="box-resumo"><small>Faturamento Mês</small><br><b id="dashFatMes" style="color:#FACC15;font-size:22px">R$ 0,00</b><br><small id="dashQtdMes">0 atendimentos</small></div>
+<div class="box-resumo"><small>Saldo Caixa (Mês)</small><br><b id="dashSaldoMes" style="font-size:22px">R$ 0,00</b><br><small id="dashAgHojeTxt">0 agendados hoje</small></div>
+</div></div>
+<div class="grid"><div><div class="card"><h2>Próximos Hoje</h2><div id="dashProximos"></div><button class="btn-sec" style="width:100%;margin-top:10px" onclick="trocarTela('agenda')">Ver Agenda Completa →</button></div><div class="card"><h2>⚠️ Alertas</h2><div id="dashAlertas"></div></div></div>
+<div><div class="card"><h2>Ranking Barbeiros - Mês</h2><div id="dashRanking"></div></div><div class="card"><h2>Top Serviços - Mês</h2><div id="dashTopServ"></div></div></div></div>
 </div>
-
-<nav class="bottom-nav">
-  <button class="active" data-page="dashboard">📊 Dashboard</button>
-  <button data-page="config">⚙️ Config</button>
-  <button data-page="funcionarios">👨‍🦰 Funcionários</button>
-  <button data-page="servicos">✂️ Serviços</button>
-  <button data-page="clientes">👥 Clientes</button>
-  <button data-page="estoque">📦 Estoque</button>
-  <button data-page="agenda">📅 Agenda</button>
-  <button data-page="financeiro">💰 Financeiro</button>
-  <button id="btnSairNav">🚪 Sair</button>
+<div id="tela-config" class="tela"><div class="card"><h2>Configurações</h2>
+<label>Nome da Barbearia *</label><input id="cfgNome" placeholder="Ex: Barbearia do João">
+<label>Telefone</label><input id="cfgTelefone" placeholder="(21) 99999-9999">
+<label>Endereço</label><input id="cfgEndereco" placeholder="Rua, número, bairro">
+<div class="row"><div><label>Intervalo</label><select id="cfgIntervalo"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></div><div><label>Antecedência (horas)</label><input id="cfgAntecedencia" type="number" value="1"></div></div>
+<div class="row"><div><label>Almoço Início</label><input id="cfgAlmocoInicio" type="time" value="12:00"></div><div><label>Almoço Fim</label><input id="cfgAlmocoFim" type="time" value="13:00"></div></div>
+<label>Horários da Semana</label><div id="cfgDias"></div>
+<button class="btn-save" onclick="salvarConfig()">💾 Salvar Configurações</button></div></div>
+<div id="tela-funcionarios" class="tela"><div class="grid"><div><div class="card"><h2>Cadastrar Funcionário</h2><input type="hidden" id="funcId">
+<label>Nome *</label><input id="funcNome" placeholder="Ex: João">
+<label>Telefone *</label><input id="funcTelefone" placeholder="(21) 99999-9999">
+<label>Função *</label><input id="funcFuncao" list="listaFuncoes" placeholder="Barbeiro"><datalist id="listaFuncoes"><option value="Barbeiro"></option><option value="Auxiliar"></option><option value="Recepcionista"></option><option value="Gerente"></option></datalist>
+<div class="row"><div><label>Início</label><input id="funcInicio" type="time" value="09:00"></div><div><label>Fim</label><input id="funcFim" type="time" value="19:00"></div></div>
+<div class="row"><div><label>Comissão</label><input id="funcComissao" type="number" placeholder="50"></div><div><label>Tipo</label><select id="funcTipoComissao"><option value="%">% Percentual</option><option value="R$">R$ fixo</option></select></div></div>
+<label>PIN 4 a 6 dígitos *</label><input id="funcPIN" type="password" inputmode="numeric" maxlength="6" placeholder="1234">
+<div class="erro" id="erroFunc">Preencha Nome, Telefone e PIN de 4 a 6 dígitos.</div>
+<button class="btn-save" style="margin-top:14px" onclick="salvarFuncionario()">💾 Cadastrar Funcionário</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarFunc" onclick="cancelarEdicaoFunc()">Cancelar edição</button></div></div>
+<div><div class="card"><h2>Funcionários</h2><input id="buscaFunc" placeholder="🔍 Buscar..." oninput="listarFuncionarios()"><div id="listaFuncionarios" style="margin-top:12px"></div></div></div></div></div>
+<div id="tela-servicos" class="tela"><div class="grid"><div><div class="card"><h2>Cadastrar Serviço</h2><input type="hidden" id="servId">
+<label>Nome *</label><input id="servNome" placeholder="Ex: Corte Degradê">
+<div class="row"><div><label>Preço *</label><input id="servPreco" type="number" step="0.01" placeholder="50"></div><div><label>Duração min *</label><input id="servDuracao" type="number" placeholder="30"></div></div>
+<label><input type="checkbox" id="servCombo" onchange="toggleCombo()" style="width:18px"> É Combo?</label>
+<div id="boxCombo" style="display:none;background:#23232B;border-radius:12px;padding:12px;margin-top:10px"><b>Serviços do combo</b><div id="listaComboServicos"></div><small id="infoComboDuracao" style="color:#FACC15">Duração total: 0 min</small></div>
+<label>Quais barbeiros fazem</label><p style="color:#A1A1AA;font-size:12px">Se não marcar nenhum, todos fazem.</p><div id="listaServBarbeiros"></div>
+<label>Ativo?</label><select id="servAtivo"><option value="true">Ativo</option><option value="false">Inativo</option></select>
+<div class="erro" id="erroServ">Preencha Nome, Preço e Duração.</div>
+<button class="btn-save" style="margin-top:14px" onclick="salvarServico()">💾 Cadastrar Serviço</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarServ" onclick="cancelarEdicaoServ()">Cancelar edição</button></div></div>
+<div><div class="card"><h2>Serviços</h2><input id="buscaServ" placeholder="🔍 Buscar..." oninput="listarServicos()"><div id="listaServicos" style="margin-top:12px"></div></div></div></div></div>
+<div id="tela-clientes" class="tela"><div class="grid"><div><div class="card"><h2>Cadastrar Cliente</h2><input type="hidden" id="cliId">
+<label>Nome *</label><input id="cliNome" placeholder="Ex: Carlos Silva">
+<label>Telefone *</label><input id="cliTelefone" placeholder="(21) 99999-9999">
+<label>E-mail</label><input id="cliEmail" placeholder="carlos@email.com">
+<label>Nascimento</label><input id="cliNasc" type="date">
+<label>Observação</label><input id="cliObs" placeholder="Ex: Prefere degradê">
+<label>Bloqueado?</label><select id="cliBloqueado"><option value="false">Não</option><option value="true">Sim - Bloqueado</option></select>
+<div class="erro" id="erroCli">Preencha Nome e Telefone.</div>
+<button class="btn-save" style="margin-top:14px" onclick="salvarCliente()">💾 Cadastrar Cliente</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarCli" onclick="cancelarEdicaoCli()">Cancelar edição</button></div></div>
+<div><div class="card"><h2>Clientes</h2><input id="buscaCli" placeholder="🔍 Buscar..." oninput="listarClientes()"><div id="listaClientes" style="margin-top:12px"></div></div><div class="card" id="boxHistoricoCli" style="display:none"><h2>Histórico - <span id="nomeHistoricoCli"></span></h2><div id="conteudoHistoricoCli"></div><button class="btn-sec" style="width:100%;margin-top:10px" onclick="fecharHistoricoCli()">Fechar</button></div></div></div></div>
+<div id="tela-estoque" class="tela"><div class="grid"><div><div class="card"><h2>Cadastrar Produto</h2><input type="hidden" id="estId">
+<label>Nome *</label><input id="estNome" placeholder="Ex: Pomada">
+<div class="row"><div><label>Categoria *</label><input id="estCategoria" list="listaCategoriasEst"><datalist id="listaCategoriasEst"><option value="Pomada"></option><option value="Shampoo"></option><option value="Lâmina"></option><option value="Outros"></option></datalist></div><div><label>Unidade</label><select id="estUnidade"><option>Unidade</option><option>Caixa</option><option>Pacote</option></select></div></div>
+<div class="row3"><div><label>Qtd *</label><input id="estQtd" type="number"></div><div><label>Mínimo *</label><input id="estMinimo" type="number"></div><div><label>Preço</label><input id="estPreco" type="number" step="0.01"></div></div>
+<label>Obs</label><input id="estObs">
+<div class="erro" id="erroEst">Preencha Nome, Categoria, Qtd e Mínimo.</div>
+<button class="btn-save" style="margin-top:14px" onclick="salvarEstoque()">💾 Cadastrar Produto</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarEst" onclick="cancelarEdicaoEst()">Cancelar edição</button></div></div>
+<div><div class="card"><h2>Estoque</h2><input id="buscaEst" placeholder="🔍 Buscar..." oninput="listarEstoque()"><div style="display:flex;gap:6px;margin-top:10px"><button class="btn-sec" onclick="filtrarEst('todos',this)">Todos</button><button class="btn-sec" onclick="filtrarEst('baixo',this)">⚠️ Abaixo</button><button class="btn-sec" onclick="filtrarEst('zerado',this)">❌ Zerado</button></div><div id="alertaEst" style="margin-top:12px"></div><div id="listaEstoque" style="margin-top:12px"></div></div></div></div></div>
+<div id="tela-agenda" class="tela"><div class="grid"><div><div class="card"><h2>Novo Agendamento</h2><input type="hidden" id="agId">
+<label>Cliente *</label><input id="agClienteBusca" placeholder="🔍 Digite nome ou telefone..." oninput="buscarClienteAgenda()"><div id="listaBuscaCliente" style="display:none;background:#23232B;border:1px solid #FACC15;border-radius:10px;margin-top:6px;max-height:180px;overflow:auto"></div><div id="clienteSelecionado" style="display:none;background:#23232B;border:1px solid #22C55E;border-radius:10px;padding:10px;margin-top:8px"></div><input type="hidden" id="agClienteId">
+<label>Barbeiro *</label><select id="agBarbeiro" onchange="atualizarServicosAgenda()"><option value="">Selecione</option></select>
+<label>Serviço *</label><select id="agServico" onchange="atualizarInfoServico()"><option value="">Selecione</option></select><div id="infoServico" style="color:#A1A1AA;font-size:13px"></div>
+<div class="row"><div><label>Data *</label><input id="agData" type="date" onchange="gerarHorariosAgenda()"></div><div><label>Horário *</label><select id="agHora"><option value="">Escolha a data</option></select></div></div>
+<label>Obs</label><input id="agObs">
+<div class="erro" id="erroAg">Preencha Cliente, Barbeiro, Serviço, Data e Horário.</div>
+<button class="btn-save" style="margin-top:14px" onclick="salvarAgendamento()">💾 Agendar</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarAg" onclick="cancelarEdicaoAg()">Cancelar edição</button></div></div>
+<div><div class="card"><h2>Agenda do Dia</h2><input id="agDataFiltro" type="date" onchange="listarAgenda()"><div style="display:flex;gap:6px;margin-top:10px"><button class="btn-sec" onclick="filtrarAgendaDia('todos',this)">Todos</button><button class="btn-sec" onclick="filtrarAgendaDia('agendado',this)">Agendado</button><button class="btn-sec" onclick="filtrarAgendaDia('concluido',this)">Concluído</button><button class="btn-sec" onclick="filtrarAgendaDia('cancelado',this)">Cancelado</button></div><div id="listaAgenda" style="margin-top:12px"></div></div></div></div></div>
+<div id="tela-financeiro" class="tela"><div class="card"><h2>Resumo</h2><div class="row3"><div class="box-resumo"><small>Entradas</small><br><b id="finEntradas" style="color:#22C55E;font-size:20px">R$ 0,00</b></div><div class="box-resumo"><small>Saídas</small><br><b id="finSaidas" style="color:#EF4444;font-size:20px">R$ 0,00</b></div><div class="box-resumo"><small>Saldo</small><br><b id="finSaldo" style="color:#FACC15;font-size:20px">R$ 0,00</b></div></div><div style="display:flex;gap:8px;margin-top:12px"><input id="finDe" type="date" style="width:auto"><input id="finAte" type="date" style="width:auto"><button class="btn-sec" onclick="listarFinanceiro()">Filtrar</button><button class="btn-sec" onclick="limparFiltroFin()">Limpar</button></div></div>
+<div class="grid"><div><div class="card"><h2>Lançar</h2><input type="hidden" id="finId"><label>Tipo</label><select id="finTipo" onchange="atualizarCategoriasFin()"><option value="entrada">Entrada</option><option value="saida">Saída</option></select><label>Descrição *</label><input id="finDesc" placeholder="Ex: Corte do João"><div class="row"><div><label>Valor *</label><input id="finValor" type="number" step="0.01"></div><div><label>Data *</label><input id="finData" type="date"></div></div><div class="row"><div><label>Categoria</label><input id="finCategoria" list="listaCatFin"><datalist id="listaCatFin"></datalist></div><div><label>Forma</label><select id="finForma"><option>Dinheiro</option><option>Pix</option><option>Cartão Crédito</option><option>Cartão Débito</option></select></div></div><label>Funcionário</label><select id="finFuncionario"><option value="">Nenhum</option></select><label>Agendamento</label><select id="finAgendamento"><option value="">Nenhum</option></select><div class="erro" id="erroFin">Preencha Descrição, Valor e Data.</div><button class="btn-save" style="margin-top:14px" onclick="salvarFinanceiro()">💾 Lançar</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarFin" onclick="cancelarEdicaoFin()">Cancelar</button></div><div class="card"><h2>Concluídos sem Lançamento</h2><div id="listaPendenteFin"></div></div></div><div><div class="card"><h2>Lançamentos</h2><input id="buscaFin" placeholder="🔍 Buscar..." oninput="listarFinanceiro()"><div style="display:flex;gap:6px;margin-top:10px"><button class="btn-sec" onclick="filtrarFin('todos',this)">Todos</button><button class="btn-sec" onclick="filtrarFin('entrada',this)">Entradas</button><button class="btn-sec" onclick="filtrarFin('saida',this)">Saídas</button></div><div id="listaFinanceiro" style="margin-top:12px"></div></div></div></div></div>
+</div></div>
+<nav>
+<button class="ativo" data-menu="dashboard" onclick="trocarTela('dashboard')">📊 Dashboard</button>
+<button data-menu="config" onclick="trocarTela('config')">⚙️ Config</button>
+<button data-menu="funcionarios" onclick="trocarTela('funcionarios')">👨‍🦰 Funcionários</button>
+<button data-menu="servicos" onclick="trocarTela('servicos')">✂️ Serviços</button>
+<button data-menu="clientes" onclick="trocarTela('clientes')">👥 Clientes</button>
+<button data-menu="estoque" onclick="trocarTela('estoque')">📦 Estoque</button>
+<button data-menu="agenda" onclick="trocarTela('agenda')">📅 Agenda</button>
+<button data-menu="financeiro" onclick="trocarTela('financeiro')">💰 Financeiro</button>
+<button onclick="sair()">🚪 Sair</button>
 </nav>
-
 <script src="admin.js"></script>
 </body>
 </html>
