@@ -4,268 +4,282 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Barbearia - Admin</title>
-<link rel="stylesheet" href="style.css">
+<style>
+*{box-sizing:border-box} body{margin:0;background:#131318;color:#fff;font-family:Arial,sans-serif}
+header{background:#1C1C22;padding:14px 16px;position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #333}
+.layout{display:flex;width:100%;margin:0}
+.sidebar{width:240px;min-width:240px;background:#1C1C22;border-right:1px solid #333;padding:14px 10px;position:sticky;top:57px;height:calc(100vh - 57px);display:flex;flex-direction:column;gap:6px;margin:0}
+.sidebar button{background:none;border:0;color:#A1A1AA;padding:12px;text-align:left;cursor:pointer;font-size:14px;border-radius:10px;width:100%;margin:0}
+.sidebar button.ativo{background:#FACC15;color:#111;font-weight:bold}
+.sidebar small{color:#666;font-size:11px;padding:10px 12px 4px;text-transform:uppercase}
+.btn-sair{margin-top:auto!important;background:#3A1A1A!important;color:#FCA5A5!important;border:1px solid #7F1D1D!important}
+.container{flex:1;padding:18px;width:100%;padding-bottom:90px;max-width:1000px;margin:0 auto}
+nav{position:fixed;bottom:0;left:0;right:0;background:#1C1C22;display:none;overflow-x:auto;border-top:1px solid #333;z-index:10}
+nav button{background:none;border:0;color:#A1A1AA;padding:12px 10px;cursor:pointer;white-space:nowrap;font-size:13px}
+nav button.ativo{color:#FACC15;font-weight:bold}
+@media(max-width:850px){ .sidebar{display:none} nav{display:flex} }
+.card{background:#1C1C22;border:1px solid #333;border-radius:14px;padding:16px;margin-bottom:14px}
+input,select,textarea{width:100%;background:#23232B;border:1px solid #3A3A44;color:#fff;border-radius:10px;padding:11px;margin:4px 0 10px;font-size:14px}
+label{font-size:13px;color:#D4D4D8;font-weight:bold}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media(max-width:750px){.grid{grid-template-columns:1fr}}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:500px){.row,.row3{grid-template-columns:1fr}}
+.btn-save{width:100%;background:#FACC15;color:#111;border:0;border-radius:10px;padding:13px;font-weight:bold;font-size:15px;cursor:pointer}
+.btn-sec{background:#23232B;color:#fff;border:1px solid #3A3A44;border-radius:8px;padding:8px 10px;font-size:13px;cursor:pointer}
+.btn-danger{background:#EF4444;color:#fff;border:0;border-radius:8px;padding:8px 10px;font-size:13px;cursor:pointer}
+.erro{display:none;background:#3A1A1A;border:1px solid #7F1D1D;color:#FCA5A5;padding:10px;border-radius:10px;font-size:13px}
+.item-lista{background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px}
+.acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.tag{background:#FACC15;color:#111;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:bold}
+.tela{display:none}.tela.ativa{display:block}
+</style>
 </head>
 <body>
+<header><div><b id="nomeHeader">💈 Barbearia</b><br><small style="color:#FACC15">Admin</small></div><div style="display:flex;gap:8px"><button class="btn-sec" onclick="trocarTela('dashboard')">Dashboard</button><button class="btn-sec" style="color:#FCA5A5;border-color:#7F1D1D" onclick="sair()">🚪 Sair</button></div></header>
 
-<header>
-  <div>
-    <b id="nomeHeader">💈 Barbearia</b>
-    <small>Admin</small>
-  </div>
-  <div class="top-acoes">
-    <button class="btn-sec" data-tela="dashboard">Dashboard</button>
-    <button class="btn-sec btn-sair-top" id="btnSairTopo">🚪 Sair</button>
-  </div>
-</header>
-
-<!-- LOGIN -->
-<div id="tela-login" class="login-box" style="display:none">
-  <div class="card login-card">
-    <h2>💈 <span id="nomeLogin">Barbearia</span></h2>
-    <p class="muted">Digite seu PIN pra entrar</p>
-    <label>Funcionário</label>
-    <select id="loginFunc"></select>
-    <label>PIN</label>
-    <input id="loginPIN" type="password" inputmode="numeric" maxlength="6" placeholder="1234" class="pin-input">
-    <button class="btn-save" id="btnEntrar">Entrar</button>
-    <p id="erroLogin" class="erro-login">PIN errado. Tenta de novo.</p>
-  </div>
+<div id="tela-login" style="display:none;max-width:400px;margin:60px auto;padding:20px;text-align:center">
+<div class="card"><h2>💈 <span id="nomeLogin">Barbearia</span></h2><p style="color:#A1A1AA;font-size:13px">Digite seu PIN pra entrar</p>
+<label style="text-align:left;display:block">Funcionário</label><select id="loginFunc"></select>
+<label style="text-align:left;display:block">PIN</label><input id="loginPIN" type="password" inputmode="numeric" maxlength="6" placeholder="Ex: 1234" style="text-align:center;font-size:20px;letter-spacing:8px">
+<button class="btn-save" onclick="entrar()">Entrar</button>
+<p id="erroLogin" style="display:none;color:#FCA5A5;font-size:13px">PIN errado. Tenta de novo.</p></div>
 </div>
 
-<div class="layout" id="layoutPrincipal">
+<div class="layout">
+<aside class="sidebar">
+<small>Menu</small>
+<button class="ativo" data-menu="dashboard" onclick="trocarTela('dashboard')">📊 Dashboard</button>
+<button data-menu="config" onclick="trocarTela('config')">⚙️ Config</button>
+<button data-menu="funcionarios" onclick="trocarTela('funcionarios')">👨‍🦰 Funcionários</button>
+<button data-menu="servicos" onclick="trocarTela('servicos')">✂️ Serviços</button>
+<button data-menu="clientes" onclick="trocarTela('clientes')">👥 Clientes</button>
+<button data-menu="estoque" onclick="trocarTela('estoque')">📦 Estoque</button>
+<button data-menu="agenda" onclick="trocarTela('agenda')">📅 Agenda</button>
+<button data-menu="financeiro" onclick="trocarTela('financeiro')">💰 Financeiro</button>
+<button class="btn-sair" onclick="sair()">🚪 Sair / Logout</button>
+</aside>
+<div class="container">
 
-  <!-- MENU LATERAL - PC -->
-  <aside class="sidebar">
-    <small>Menu</small>
-    <button class="ativo" data-tela="dashboard">📊 Dashboard</button>
-    <button data-tela="config">⚙️ Config</button>
-    <button data-tela="funcionarios">👨‍🦰 Funcionários</button>
-    <button data-tela="servicos">✂️ Serviços</button>
-    <button data-tela="clientes">👥 Clientes</button>
-    <button data-tela="estoque">📦 Estoque</button>
-    <button data-tela="agenda">📅 Agenda</button>
-    <button data-tela="financeiro">💰 Financeiro</button>
-    <button class="btn-sair" id="btnSairLateral">🚪 Sair / Logout</button>
-  </aside>
-
-  <main class="container">
-
-    <!-- DASHBOARD -->
-    <section id="tela-dashboard" class="tela ativa">
-      <div class="card">
-        <h2>Visão Geral - <span id="dashHojeTxt"></span></h2>
-        <button class="btn-sec" id="btnAtualizarDash">🔄 Atualizar</button>
-        <div class="row3">
-          <div class="box-resumo"><small>Faturamento Hoje</small><br><b id="dashFatHoje" class="verde">R$ 0,00</b><br><small id="dashQtdHoje">0 atendimentos</small></div>
-          <div class="box-resumo"><small>Faturamento Mês</small><br><b id="dashFatMes" class="amarelo">R$ 0,00</b><br><small id="dashQtdMes">0 atendimentos</small></div>
-          <div class="box-resumo"><small>Saldo Caixa (Mês)</small><br><b id="dashSaldoMes">R$ 0,00</b><br><small id="dashAgHojeTxt">0 agendados hoje</small></div>
-        </div>
-      </div>
-      <div class="grid">
-        <div>
-          <div class="card"><h2>Próximos Hoje</h2><div id="dashProximos"></div><button class="btn-sec full" data-tela="agenda">Ver Agenda Completa →</button></div>
-          <div class="card"><h2>⚠️ Alertas</h2><div id="dashAlertas"></div></div>
-        </div>
-        <div>
-          <div class="card"><h2>Ranking Barbeiros - Mês</h2><div id="dashRanking"></div></div>
-          <div class="card"><h2>Top Serviços - Mês</h2><div id="dashTopServ"></div></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CONFIG -->
-    <section id="tela-config" class="tela">
-      <div class="card">
-        <h2>Configurações</h2>
-        <label>Nome da Barbearia *</label><input id="cfgNome" placeholder="Ex: Barbearia do João">
-        <label>Telefone</label><input id="cfgTelefone" placeholder="(21) 99999-9999">
-        <label>Endereço</label><input id="cfgEndereco" placeholder="Rua, número, bairro">
-        <div class="row"><div><label>Intervalo</label><select id="cfgIntervalo"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></div><div><label>Antecedência (horas)</label><input id="cfgAntecedencia" type="number" value="1"></div></div>
-        <div class="row"><div><label>Almoço Início</label><input id="cfgAlmocoInicio" type="time" value="12:00"></div><div><label>Almoço Fim</label><input id="cfgAlmocoFim" type="time" value="13:00"></div></div>
-        <label>Horários da Semana</label><div id="cfgDias"></div>
-        <button class="btn-save" id="btnSalvarConfig">💾 Salvar Configurações</button>
-      </div>
-    </section>
-
-    <!-- FUNCIONARIOS -->
-    <section id="tela-funcionarios" class="tela">
-      <div class="grid">
-        <div class="card">
-          <h2>Cadastrar Funcionário</h2>
-          <input type="hidden" id="funcId">
-          <label>Nome *</label><input id="funcNome" placeholder="Ex: João">
-          <label>Telefone *</label><input id="funcTelefone" placeholder="(21) 99999-9999">
-          <label>Função *</label><input id="funcFuncao" list="listaFuncoes" placeholder="Barbeiro">
-          <datalist id="listaFuncoes"><option value="Barbeiro"></option><option value="Auxiliar"></option><option value="Recepcionista"></option><option value="Gerente"></option></datalist>
-          <div class="row"><div><label>Início</label><input id="funcInicio" type="time" value="09:00"></div><div><label>Fim</label><input id="funcFim" type="time" value="19:00"></div></div>
-          <div class="row"><div><label>Comissão</label><input id="funcComissao" type="number" placeholder="50"></div><div><label>Tipo</label><select id="funcTipoComissao"><option value="%">% Percentual</option><option value="R$">R$ fixo</option></select></div></div>
-          <label>PIN 4 a 6 dígitos *</label><input id="funcPIN" type="password" inputmode="numeric" maxlength="6" placeholder="1234">
-          <div class="erro" id="erroFunc">Preencha Nome, Telefone, Função e PIN de 4 a 6 dígitos.</div>
-          <button class="btn-save" id="btnSalvarFunc">💾 Cadastrar Funcionário</button>
-          <button class="btn-sec full" id="btnCancelarFunc" style="display:none">Cancelar edição</button>
-        </div>
-        <div class="card">
-          <h2>Funcionários</h2>
-          <input id="buscaFunc" placeholder="🔍 Buscar...">
-          <div id="listaFuncionarios"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SERVICOS -->
-    <section id="tela-servicos" class="tela">
-      <div class="grid">
-        <div class="card">
-          <h2>Cadastrar Serviço</h2>
-          <input type="hidden" id="servId">
-          <label>Nome *</label><input id="servNome" placeholder="Ex: Corte Degradê">
-          <div class="row"><div><label>Preço *</label><input id="servPreco" type="number" step="0.01" placeholder="50"></div><div><label>Duração min *</label><input id="servDuracao" type="number" placeholder="30"></div></div>
-          <label class="check"><input type="checkbox" id="servCombo"> É Combo?</label>
-          <div id="boxCombo" class="box-combo" style="display:none"><b>Serviços do combo</b><div id="listaComboServicos"></div><small id="infoComboDuracao">Duração total: 0 min</small></div>
-          <label>Quais barbeiros fazem</label><p class="muted pequeno">Se não marcar nenhum, todos fazem.</p><div id="listaServBarbeiros"></div>
-          <label>Ativo?</label><select id="servAtivo"><option value="true">Ativo</option><option value="false">Inativo</option></select>
-          <div class="erro" id="erroServ">Preencha Nome, Preço e Duração.</div>
-          <button class="btn-save" id="btnSalvarServ">💾 Cadastrar Serviço</button>
-          <button class="btn-sec full" id="btnCancelarServ" style="display:none">Cancelar edição</button>
-        </div>
-        <div class="card">
-          <h2>Serviços</h2>
-          <input id="buscaServ" placeholder="🔍 Buscar...">
-          <div id="listaServicos"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CLIENTES -->
-    <section id="tela-clientes" class="tela">
-      <div class="grid">
-        <div class="card">
-          <h2>Cadastrar Cliente</h2>
-          <input type="hidden" id="cliId">
-          <label>Nome *</label><input id="cliNome" placeholder="Ex: Carlos Silva">
-          <label>Telefone *</label><input id="cliTelefone" placeholder="(21) 99999-9999">
-          <label>E-mail</label><input id="cliEmail" placeholder="carlos@email.com">
-          <label>Nascimento</label><input id="cliNasc" type="date">
-          <label>Observação</label><input id="cliObs" placeholder="Ex: Prefere degradê">
-          <label>Bloqueado?</label><select id="cliBloqueado"><option value="false">Não</option><option value="true">Sim - Bloqueado</option></select>
-          <div class="erro" id="erroCli">Preencha Nome e Telefone.</div>
-          <button class="btn-save" id="btnSalvarCli">💾 Cadastrar Cliente</button>
-          <button class="btn-sec full" id="btnCancelarCli" style="display:none">Cancelar edição</button>
-        </div>
-        <div>
-          <div class="card"><h2>Clientes</h2><input id="buscaCli" placeholder="🔍 Buscar..."><div id="listaClientes"></div></div>
-          <div class="card" id="boxHistoricoCli" style="display:none"><h2>Histórico - <span id="nomeHistoricoCli"></span></h2><div id="conteudoHistoricoCli"></div><button class="btn-sec full" id="btnFecharHist">Fechar</button></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ESTOQUE -->
-    <section id="tela-estoque" class="tela">
-      <div class="grid">
-        <div class="card">
-          <h2>Cadastrar Produto</h2>
-          <input type="hidden" id="estId">
-          <label>Nome *</label><input id="estNome" placeholder="Ex: Pomada">
-          <div class="row"><div><label>Categoria *</label><input id="estCategoria" list="listaCategoriasEst"><datalist id="listaCategoriasEst"><option value="Pomada"></option><option value="Shampoo"></option><option value="Lâmina"></option><option value="Outros"></option></datalist></div><div><label>Unidade</label><select id="estUnidade"><option>Unidade</option><option>Caixa</option><option>Pacote</option></select></div></div>
-          <div class="row3"><div><label>Qtd *</label><input id="estQtd" type="number"></div><div><label>Mínimo *</label><input id="estMinimo" type="number"></div><div><label>Preço</label><input id="estPreco" type="number" step="0.01"></div></div>
-          <label>Obs</label><input id="estObs">
-          <div class="erro" id="erroEst">Preencha Nome, Categoria, Qtd e Mínimo.</div>
-          <button class="btn-save" id="btnSalvarEst">💾 Cadastrar Produto</button>
-          <button class="btn-sec full" id="btnCancelarEst" style="display:none">Cancelar edição</button>
-        </div>
-        <div class="card">
-          <h2>Estoque</h2>
-          <input id="buscaEst" placeholder="🔍 Buscar...">
-          <div class="flex-gap"><button class="btn-sec" data-filtro-est="todos">Todos</button><button class="btn-sec" data-filtro-est="baixo">⚠️ Abaixo</button><button class="btn-sec" data-filtro-est="zerado">❌ Zerado</button></div>
-          <div id="alertaEst"></div>
-          <div id="listaEstoque"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- AGENDA -->
-    <section id="tela-agenda" class="tela">
-      <div class="grid">
-        <div class="card">
-          <h2>Novo Agendamento</h2>
-          <input type="hidden" id="agId">
-          <label>Cliente *</label>
-          <input id="agClienteBusca" placeholder="🔍 Digite nome ou telefone...">
-          <div id="listaBuscaCliente" class="busca-cliente" style="display:none"></div>
-          <div id="clienteSelecionado" class="cliente-selecionado" style="display:none"></div>
-          <input type="hidden" id="agClienteId">
-          <label>Barbeiro *</label><select id="agBarbeiro"><option value="">Selecione</option></select>
-          <label>Serviço *</label><select id="agServico"><option value="">Selecione</option></select>
-          <div id="infoServico" class="muted pequeno"></div>
-          <div class="row"><div><label>Data *</label><input id="agData" type="date"></div><div><label>Horário *</label><select id="agHora"><option value="">Escolha a data</option></select></div></div>
-          <label>Obs</label><input id="agObs">
-          <div class="erro" id="erroAg">Preencha Cliente, Barbeiro, Serviço, Data e Horário.</div>
-          <button class="btn-save" id="btnSalvarAg">💾 Agendar</button>
-          <button class="btn-sec full" id="btnCancelarAg" style="display:none">Cancelar edição</button>
-        </div>
-        <div class="card">
-          <h2>Agenda do Dia</h2>
-          <input id="agDataFiltro" type="date">
-          <div class="flex-gap"><button class="btn-sec" data-filtro-ag="todos">Todos</button><button class="btn-sec" data-filtro-ag="agendado">Agendado</button><button class="btn-sec" data-filtro-ag="concluido">Concluído</button><button class="btn-sec" data-filtro-ag="cancelado">Cancelado</button></div>
-          <div id="listaAgenda"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- FINANCEIRO -->
-    <section id="tela-financeiro" class="tela">
-      <div class="card">
-        <h2>Resumo</h2>
-        <div class="row3">
-          <div class="box-resumo"><small>Entradas</small><br><b id="finEntradas" class="verde">R$ 0,00</b></div>
-          <div class="box-resumo"><small>Saídas</small><br><b id="finSaidas" class="vermelho">R$ 0,00</b></div>
-          <div class="box-resumo"><small>Saldo</small><br><b id="finSaldo" class="amarelo">R$ 0,00</b></div>
-        </div>
-        <div class="flex-gap"><input id="finDe" type="date" class="auto"><input id="finAte" type="date" class="auto"><button class="btn-sec" id="btnFiltrarFin">Filtrar</button><button class="btn-sec" id="btnLimparFin">Limpar</button></div>
-      </div>
-      <div class="grid">
-        <div>
-          <div class="card">
-            <h2>Lançar</h2>
-            <input type="hidden" id="finId">
-            <label>Tipo</label><select id="finTipo"><option value="entrada">Entrada</option><option value="saida">Saída</option></select>
-            <label>Descrição *</label><input id="finDesc" placeholder="Ex: Corte do João">
-            <div class="row"><div><label>Valor *</label><input id="finValor" type="number" step="0.01"></div><div><label>Data *</label><input id="finData" type="date"></div></div>
-            <div class="row"><div><label>Categoria</label><input id="finCategoria" list="listaCatFin"><datalist id="listaCatFin"></datalist></div><div><label>Forma</label><select id="finForma"><option>Dinheiro</option><option>Pix</option><option>Cartão Crédito</option><option>Cartão Débito</option></select></div></div>
-            <label>Funcionário</label><select id="finFuncionario"><option value="">Nenhum</option></select>
-            <label>Agendamento</label><select id="finAgendamento"><option value="">Nenhum</option></select>
-            <div class="erro" id="erroFin">Preencha Descrição, Valor e Data.</div>
-            <button class="btn-save" id="btnSalvarFin">💾 Lançar</button>
-            <button class="btn-sec full" id="btnCancelarFin" style="display:none">Cancelar</button>
-          </div>
-          <div class="card"><h2>Concluídos sem Lançamento</h2><div id="listaPendenteFin"></div></div>
-        </div>
-        <div class="card">
-          <h2>Lançamentos</h2>
-          <input id="buscaFin" placeholder="🔍 Buscar...">
-          <div class="flex-gap"><button class="btn-sec" data-filtro-fin="todos">Todos</button><button class="btn-sec" data-filtro-fin="entrada">Entradas</button><button class="btn-sec" data-filtro-fin="saida">Saídas</button></div>
-          <div id="listaFinanceiro"></div>
-        </div>
-      </div>
-    </section>
-
-  </main>
+<div id="tela-dashboard" class="tela ativa">
+<div class="card"><h2>Visão Geral - <span id="dashHojeTxt"></span></h2><button class="btn-sec" onclick="atualizarDashboard()">🔄 Atualizar</button>
+<div class="row3" style="margin-top:12px">
+<div style="background:#23232B;border-radius:12px;padding:12px;text-align:center"><small>Faturamento Hoje</small><br><b id="dashFatHoje" style="color:#22C55E;font-size:22px">R$ 0,00</b><br><small id="dashQtdHoje">0 atendimentos</small></div>
+<div style="background:#23232B;border-radius:12px;padding:12px;text-align:center"><small>Faturamento Mês</small><br><b id="dashFatMes" style="color:#FACC15;font-size:22px">R$ 0,00</b><br><small id="dashQtdMes">0 atendimentos</small></div>
+<div style="background:#23232B;border-radius:12px;padding:12px;text-align:center"><small>Saldo Caixa (Mês)</small><br><b id="dashSaldoMes" style="font-size:22px">R$ 0,00</b><br><small id="dashAgHojeTxt">0 agendados hoje</small></div>
+</div></div>
+<div class="grid"><div><div class="card"><h2>Próximos Hoje</h2><div id="dashProximos"></div><button class="btn-sec" style="width:100%;margin-top:10px" onclick="trocarTela('agenda')">Ver Agenda Completa →</button></div><div class="card"><h2>⚠️ Alertas</h2><div id="dashAlertas"></div></div></div>
+<div><div class="card"><h2>Ranking Barbeiros - Mês</h2><div id="dashRanking"></div></div><div class="card"><h2>Top Serviços - Mês</h2><div id="dashTopServ"></div></div></div></div>
 </div>
 
-<!-- MENU DE BAIXO - CELULAR -->
+<div id="tela-config" class="tela"><div class="card"><h2>Configurações</h2>
+<label>Nome da Barbearia *</label><input id="cfgNome" placeholder="Ex: Barbearia do João">
+<label>Telefone</label><input id="cfgTelefone" placeholder="(21) 99999-9999">
+<label>Endereço</label><input id="cfgEndereco" placeholder="Rua, número, bairro">
+<div class="row"><div><label>Intervalo</label><select id="cfgIntervalo"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></div><div><label>Antecedência (horas)</label><input id="cfgAntecedencia" type="number" value="1"></div></div>
+<div class="row"><div><label>Almoço Início</label><input id="cfgAlmocoInicio" type="time" value="12:00"></div><div><label>Almoço Fim</label><input id="cfgAlmocoFim" type="time" value="13:00"></div></div>
+<label>Horários da Semana</label><div id="cfgDias"></div>
+<button class="btn-save" onclick="salvarConfig()">💾 Salvar Configurações</button></div></div>
+
+<div id="tela-funcionarios" class="tela"><div class="grid"><div><div class="card"><h2>Cadastrar Funcionário</h2><input type="hidden" id="funcId">
+<label>Nome *</label><input id="funcNome" placeholder="Ex: João">
+<label>Telefone *</label><input id="funcTelefone" placeholder="(21) 99999-9999">
+<label>Função *</label><input id="funcFuncao" list="listaFuncoes" placeholder="Barbeiro"><datalist id="listaFuncoes"><option value="Barbeiro"></option><option value="Auxiliar"></option><option value="Recepcionista"></option><option value="Gerente"></option></datalist>
+<div class="row"><div><label>Início</label><input id="funcInicio" type="time" value="09:00"></div><div><label>Fim</label><input id="funcFim" type="time" value="19:00"></div></div>
+<div class="row"><div><label>Comissão</label><input id="funcComissao" type="number" placeholder="50"></div><div><label>Tipo</label><select id="funcTipoComissao"><option value="%">% Percentual</option><option value="R$">R$ fixo</option></select></div></div>
+<label>PIN 4 a 6 dígitos *</label><input id="funcPIN" type="password" inputmode="numeric" maxlength="6" placeholder="1234">
+<div class="erro" id="erroFunc">Preencha Nome, Telefone e PIN de 4 a 6 dígitos.</div>
+<button class="btn-save" style="margin-top:14px" onclick="salvarFuncionario()">💾 Cadastrar Funcionário</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarFunc" onclick="cancelarEdicaoFunc()">Cancelar edição</button></div></div>
+<div><div class="card"><h2>Funcionários</h2><input id="buscaFunc" placeholder="🔍 Buscar..." oninput="listarFuncionarios()"><div id="listaFuncionarios" style="margin-top:12px"></div></div></div></div></div>
+
+<div id="tela-servicos" class="tela"><div class="grid"><div><div class="card"><h2>Cadastrar Serviço</h2><input type="hidden" id="servId">
+<label>Nome *</label><input id="servNome" placeholder="Ex: Corte Degradê">
+<div class="row"><div><label>Preço *</label><input id="servPreco" type="number" step="0.01" placeholder="50"></div><div><label>Duração min *</label><input id="servDuracao" type="number" placeholder="30"></div></div>
+<label><input type="checkbox" id="servCombo" onchange="toggleCombo()" style="width:18px"> É Combo?</label>
+<div id="boxCombo" style="display:none;background:#23232B;border-radius:12px;padding:12px;margin-top:10px"><b>Serviços do combo</b><div id="listaComboServicos"></div><small id="infoComboDuracao" style="color:#FACC15">Duração total: 0 min</small></div>
+<label>Quais barbeiros fazem</label><p style="color:#A1A1AA;font-size:12px">Se não marcar nenhum, todos fazem.</p><div id="listaServBarbeiros"></div>
+<label>Ativo?</label><select id="servAtivo"><option value="true">Ativo</option><option value="false">Inativo</option></select>
+<div class="erro" id="erroServ">Preencha Nome, Preço e Duração.</div>
+<button class="btn-save" style="margin-top:14px" onclick="salvarServico()">💾 Cadastrar Serviço</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarServ" onclick="cancelarEdicaoServ()">Cancelar edição</button></div></div>
+<div><div class="card"><h2>Serviços</h2><input id="buscaServ" placeholder="🔍 Buscar..." oninput="listarServicos()"><div id="listaServicos" style="margin-top:12px"></div></div></div></div></div>
+
+<div id="tela-clientes" class="tela"><div class="grid"><div><div class="card"><h2>Cadastrar Cliente</h2><input type="hidden" id="cliId">
+<label>Nome *</label><input id="cliNome" placeholder="Ex: Carlos Silva">
+<label>Telefone *</label><input id="cliTelefone" placeholder="(21) 99999-9999">
+<label>E-mail</label><input id="cliEmail" placeholder="carlos@email.com">
+<label>Nascimento</label><input id="cliNasc" type="date">
+<label>Observação</label><input id="cliObs" placeholder="Ex: Prefere degradê">
+<label>Bloqueado?</label><select id="cliBloqueado"><option value="false">Não</option><option value="true">Sim - Bloqueado</option></select>
+<div class="erro" id="erroCli">Preencha Nome e Telefone.</div>
+<button class="btn-save" style="margin-top:14px" onclick="salvarCliente()">💾 Cadastrar Cliente</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarCli" onclick="cancelarEdicaoCli()">Cancelar edição</button></div></div>
+<div><div class="card"><h2>Clientes</h2><input id="buscaCli" placeholder="🔍 Buscar..." oninput="listarClientes()"><div id="listaClientes" style="margin-top:12px"></div></div><div class="card" id="boxHistoricoCli" style="display:none"><h2>Histórico - <span id="nomeHistoricoCli"></span></h2><div id="conteudoHistoricoCli"></div><button class="btn-sec" style="width:100%;margin-top:10px" onclick="fecharHistoricoCli()">Fechar</button></div></div></div></div>
+
+<div id="tela-estoque" class="tela"><div class="grid"><div><div class="card"><h2>Cadastrar Produto</h2><input type="hidden" id="estId">
+<label>Nome *</label><input id="estNome" placeholder="Ex: Pomada">
+<div class="row"><div><label>Categoria *</label><input id="estCategoria" list="listaCategoriasEst"><datalist id="listaCategoriasEst"><option value="Pomada"></option><option value="Shampoo"></option><option value="Lâmina"></option><option value="Outros"></option></datalist></div><div><label>Unidade</label><select id="estUnidade"><option>Unidade</option><option>Caixa</option><option>Pacote</option></select></div></div>
+<div class="row3"><div><label>Qtd *</label><input id="estQtd" type="number"></div><div><label>Mínimo *</label><input id="estMinimo" type="number"></div><div><label>Preço</label><input id="estPreco" type="number" step="0.01"></div></div>
+<label>Obs</label><input id="estObs">
+<div class="erro" id="erroEst">Preencha Nome, Categoria, Qtd e Mínimo.</div>
+<button class="btn-save" style="margin-top:14px" onclick="salvarEstoque()">💾 Cadastrar Produto</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarEst" onclick="cancelarEdicaoEst()">Cancelar edição</button></div></div>
+<div><div class="card"><h2>Estoque</h2><input id="buscaEst" placeholder="🔍 Buscar..." oninput="listarEstoque()"><div style="display:flex;gap:6px;margin-top:10px"><button class="btn-sec" onclick="filtrarEst('todos',this)">Todos</button><button class="btn-sec" onclick="filtrarEst('baixo',this)">⚠️ Abaixo</button><button class="btn-sec" onclick="filtrarEst('zerado',this)">❌ Zerado</button></div><div id="alertaEst" style="margin-top:12px"></div><div id="listaEstoque" style="margin-top:12px"></div></div></div></div></div>
+
+<div id="tela-agenda" class="tela"><div class="grid"><div><div class="card"><h2>Novo Agendamento</h2><input type="hidden" id="agId">
+<label>Cliente *</label><input id="agClienteBusca" placeholder="🔍 Digite nome ou telefone..." oninput="buscarClienteAgenda()"><div id="listaBuscaCliente" style="display:none;background:#23232B;border:1px solid #FACC15;border-radius:10px;margin-top:6px;max-height:180px;overflow:auto"></div><div id="clienteSelecionado" style="display:none;background:#23232B;border:1px solid #22C55E;border-radius:10px;padding:10px;margin-top:8px"></div><input type="hidden" id="agClienteId">
+<label>Barbeiro *</label><select id="agBarbeiro" onchange="atualizarServicosAgenda()"><option value="">Selecione</option></select>
+<label>Serviço *</label><select id="agServico" onchange="atualizarInfoServico()"><option value="">Selecione</option></select><div id="infoServico" style="color:#A1A1AA;font-size:13px"></div>
+<div class="row"><div><label>Data *</label><input id="agData" type="date" onchange="gerarHorariosAgenda()"></div><div><label>Horário *</label><select id="agHora"><option value="">Escolha a data</option></select></div></div>
+<label>Obs</label><input id="agObs">
+<div class="erro" id="erroAg">Preencha Cliente, Barbeiro, Serviço, Data e Horário.</div>
+<button class="btn-save" style="margin-top:14px" onclick="salvarAgendamento()">💾 Agendar</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarAg" onclick="cancelarEdicaoAg()">Cancelar edição</button></div></div>
+<div><div class="card"><h2>Agenda do Dia</h2><input id="agDataFiltro" type="date" onchange="listarAgenda()"><div style="display:flex;gap:6px;margin-top:10px"><button class="btn-sec" onclick="filtrarAgendaDia('todos',this)">Todos</button><button class="btn-sec" onclick="filtrarAgendaDia('agendado',this)">Agendado</button><button class="btn-sec" onclick="filtrarAgendaDia('concluido',this)">Concluído</button><button class="btn-sec" onclick="filtrarAgendaDia('cancelado',this)">Cancelado</button></div><div id="listaAgenda" style="margin-top:12px"></div></div></div></div></div>
+
+<div id="tela-financeiro" class="tela"><div class="card"><h2>Resumo</h2><div class="row3"><div style="background:#23232B;border-radius:12px;padding:12px;text-align:center"><small>Entradas</small><br><b id="finEntradas" style="color:#22C55E;font-size:20px">R$ 0,00</b></div><div style="background:#23232B;border-radius:12px;padding:12px;text-align:center"><small>Saídas</small><br><b id="finSaidas" style="color:#EF4444;font-size:20px">R$ 0,00</b></div><div style="background:#23232B;border-radius:12px;padding:12px;text-align:center"><small>Saldo</small><br><b id="finSaldo" style="color:#FACC15;font-size:20px">R$ 0,00</b></div></div><div style="display:flex;gap:8px;margin-top:12px"><input id="finDe" type="date" style="width:auto"><input id="finAte" type="date" style="width:auto"><button class="btn-sec" onclick="listarFinanceiro()">Filtrar</button><button class="btn-sec" onclick="limparFiltroFin()">Limpar</button></div></div>
+<div class="grid"><div><div class="card"><h2>Lançar</h2><input type="hidden" id="finId"><label>Tipo</label><select id="finTipo" onchange="atualizarCategoriasFin()"><option value="entrada">Entrada</option><option value="saida">Saída</option></select><label>Descrição *</label><input id="finDesc" placeholder="Ex: Corte do João"><div class="row"><div><label>Valor *</label><input id="finValor" type="number" step="0.01"></div><div><label>Data *</label><input id="finData" type="date"></div></div><div class="row"><div><label>Categoria</label><input id="finCategoria" list="listaCatFin"><datalist id="listaCatFin"></datalist></div><div><label>Forma</label><select id="finForma"><option>Dinheiro</option><option>Pix</option><option>Cartão Crédito</option><option>Cartão Débito</option></select></div></div><label>Funcionário</label><select id="finFuncionario"><option value="">Nenhum</option></select><label>Agendamento</label><select id="finAgendamento"><option value="">Nenhum</option></select><div class="erro" id="erroFin">Preencha Descrição, Valor e Data.</div><button class="btn-save" style="margin-top:14px" onclick="salvarFinanceiro()">💾 Lançar</button><button class="btn-sec" style="width:100%;margin-top:8px;display:none" id="btnCancelarFin" onclick="cancelarEdicaoFin()">Cancelar</button></div><div class="card"><h2>Concluídos sem Lançamento</h2><div id="listaPendenteFin"></div></div></div><div><div class="card"><h2>Lançamentos</h2><input id="buscaFin" placeholder="🔍 Buscar..." oninput="listarFinanceiro()"><div style="display:flex;gap:6px;margin-top:10px"><button class="btn-sec" onclick="filtrarFin('todos',this)">Todos</button><button class="btn-sec" onclick="filtrarFin('entrada',this)">Entradas</button><button class="btn-sec" onclick="filtrarFin('saida',this)">Saídas</button></div><div id="listaFinanceiro" style="margin-top:12px"></div></div></div></div></div>
+
+</div></div>
 <nav>
-  <button class="ativo" data-tela="dashboard">📊 Dashboard</button>
-  <button data-tela="config">⚙️ Config</button>
-  <button data-tela="funcionarios">👨‍🦰 Funcionários</button>
-  <button data-tela="servicos">✂️ Serviços</button>
-  <button data-tela="clientes">👥 Clientes</button>
-  <button data-tela="estoque">📦 Estoque</button>
-  <button data-tela="agenda">📅 Agenda</button>
-  <button data-tela="financeiro">💰 Financeiro</button>
-  <button id="btnSairNav">🚪 Sair</button>
+<button class="ativo" data-menu="dashboard" onclick="trocarTela('dashboard')">📊 Dashboard</button>
+<button data-menu="config" onclick="trocarTela('config')">⚙️ Config</button>
+<button data-menu="funcionarios" onclick="trocarTela('funcionarios')">👨‍🦰 Funcionários</button>
+<button data-menu="servicos" onclick="trocarTela('servicos')">✂️ Serviços</button>
+<button data-menu="clientes" onclick="trocarTela('clientes')">👥 Clientes</button>
+<button data-menu="estoque" onclick="trocarTela('estoque')">📦 Estoque</button>
+<button data-menu="agenda" onclick="trocarTela('agenda')">📅 Agenda</button>
+<button data-menu="financeiro" onclick="trocarTela('financeiro')">💰 Financeiro</button>
+<button onclick="sair()">🚪 Sair</button>
 </nav>
 
-<script src="admin.js"></script>
+<script>
+function lerLocal(c){ try{return JSON.parse(localStorage.getItem(c))||[]}catch(e){return[]} }
+function salvarLocal(c,d){ localStorage.setItem(c,JSON.stringify(d)) }
+function hojeISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0') }
+function fmtBRL(v){ return 'R$ '+Number(v||0).toFixed(2).replace('.',',') }
+function trocarTela(id){
+  var tela=document.getElementById('tela-'+id);
+  if(!tela){ alert('Tela não achada: '+id); return; }
+  document.querySelectorAll('.tela').forEach(function(t){ t.classList.remove('ativa') });
+  tela.classList.add('ativa');
+  document.querySelectorAll('[data-menu]').forEach(function(b){ b.classList.remove('ativo') });
+  document.querySelectorAll('[data-menu="'+id+'"]').forEach(function(b){ b.classList.add('ativo') });
+  if(id==='dashboard') atualizarDashboard();
+  if(id==='agenda'){ carregarBarbeirosAgenda(); listarAgenda(); }
+  if(id==='financeiro'){ carregarSelectsFin(); listarFinanceiro(); listarPendentesFin(); }
+  if(id==='servicos') renderServBarbeiros();
+  window.scrollTo(0,0);
+}
+window.trocarTela=trocarTela;
+function sair(){
+  if(!confirm('Sair do sistema?')) return;
+  document.querySelector('.layout').style.display='none';
+  document.querySelector('nav').style.display='none';
+  document.querySelector('header').style.display='none';
+  var lg=document.getElementById('tela-login');
+  lg.style.display='block';
+  var sel=document.getElementById('loginFunc');
+  sel.innerHTML='';
+  if(funcionarios.length===0){
+    var o=document.createElement('option'); o.value='admin'; o.textContent='Admin - Sem funcionário cadastrado'; sel.appendChild(o);
+  } else {
+    funcionarios.forEach(function(f){ var o=document.createElement('option'); o.value=f.id; o.textContent=f.nome+' - '+f.funcao; sel.appendChild(o); });
+  }
+  document.getElementById('loginPIN').value='';
+  document.getElementById('erroLogin').style.display='none';
+  var cfg=JSON.parse(localStorage.getItem('configBarbearia')||'null');
+  if(cfg && cfg.nome) document.getElementById('nomeLogin').textContent=cfg.nome;
+}
+function entrar(){
+  var id=document.getElementById('loginFunc').value;
+  var pin=document.getElementById('loginPIN').value.trim();
+  if(id==='admin'){ voltarDoLogin(); return; }
+  var f=funcionarios.find(function(x){ return x.id===id });
+  if(!f || f.pin!==pin){ document.getElementById('erroLogin').style.display='block'; return; }
+  voltarDoLogin();
+}
+function voltarDoLogin(){
+  document.getElementById('tela-login').style.display='none';
+  document.querySelector('header').style.display='flex';
+  document.querySelector('.layout').style.display='flex';
+  if(window.innerWidth<=850) document.querySelector('nav').style.display='flex';
+  trocarTela('dashboard');
+}
+var nomesDias=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+function renderDiasConfig(){ var el=document.getElementById('cfgDias'); var cfg=JSON.parse(localStorage.getItem('configBarbearia')||'null'); el.innerHTML=''; nomesDias.forEach(function(nome,i){ var d=cfg&&cfg.dias&&cfg.dias[i]?cfg.dias[i]:{ativo:i!==0,abre:'09:00',fecha:'19:00'}; var div=document.createElement('div'); div.style.cssText='display:grid;grid-template-columns:90px 1fr 1fr 70px;gap:8px;margin-bottom:8px'; div.innerHTML='<b>'+nome+'</b><input type="time" id="diaAbre'+i+'" value="'+d.abre+'"><input type="time" id="diaFecha'+i+'" value="'+d.fecha+'"><label><input type="checkbox" id="diaAtivo'+i+'" '+(d.ativo?'checked':'')+' style="width:20px"> Aberto</label>'; el.appendChild(div); }); }
+function carregarConfig(){ var cfg=JSON.parse(localStorage.getItem('configBarbearia')||'null'); if(!cfg){ renderDiasConfig(); return; } document.getElementById('cfgNome').value=cfg.nome||''; document.getElementById('cfgTelefone').value=cfg.telefone||''; document.getElementById('cfgEndereco').value=cfg.endereco||''; document.getElementById('cfgIntervalo').value=cfg.intervalo||30; document.getElementById('cfgAntecedencia').value=cfg.antecedencia||1; document.getElementById('cfgAlmocoInicio').value=cfg.almocoInicio||'12:00'; document.getElementById('cfgAlmocoFim').value=cfg.almocoFim||'13:00'; document.getElementById('nomeHeader').textContent='💈 '+(cfg.nome||'Barbearia'); renderDiasConfig(); }
+function salvarConfig(){ var dias=[]; for(var i=0;i<7;i++){ dias.push({ativo:document.getElementById('diaAtivo'+i).checked, abre:document.getElementById('diaAbre'+i).value, fecha:document.getElementById('diaFecha'+i).value}); } var cfg={nome:document.getElementById('cfgNome').value.trim(), telefone:document.getElementById('cfgTelefone').value.trim(), endereco:document.getElementById('cfgEndereco').value.trim(), intervalo:document.getElementById('cfgIntervalo').value, antecedencia:document.getElementById('cfgAntecedencia').value, almocoInicio:document.getElementById('cfgAlmocoInicio').value, almocoFim:document.getElementById('cfgAlmocoFim').value, dias:dias}; localStorage.setItem('configBarbearia',JSON.stringify(cfg)); document.getElementById('nomeHeader').textContent='💈 '+(cfg.nome||'Barbearia'); alert('Salvo!'); }
+var funcionarios=lerLocal('funcionarios');
+function salvarFuncionario(){ var nome=document.getElementById('funcNome').value.trim(); var tel=document.getElementById('funcTelefone').value.trim(); var funcao=document.getElementById('funcFuncao').value.trim(); var pin=document.getElementById('funcPIN').value.trim(); var id=document.getElementById('funcId').value; if(!nome||!tel||!/^\d{4,6}$/.test(pin)||!funcao){ document.getElementById('erroFunc').style.display='block'; return; } document.getElementById('erroFunc').style.display='none'; var dados={id:id||Date.now().toString(), nome:nome, telefone:tel, funcao:funcao, inicio:document.getElementById('funcInicio').value, fim:document.getElementById('funcFim').value, comissao:document.getElementById('funcComissao').value, tipoComissao:document.getElementById('funcTipoComissao').value, pin:pin}; if(id){ funcionarios=funcionarios.map(function(f){ return f.id===id?dados:f }); } else { funcionarios.push(dados); } salvarLocal('funcionarios',funcionarios); limparFormFunc(); listarFuncionarios(); }
+function listarFuncionarios(){ var el=document.getElementById('listaFuncionarios'); var busca=(document.getElementById('buscaFunc').value||'').toLowerCase(); var lista=funcionarios.filter(function(f){ return f.nome.toLowerCase().includes(busca) }); if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum funcionário.</p>'; return; } el.innerHTML=''; lista.forEach(function(f){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+f.nome+'</b><br><small>'+f.telefone+' - '+f.funcao+' - '+f.inicio+' às '+f.fim+'</small></div><div class="acoes"><button class="btn-sec" onclick="editarFuncionario(\''+f.id+'\')">Editar</button><button class="btn-danger" onclick="excluirFuncionario(\''+f.id+'\')">Excluir</button></div>'; el.appendChild(div); }); }
+function editarFuncionario(id){ var f=funcionarios.find(function(x){ return x.id===id }); if(!f) return; document.getElementById('funcId').value=f.id; document.getElementById('funcNome').value=f.nome; document.getElementById('funcTelefone').value=f.telefone; document.getElementById('funcFuncao').value=f.funcao; document.getElementById('funcInicio').value=f.inicio; document.getElementById('funcFim').value=f.fim; document.getElementById('funcComissao').value=f.comissao||''; document.getElementById('btnCancelarFunc').style.display='block'; window.scrollTo(0,0); }
+function cancelarEdicaoFunc(){ limparFormFunc(); }
+function limparFormFunc(){ ['funcId','funcNome','funcTelefone','funcFuncao','funcComissao','funcPIN'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('btnCancelarFunc').style.display='none'; }
+function excluirFuncionario(id){ if(!confirm('Excluir?')) return; funcionarios=funcionarios.filter(function(f){ return f.id!==id }); salvarLocal('funcionarios',funcionarios); listarFuncionarios(); }
+var servicos=lerLocal('servicos');
+function toggleCombo(){ document.getElementById('boxCombo').style.display=document.getElementById('servCombo').checked?'block':'none'; if(document.getElementById('servCombo').checked) renderComboServicos(); }
+function renderComboServicos(){ var el=document.getElementById('listaComboServicos'); var atual=document.getElementById('servId').value; var simples=servicos.filter(function(s){ return !s.isCombo && s.id!==atual }); if(!simples.length){ el.innerHTML='<p style="color:#A1A1AA">Cadastre serviços simples primeiro.</p>'; return; } el.innerHTML=''; simples.forEach(function(s){ var div=document.createElement('div'); div.innerHTML='<label style="display:flex;gap:8px"><input type="checkbox" value="'+s.id+'" class="chkCombo" onchange="atualizarDuracaoCombo()" style="width:20px">'+s.nome+' - '+s.duracao+' min</label>'; el.appendChild(div); }); }
+function atualizarDuracaoCombo(){ var total=0; document.querySelectorAll('.chkCombo:checked').forEach(function(c){ var s=servicos.find(function(x){ return x.id===c.value }); if(s) total+=Number(s.duracao||0); }); document.getElementById('infoComboDuracao').textContent='Duração total: '+total+' min'; document.getElementById('servDuracao').value=total||''; }
+function renderServBarbeiros(sel){ sel=sel||[]; var el=document.getElementById('listaServBarbeiros'); if(!funcionarios.length){ el.innerHTML='<p style="color:#A1A1AA">Cadastre funcionários primeiro.</p>'; return; } el.innerHTML=''; funcionarios.forEach(function(f){ var div=document.createElement('div'); div.innerHTML='<label style="display:flex;gap:8px"><input type="checkbox" value="'+f.id+'" class="chkBarbServ" '+(sel.includes(f.id)?'checked':'')+' style="width:20px">'+f.nome+' - '+f.funcao+'</label>'; el.appendChild(div); }); }
+function salvarServico(){ var nome=document.getElementById('servNome').value.trim(); var preco=document.getElementById('servPreco').value; var duracao=document.getElementById('servDuracao').value; var isCombo=document.getElementById('servCombo').checked; var ativo=document.getElementById('servAtivo').value==='true'; var id=document.getElementById('servId').value; if(!nome||!preco||!duracao){ document.getElementById('erroServ').style.display='block'; return; } document.getElementById('erroServ').style.display='none'; var comboIds=[]; if(isCombo){ comboIds=[].map.call(document.querySelectorAll('.chkCombo:checked'), function(c){ return c.value }); } var barbeiros=[].map.call(document.querySelectorAll('.chkBarbServ:checked'), function(c){ return c.value }); var dados={id:id||Date.now().toString(), nome:nome, preco:Number(preco), duracao:Number(duracao), isCombo:isCombo, comboIds:comboIds, barbeiros:barbeiros, ativo:ativo}; if(id){ servicos=servicos.map(function(s){ return s.id===id?dados:s }); } else { servicos.push(dados); } salvarLocal('servicos',servicos); limparFormServ(); listarServicos(); }
+function listarServicos(){ var el=document.getElementById('listaServicos'); var busca=(document.getElementById('buscaServ').value||'').toLowerCase(); var lista=servicos.filter(function(s){ return s.nome.toLowerCase().includes(busca) }); if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum serviço.</p>'; return; } el.innerHTML=''; lista.forEach(function(s){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+s.nome+'</b> '+(s.isCombo?'<span class="tag">COMBO</span>':'')+'<br><small>R$ '+s.preco+' - '+s.duracao+' min - '+(s.ativo?'Ativo':'Inativo')+'</small></div><div class="acoes"><button class="btn-sec" onclick="editarServico(\''+s.id+'\')">Editar</button><button class="btn-sec" onclick="toggleAtivoServ(\''+s.id+'\')">'+(s.ativo?'Desativar':'Ativar')+'</button><button class="btn-danger" onclick="excluirServico(\''+s.id+'\')">Excluir</button></div>'; el.appendChild(div); }); }
+function editarServico(id){ var s=servicos.find(function(x){ return x.id===id }); if(!s) return; document.getElementById('servId').value=s.id; document.getElementById('servNome').value=s.nome; document.getElementById('servPreco').value=s.preco; document.getElementById('servDuracao').value=s.duracao; document.getElementById('servCombo').checked=s.isCombo; document.getElementById('servAtivo').value=s.ativo?'true':'false'; toggleCombo(); renderServBarbeiros(s.barbeiros||[]); document.getElementById('btnCancelarServ').style.display='block'; window.scrollTo(0,0); }
+function cancelarEdicaoServ(){ limparFormServ(); }
+function limparFormServ(){ ['servId','servNome','servPreco','servDuracao'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('servCombo').checked=false; document.getElementById('boxCombo').style.display='none'; document.getElementById('btnCancelarServ').style.display='none'; renderServBarbeiros(); }
+function toggleAtivoServ(id){ servicos=servicos.map(function(s){ return s.id===id?{...s,ativo:!s.ativo}:s }); salvarLocal('servicos',servicos); listarServicos(); }
+function excluirServico(id){ if(!confirm('Excluir?')) return; servicos=servicos.filter(function(s){ return s.id!==id }); salvarLocal('servicos',servicos); listarServicos(); }
+var clientes=lerLocal('clientes');
+function salvarCliente(){ var nome=document.getElementById('cliNome').value.trim(); var tel=document.getElementById('cliTelefone').value.trim(); var id=document.getElementById('cliId').value; if(!nome||!tel){ document.getElementById('erroCli').style.display='block'; return; } document.getElementById('erroCli').style.display='none'; var dados={id:id||Date.now().toString(), nome:nome, telefone:tel, email:document.getElementById('cliEmail').value.trim(), nasc:document.getElementById('cliNasc').value, obs:document.getElementById('cliObs').value.trim(), bloqueado:document.getElementById('cliBloqueado').value==='true'}; if(id){ clientes=clientes.map(function(c){ return c.id===id?dados:c }); } else { clientes.push(dados); } salvarLocal('clientes',clientes); limparFormCli(); listarClientes(); }
+function listarClientes(){ var el=document.getElementById('listaClientes'); var busca=(document.getElementById('buscaCli').value||'').toLowerCase(); var lista=clientes.filter(function(c){ return c.nome.toLowerCase().includes(busca)||c.telefone.includes(busca) }); if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum cliente.</p>'; return; } el.innerHTML=''; lista.forEach(function(c){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+c.nome+'</b> '+(c.bloqueado?'<span class="tag" style="background:#EF4444;color:#fff">BLOQUEADO</span>':'')+'<br><small>'+c.telefone+'</small></div><div class="acoes"><button class="btn-sec" onclick="verHistoricoCli(\''+c.id+'\')">Histórico</button><button class="btn-sec" onclick="editarCliente(\''+c.id+'\')">Editar</button><button class="btn-sec" onclick="toggleBloqueioCli(\''+c.id+'\')">'+(c.bloqueado?'Desbloquear':'Bloquear')+'</button><button class="btn-danger" onclick="excluirCliente(\''+c.id+'\')">Excluir</button></div>'; el.appendChild(div); }); }
+function editarCliente(id){ var c=clientes.find(function(x){ return x.id===id }); if(!c) return; document.getElementById('cliId').value=c.id; document.getElementById('cliNome').value=c.nome; document.getElementById('cliTelefone').value=c.telefone; document.getElementById('cliEmail').value=c.email||''; document.getElementById('cliNasc').value=c.nasc||''; document.getElementById('cliObs').value=c.obs||''; document.getElementById('cliBloqueado').value=c.bloqueado?'true':'false'; document.getElementById('btnCancelarCli').style.display='block'; window.scrollTo(0,0); }
+function cancelarEdicaoCli(){ limparFormCli(); }
+function limparFormCli(){ ['cliId','cliNome','cliTelefone','cliEmail','cliNasc','cliObs'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('btnCancelarCli').style.display='none'; }
+function toggleBloqueioCli(id){ clientes=clientes.map(function(c){ return c.id===id?{...c,bloqueado:!c.bloqueado}:c }); salvarLocal('clientes',clientes); listarClientes(); }
+function excluirCliente(id){ if(!confirm('Excluir?')) return; clientes=clientes.filter(function(c){ return c.id!==id }); salvarLocal('clientes',clientes); listarClientes(); }
+function verHistoricoCli(id){ var c=clientes.find(function(x){ return x.id===id }); if(!c) return; var ags=lerLocal('agendamentos').filter(function(a){ return a.clienteId===c.id }); document.getElementById('boxHistoricoCli').style.display='block'; document.getElementById('nomeHistoricoCli').textContent=c.nome; var box=document.getElementById('conteudoHistoricoCli'); if(!ags.length){ box.innerHTML='<p style="color:#A1A1AA">Nenhum agendamento.</p>'; return; } box.innerHTML=ags.map(function(a){ return '<div style="background:#23232B;padding:10px;border-radius:10px;margin-bottom:8px"><b>'+a.servicoNome+'</b><br><small>'+a.data+' '+a.hora+' - '+a.status+' - R$ '+a.preco+'</small></div>' }).join(''); }
+function fecharHistoricoCli(){ document.getElementById('boxHistoricoCli').style.display='none'; }
+var estoque=lerLocal('estoque'); var filtroEstAtual='todos';
+function salvarEstoque(){ var nome=document.getElementById('estNome').value.trim(); var cat=document.getElementById('estCategoria').value.trim(); var qtd=document.getElementById('estQtd').value; var min=document.getElementById('estMinimo').value; var id=document.getElementById('estId').value; if(!nome||!cat||qtd===''||min===''){ document.getElementById('erroEst').style.display='block'; return; } document.getElementById('erroEst').style.display='none'; var dados={id:id||Date.now().toString(), nome:nome, categoria:cat, unidade:document.getElementById('estUnidade').value, qtd:Number(qtd), minimo:Number(min), preco:Number(document.getElementById('estPreco').value||0), obs:document.getElementById('estObs').value.trim()}; if(id){ estoque=estoque.map(function(e){ return e.id===id?dados:e }); } else { estoque.push(dados); } salvarLocal('estoque',estoque); limparFormEst(); listarEstoque(); }
+function listarEstoque(){ var el=document.getElementById('listaEstoque'); var busca=(document.getElementById('buscaEst').value||'').toLowerCase(); var lista=estoque.filter(function(e){ return e.nome.toLowerCase().includes(busca)||e.categoria.toLowerCase().includes(busca) }); if(filtroEstAtual==='baixo') lista=lista.filter(function(e){ return e.qtd<=e.minimo && e.qtd>0 }); if(filtroEstAtual==='zerado') lista=lista.filter(function(e){ return e.qtd===0 }); var baixo=estoque.filter(function(e){ return e.qtd<=e.minimo }); document.getElementById('alertaEst').innerHTML=baixo.length?'<div style="background:#3A1A1A;padding:10px;border-radius:10px;color:#FCA5A5">⚠️ '+baixo.length+' abaixo do mínimo</div>':'<p style="color:#22C55E">✅ Estoque ok</p>'; if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum produto.</p>'; return; } el.innerHTML=''; lista.forEach(function(e){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+e.nome+'</b><br><small>'+e.categoria+' - Qtd: '+e.qtd+' | Mín: '+e.minimo+' | R$ '+e.preco+'</small></div><div class="acoes"><button class="btn-sec" onclick="ajustarEst(\''+e.id+'\',1)">+1</button><button class="btn-sec" onclick="ajustarEst(\''+e.id+'\',-1)">-1</button><button class="btn-sec" onclick="editarEstoque(\''+e.id+'\')">Editar</button><button class="btn-danger" onclick="excluirEstoque(\''+e.id+'\')">Excluir</button></div>'; el.appendChild(div); }); }
+function filtrarEst(t,btn){ filtroEstAtual=t; listarEstoque(); }
+function ajustarEst(id,d){ estoque=estoque.map(function(e){ if(e.id!==id) return e; var n=e.qtd+d; if(n<0) n=0; return {...e,qtd:n} }); salvarLocal('estoque',estoque); listarEstoque(); }
+function editarEstoque(id){ var e=estoque.find(function(x){ return x.id===id }); if(!e) return; document.getElementById('estId').value=e.id; document.getElementById('estNome').value=e.nome; document.getElementById('estCategoria').value=e.categoria; document.getElementById('estQtd').value=e.qtd; document.getElementById('estMinimo').value=e.minimo; document.getElementById('estPreco').value=e.preco; document.getElementById('estObs').value=e.obs||''; document.getElementById('btnCancelarEst').style.display='block'; }
+function cancelarEdicaoEst(){ limparFormEst(); }
+function limparFormEst(){ ['estId','estNome','estCategoria','estQtd','estMinimo','estPreco','estObs'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('btnCancelarEst').style.display='none'; }
+function excluirEstoque(id){ if(!confirm('Excluir?')) return; estoque=estoque.filter(function(e){ return e.id!==id }); salvarLocal('estoque',estoque); listarEstoque(); }
+var agendamentos=lerLocal('agendamentos'); var filtroAgendaAtual='todos';
+function buscarClienteAgenda(){ var busca=document.getElementById('agClienteBusca').value.trim().toLowerCase(); var box=document.getElementById('listaBuscaCliente'); if(!busca){ box.style.display='none'; return; } var ach=clientes.filter(function(c){ return c.nome.toLowerCase().includes(busca)||c.telefone.includes(busca) }); if(!ach.length){ box.innerHTML='<p style="padding:10px">Nenhum cliente. Cadastre no Módulo Clientes.</p>'; box.style.display='block'; return; } box.innerHTML=''; ach.forEach(function(c){ var d=document.createElement('div'); d.style.cssText='padding:10px;border-bottom:1px solid #333;cursor:pointer'; d.innerHTML='<b>'+c.nome+'</b><br><small>'+c.telefone+'</small>'; d.onclick=function(){ selecionarClienteAgenda(c.id) }; box.appendChild(d); }); box.style.display='block'; }
+function selecionarClienteAgenda(id){ var c=clientes.find(function(x){ return x.id===id }); if(!c) return; if(c.bloqueado){ alert('Cliente bloqueado!'); return; } document.getElementById('agClienteId').value=c.id; document.getElementById('agClienteBusca').value=c.nome; document.getElementById('listaBuscaCliente').style.display='none'; var box=document.getElementById('clienteSelecionado'); box.style.display='block'; box.innerHTML='✅ <b>'+c.nome+'</b> - '+c.telefone; }
+function carregarBarbeirosAgenda(){ var sel=document.getElementById('agBarbeiro'); var atual=sel.value; sel.innerHTML='<option value="">Selecione</option>'; funcionarios.forEach(function(f){ var o=document.createElement('option'); o.value=f.id; o.textContent=f.nome+' - '+f.funcao; sel.appendChild(o); }); if(atual) sel.value=atual; }
+function atualizarServicosAgenda(){ var barb=document.getElementById('agBarbeiro').value; var sel=document.getElementById('agServico'); sel.innerHTML='<option value="">Selecione</option>'; servicos.filter(function(s){ return s.ativo }).forEach(function(s){ if(s.barbeiros&&s.barbeiros.length&&!s.barbeiros.includes(barb)) return; var o=document.createElement('option'); o.value=s.id; o.textContent=s.nome+' - R$ '+s.preco+' - '+s.duracao+' min'; sel.appendChild(o); }); gerarHorariosAgenda(); }
+function atualizarInfoServico(){ var s=servicos.find(function(x){ return x.id===document.getElementById('agServico').value }); document.getElementById('infoServico').textContent=s?(s.nome+' | R$ '+s.preco+' | '+s.duracao+' min'):''; gerarHorariosAgenda(); }
+function gerarHorariosAgenda(){ var dataVal=document.getElementById('agData').value; var sel=document.getElementById('agHora'); var barbId=document.getElementById('agBarbeiro').value; var servId=document.getElementById('agServico').value; if(!dataVal||!barbId){ sel.innerHTML='<option value="">Escolha barbeiro e data</option>'; return; } var cfg=JSON.parse(localStorage.getItem('configBarbearia')||'null'); var data=new Date(dataVal+'T12:00:00'); var dia=data.getDay(); var abre='09:00', fecha='19:00', intervalo=30, almI='12:00', almF='13:00', ativo=true; if(cfg){ var d=cfg.dias?cfg.dias[dia]:null; if(d){ abre=d.abre; fecha=d.fecha; ativo=d.ativo; } intervalo=Number(cfg.intervalo)||30; almI=cfg.almocoInicio||almI; almF=cfg.almocoFim||almF; } var func=funcionarios.find(function(f){ return f.id===barbId }); if(func){ if(func.inicio) abre=func.inicio; if(func.fim) fecha=func.fim; } if(!ativo){ sel.innerHTML='<option value="">Fechado nesse dia</option>'; return; } var serv=servicos.find(function(s){ return s.id===servId }); var dur=serv?Number(serv.duracao):intervalo; var slots=[]; var parts=abre.split(':'); var cur=Number(parts[0])*60+Number(parts[1]); var fp=fecha.split(':'); var fimMin=Number(fp[0])*60+Number(fp[1]); var ap=almI.split(':'); var almIMin=Number(ap[0])*60+Number(ap[1]); var bp=almF.split(':'); var almFMin=Number(bp[0])*60+Number(bp[1]); var ocup=agendamentos.filter(function(a){ return a.data===dataVal && a.barbeiroId===barbId && a.status!=='cancelado' }); while(cur+dur<=fimMin){ var conflita=false; if(cur<almFMin && cur+dur>almIMin) conflita=true; for(var i=0;i<ocup.length;i++){ var hp=ocup[i].hora.split(':'); var ini=Number(hp[0])*60+Number(hp[1]); var dd=Number(ocup[i].duracao||30); if(cur<ini+dd && cur+dur>ini) conflita=true; } if(!conflita) slots.push(String(Math.floor(cur/60)).padStart(2,'0')+':'+String(cur%60).padStart(2,'0')); cur+=intervalo; } if(!slots.length){ sel.innerHTML='<option value="">Sem horário livre</option>'; return; } sel.innerHTML='<option value="">Selecione</option>'+slots.map(function(s){ return '<option value="'+s+'">'+s+'</option>' }).join(''); }
+function salvarAgendamento(){ var cid=document.getElementById('agClienteId').value; var bid=document.getElementById('agBarbeiro').value; var sid=document.getElementById('agServico').value; var data=document.getElementById('agData').value; var hora=document.getElementById('agHora').value; var id=document.getElementById('agId').value; if(!cid||!bid||!sid||!data||!hora){ document.getElementById('erroAg').style.display='block'; return; } document.getElementById('erroAg').style.display='none'; var cli=clientes.find(function(c){ return c.id===cid }); var barb=funcionarios.find(function(f){ return f.id===bid }); var serv=servicos.find(function(s){ return s.id===sid }); var dados={id:id||Date.now().toString(), clienteId:cid, clienteNome:cli.nome, telefone:cli.telefone, barbeiroId:bid, barbeiroNome:barb.nome, servicoId:sid, servicoNome:serv.nome, preco:serv.preco, duracao:serv.duracao, data:data, hora:hora, obs:document.getElementById('agObs').value.trim(), status:'agendado'}; if(id){ var ant=agendamentos.find(function(a){ return a.id===id }); dados.status=ant?ant.status:'agendado'; agendamentos=agendamentos.map(function(a){ return a.id===id?dados:a }); } else { agendamentos.push(dados); } salvarLocal('agendamentos',agendamentos); limparFormAg(); listarAgenda(); alert('Agendado!'); }
+function listarAgenda(){ var el=document.getElementById('listaAgenda'); var filtro=document.getElementById('agDataFiltro').value||hojeISO(); document.getElementById('agDataFiltro').value=filtro; var lista=agendamentos.filter(function(a){ return a.data===filtro }); if(filtroAgendaAtual!=='todos') lista=lista.filter(function(a){ return a.status===filtroAgendaAtual }); lista.sort(function(a,b){ return a.hora.localeCompare(b.hora) }); if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum agendamento.</p>'; return; } el.innerHTML=''; lista.forEach(function(a){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+a.hora+' - '+a.clienteNome+'</b><br><small>'+a.servicoNome+' - '+a.barbeiroNome+' - R$ '+a.preco+'</small><br><small>'+a.status+'</small></div><div class="acoes">'+(a.status==='agendado'?'<button class="btn-sec" onclick="concluirAg(\''+a.id+'\')">Concluir</button><button class="btn-sec" onclick="editarAg(\''+a.id+'\')">Editar</button><button class="btn-danger" onclick="cancelarAg(\''+a.id+'\')">Cancelar</button>':'')+(a.status==='cancelado'?'<button class="btn-sec" onclick="reativarAg(\''+a.id+'\')">Reativar</button>':'')+'</div>'; el.appendChild(div); }); }
+function filtrarAgendaDia(t,btn){ filtroAgendaAtual=t; listarAgenda(); }
+function concluirAg(id){ agendamentos=agendamentos.map(function(a){ return a.id===id?{...a,status:'concluido'}:a }); salvarLocal('agendamentos',agendamentos); listarAgenda(); }
+function cancelarAg(id){ if(!confirm('Cancelar?')) return; agendamentos=agendamentos.map(function(a){ return a.id===id?{...a,status:'cancelado'}:a }); salvarLocal('agendamentos',agendamentos); listarAgenda(); }
+function reativarAg(id){ agendamentos=agendamentos.map(function(a){ return a.id===id?{...a,status:'agendado'}:a }); salvarLocal('agendamentos',agendamentos); listarAgenda(); }
+function editarAg(id){ var a=agendamentos.find(function(x){ return x.id===id }); if(!a) return; document.getElementById('agId').value=a.id; document.getElementById('agClienteId').value=a.clienteId; document.getElementById('agClienteBusca').value=a.clienteNome; carregarBarbeirosAgenda(); document.getElementById('agBarbeiro').value=a.barbeiroId; atualizarServicosAgenda(); setTimeout(function(){ document.getElementById('agServico').value=a.servicoId; document.getElementById('agData').value=a.data; gerarHorariosAgenda(); setTimeout(function(){ document.getElementById('agHora').value=a.hora },50); },50); document.getElementById('btnCancelarAg').style.display='block'; }
+function cancelarEdicaoAg(){ limparFormAg(); }
+function limparFormAg(){ ['agId','agClienteId','agClienteBusca','agServico','agData','agHora','agObs'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('clienteSelecionado').style.display='none'; document.getElementById('btnCancelarAg').style.display='none'; carregarBarbeirosAgenda(); }
+var financeiro=lerLocal('financeiro'); var filtroFinAtual='todos';
+function atualizarCategoriasFin(){ var dl=document.getElementById('listaCatFin'); dl.innerHTML=''; ['Corte','Barba','Combo','Produto','Aluguel','Material','Comissão','Outros'].forEach(function(c){ var o=document.createElement('option'); o.value=c; dl.appendChild(o); }); }
+function carregarSelectsFin(){ var selF=document.getElementById('finFuncionario'); selF.innerHTML='<option value="">Nenhum</option>'; funcionarios.forEach(function(f){ var o=document.createElement('option'); o.value=f.id; o.textContent=f.nome; selF.appendChild(o); }); var selA=document.getElementById('finAgendamento'); selA.innerHTML='<option value="">Nenhum</option>'; agendamentos.filter(function(a){ return a.status==='concluido' }).slice().reverse().slice(0,50).forEach(function(a){ var o=document.createElement('option'); o.value=a.id; o.textContent=a.data+' '+a.hora+' - '+a.clienteNome+' - R$ '+a.preco; selA.appendChild(o); }); }
+function salvarFinanceiro(){ var desc=document.getElementById('finDesc').value.trim(); var valor=document.getElementById('finValor').value; var data=document.getElementById('finData').value; var id=document.getElementById('finId').value; if(!desc||!valor||!data){ document.getElementById('erroFin').style.display='block'; return; } document.getElementById('erroFin').style.display='none'; var dados={id:id||Date.now().toString(), tipo:document.getElementById('finTipo').value, desc:desc, valor:Number(valor), data:data, categoria:document.getElementById('finCategoria').value||'Outros', forma:document.getElementById('finForma').value, funcId:document.getElementById('finFuncionario').value, agId:document.getElementById('finAgendamento').value}; if(id){ financeiro=financeiro.map(function(f){ return f.id===id?dados:f }); } else { financeiro.push(dados); } salvarLocal('financeiro',financeiro); limparFormFin(); listarFinanceiro(); listarPendentesFin(); }
+function listarFinanceiro(){ var el=document.getElementById('listaFinanceiro'); var busca=(document.getElementById('buscaFin').value||'').toLowerCase(); var de=document.getElementById('finDe').value; var ate=document.getElementById('finAte').value; var lista=financeiro.filter(function(f){ return f.desc.toLowerCase().includes(busca) }); if(filtroFinAtual!=='todos') lista=lista.filter(function(f){ return f.tipo===filtroFinAtual }); if(de) lista=lista.filter(function(f){ return f.data>=de }); if(ate) lista=lista.filter(function(f){ return f.data<=ate }); lista.sort(function(a,b){ return b.data.localeCompare(a.data) }); var ent=0, sai=0; lista.forEach(function(f){ if(f.tipo==='entrada') ent+=Number(f.valor); else sai+=Number(f.valor); }); document.getElementById('finEntradas').textContent=fmtBRL(ent); document.getElementById('finSaidas').textContent=fmtBRL(sai); document.getElementById('finSaldo').textContent=fmtBRL(ent-sai); if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum lançamento.</p>'; return; } el.innerHTML=''; lista.forEach(function(f){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+f.desc+'</b><br><small>'+f.data+' - '+f.categoria+' - '+f.forma+'</small></div><div><b style="color:'+(f.tipo==='entrada'?'#22C55E':'#EF4444')+'">'+(f.tipo==='entrada'?'+':'-')+' '+fmtBRL(f.valor)+'</b><br><button class="btn-sec" onclick="editarFin(\''+f.id+'\')">Editar</button> <button class="btn-danger" onclick="excluirFin(\''+f.id+'\')">Excluir</button></div>'; el.appendChild(div); }); }
+function listarPendentesFin(){ var el=document.getElementById('listaPendenteFin'); var ja=new Set(financeiro.filter(function(f){ return f.agId }).map(function(f){ return f.agId })); var pend=agendamentos.filter(function(a){ return a.status==='concluido' && !ja.has(a.id) }); if(!pend.length){ el.innerHTML='<p style="color:#22C55E">✅ Tudo lançado.</p>'; return; } el.innerHTML=''; pend.slice().reverse().forEach(function(a){ var div=document.createElement('div'); div.style.cssText='background:#23232B;padding:10px;border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between'; div.innerHTML='<div><b>'+a.clienteNome+'</b><br><small>'+a.data+' '+a.hora+' - '+a.servicoNome+' - R$ '+a.preco+'</small></div><button class="btn-sec" onclick="lancarAgendamentoFin(\''+a.id+'\')">Lançar</button>'; el.appendChild(div); }); }
+function lancarAgendamentoFin(agId){ var a=agendamentos.find(function(x){ return x.id===agId }); if(!a) return; document.getElementById('finTipo').value='entrada'; document.getElementById('finDesc').value=a.servicoNome+' - '+a.clienteNome; document.getElementById('finValor').value=a.preco; document.getElementById('finData').value=a.data; document.getElementById('finCategoria').value='Corte'; document.getElementById('finAgendamento').value=a.id; alert('Preenchido! Aperta Lançar.'); }
+function filtrarFin(t,btn){ filtroFinAtual=t; listarFinanceiro(); }
+function limparFiltroFin(){ document.getElementById('finDe').value=''; document.getElementById('finAte').value=''; filtroFinAtual='todos'; listarFinanceiro(); }
+function editarFin(id){ var f=financeiro.find(function(x){ return x.id===id }); if(!f) return; document.getElementById('finId').value=f.id; document.getElementById('finTipo').value=f.tipo; document.getElementById('finDesc').value=f.desc; document.getElementById('finValor').value=f.valor; document.getElementById('finData').value=f.data; document.getElementById('finCategoria').value=f.categoria; document.getElementById('btnCancelarFin').style.display='block'; }
+function cancelarEdicaoFin(){ limparFormFin(); }
+function limparFormFin(){ ['finId','finDesc','finValor','finCategoria'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('finData').value=hojeISO(); document.getElementById('btnCancelarFin').style.display='none'; }
+function excluirFin(id){ if(!confirm('Excluir?')) return; financeiro=financeiro.filter(function(f){ return f.id!==id }); salvarLocal('financeiro',financeiro); listarFinanceiro(); listarPendentesFin(); }
+function atualizarDashboard(){ var hoje=hojeISO(); var mes=hoje.slice(0,7); document.getElementById('dashHojeTxt').textContent=new Date(hoje+'T12:00:00').toLocaleDateString('pt-BR'); var hojeConc=agendamentos.filter(function(a){ return a.data===hoje && a.status==='concluido' }); var fatHoje=hojeConc.reduce(function(s,a){ return s+Number(a.preco||0) },0); document.getElementById('dashFatHoje').textContent=fmtBRL(fatHoje); document.getElementById('dashQtdHoje').textContent=hojeConc.length+' atendimentos'; var hojeAg=agendamentos.filter(function(a){ return a.data===hoje && a.status==='agendado' }); document.getElementById('dashAgHojeTxt').textContent=hojeAg.length+' agendados hoje'; var finsMes=financeiro.filter(function(f){ return (f.data||'').slice(0,7)===mes }); var ent=0, sai=0; finsMes.forEach(function(f){ if(f.tipo==='entrada') ent+=Number(f.valor); else sai+=Number(f.valor); }); var mesConc=agendamentos.filter(function(a){ return (a.data||'').slice(0,7)===mes && a.status==='concluido' }); var fatMes=Math.max(ent, mesConc.reduce(function(s,a){ return s+Number(a.preco||0) },0)); document.getElementById('dashFatMes').textContent=fmtBRL(fatMes); document.getElementById('dashQtdMes').textContent=mesConc.length+' atendimentos'; document.getElementById('dashSaldoMes').textContent=fmtBRL(ent-sai); var baixo=estoque.filter(function(e){ return e.qtd<=e.minimo }); document.getElementById('dashProximos').innerHTML=hojeAg.length?hojeAg.sort(function(a,b){ return a.hora.localeCompare(b.hora) }).slice(0,5).map(function(a){ return '<div style="background:#23232B;padding:10px;border-radius:10px;margin-bottom:8px"><b>'+a.hora+' - '+a.clienteNome+'</b><br><small>'+a.servicoNome+' - R$ '+a.preco+'</small></div>' }).join(''):'<p style="color:#A1A1AA">Nenhum agendamento hoje.</p>'; document.getElementById('dashAlertas').innerHTML=baixo.length?'<div style="background:#23232B;padding:10px;border-radius:10px">⚠️ '+baixo.length+' produto(s) abaixo do mínimo</div>':'<div>✅ Tudo certo</div>'; var porBarb={}; mesConc.forEach(function(a){ if(!porBarb[a.barbeiroNome]) porBarb[a.barbeiroNome]={total:0,qtd:0}; porBarb[a.barbeiroNome].total+=Number(a.preco||0); porBarb[a.barbeiroNome].qtd++; }); document.getElementById('dashRanking').innerHTML=Object.keys(porBarb).length?Object.entries(porBarb).sort(function(a,b){ return b[1].total-a[1].total }).map(function(e,i){ return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #333"><span>'+(i+1)+'º '+e[0]+'</span><span>'+fmtBRL(e[1].total)+' - '+e[1].qtd+' atend.</span></div>' }).join(''):'<p style="color:#A1A1AA">Nenhum atendimento no mês.</p>'; var porServ={}; mesConc.forEach(function(a){ if(!porServ[a.servicoNome]) porServ[a.servicoNome]={qtd:0,total:0}; porServ[a.servicoNome].qtd++; porServ[a.servicoNome].total+=Number(a.preco||0); }); document.getElementById('dashTopServ').innerHTML=Object.keys(porServ).length?Object.entries(porServ).sort(function(a,b){ return b[1].qtd-a[1].qtd }).slice(0,5).map(function(e,i){ return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #333"><span>'+(i+1)+'º '+e[0]+'</span><span>'+e[1].qtd+'x - '+fmtBRL(e[1].total)+'</span></div>' }).join(''):'<p style="color:#A1A1AA">Nenhum serviço no mês.</p>'; }
+carregarConfig(); listarFuncionarios(); renderServBarbeiros(); listarServicos(); listarClientes(); listarEstoque();
+document.getElementById('agData').value=hojeISO(); document.getElementById('agDataFiltro').value=hojeISO(); carregarBarbeirosAgenda(); listarAgenda();
+document.getElementById('finData').value=hojeISO(); atualizarCategoriasFin(); carregarSelectsFin(); listarFinanceiro(); listarPendentesFin();
+atualizarDashboard();
+document.getElementById('loginPIN').addEventListener('keydown', function(e){ if(e.key==='Enter') entrar(); });
+</script>
 </body>
 </html>
