@@ -1,128 +1,667 @@
-function lerLocal(c){ try{return JSON.parse(localStorage.getItem(c))||[]}catch(e){return[]} }
-function salvarLocal(c,d){ localStorage.setItem(c,JSON.stringify(d)) }
-function hojeISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0') }
-function fmtBRL(v){ return 'R$ '+Number(v||0).toFixed(2).replace('.',',') }
+// ---------- AJUDANTES ----------
+function lerLocal(chave){
+  try{ return JSON.parse(localStorage.getItem(chave)) || []; }catch(e){ return []; }
+}
+function salvarLocal(chave, dados){ localStorage.setItem(chave, JSON.stringify(dados)); }
+function hojeISO(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function fmtBRL(v){ return 'R$ ' + Number(v||0).toFixed(2).replace('.', ','); }
+function el(id){ return document.getElementById(id); }
+function mostrarErro(id){ el(id).style.display = 'block'; }
+function esconderErro(id){ el(id).style.display = 'none'; }
+
+// ---------- DADOS ----------
+let funcionarios = lerLocal('funcionarios');
+let servicos = lerLocal('servicos');
+let clientes = lerLocal('clientes');
+let estoque = lerLocal('estoque');
+let agendamentos = lerLocal('agendamentos');
+let financeiro = lerLocal('financeiro');
+let filtroEst = 'todos';
+let filtroAg = 'todos';
+let filtroFin = 'todos';
+
+// ---------- NAVEGAÇÃO ----------
 function trocarTela(id){
-  var tela=document.getElementById('tela-'+id);
-  if(!tela){ alert('Tela não achada: '+id); return; }
-  document.querySelectorAll('.tela').forEach(function(t){ t.classList.remove('ativa') });
+  const tela = el('tela-' + id);
+  if(!tela) return;
+  document.querySelectorAll('.tela').forEach(t => t.classList.remove('ativa'));
   tela.classList.add('ativa');
-  document.querySelectorAll('[data-menu]').forEach(function(b){ b.classList.remove('ativo') });
-  document.querySelectorAll('[data-menu="'+id+'"]').forEach(function(b){ b.classList.add('ativo') });
-  if(id==='dashboard') atualizarDashboard();
-  if(id==='agenda'){ carregarBarbeirosAgenda(); listarAgenda(); }
-  if(id==='financeiro'){ carregarSelectsFin(); listarFinanceiro(); listarPendentesFin(); }
-  if(id==='servicos') renderServBarbeiros();
+  document.querySelectorAll('[data-tela]').forEach(b => b.classList.remove('ativo'));
+  document.querySelectorAll('[data-tela="' + id + '"]').forEach(b => b.classList.add('ativo'));
+  if(id === 'dashboard') atualizarDashboard();
+  if(id === 'agenda'){ carregarBarbeirosAgenda(); listarAgenda(); }
+  if(id === 'financeiro'){ carregarSelectsFin(); listarFinanceiro(); listarPendentesFin(); }
+  if(id === 'servicos') renderServBarbeiros([]);
   window.scrollTo(0,0);
 }
+
+// ---------- LOGIN / SAIR ----------
 function sair(){
   if(!confirm('Sair do sistema?')) return;
-  document.querySelector('.layout').style.display='none';
-  document.querySelector('nav').style.display='none';
-  document.querySelector('header').style.display='none';
-  var lg=document.getElementById('tela-login');
-  lg.style.display='block';
-  var sel=document.getElementById('loginFunc');
-  sel.innerHTML='';
-  if(funcionarios.length===0){
-    var o=document.createElement('option'); o.value='admin'; o.textContent='Admin - Sem funcionário cadastrado'; sel.appendChild(o);
+  el('layoutPrincipal').style.display = 'none';
+  document.querySelector('nav').style.display = 'none';
+  document.querySelector('header').style.display = 'none';
+  const lg = el('tela-login');
+  lg.style.display = 'block';
+  const sel = el('loginFunc');
+  sel.innerHTML = '';
+  if(funcionarios.length === 0){
+    const o = document.createElement('option');
+    o.value = 'admin'; o.textContent = 'Admin - Sem funcionário cadastrado';
+    sel.appendChild(o);
   } else {
-    funcionarios.forEach(function(f){ var o=document.createElement('option'); o.value=f.id; o.textContent=f.nome+' - '+f.funcao; sel.appendChild(o); });
+    funcionarios.forEach(f => {
+      const o = document.createElement('option');
+      o.value = f.id; o.textContent = f.nome + ' - ' + f.funcao;
+      sel.appendChild(o);
+    });
   }
-  document.getElementById('loginPIN').value='';
-  document.getElementById('erroLogin').style.display='none';
-  var cfg=JSON.parse(localStorage.getItem('configBarbearia')||'null');
-  if(cfg && cfg.nome) document.getElementById('nomeLogin').textContent=cfg.nome;
+  el('loginPIN').value = '';
+  el('erroLogin').style.display = 'none';
+  const cfg = JSON.parse(localStorage.getItem('configBarbearia') || 'null');
+  if(cfg && cfg.nome) el('nomeLogin').textContent = cfg.nome;
 }
 function entrar(){
-  var id=document.getElementById('loginFunc').value;
-  var pin=document.getElementById('loginPIN').value.trim();
-  if(id==='admin'){ voltarDoLogin(); return; }
-  var f=funcionarios.find(function(x){ return x.id===id });
-  if(!f || f.pin!==pin){ document.getElementById('erroLogin').style.display='block'; return; }
+  const id = el('loginFunc').value;
+  const pin = el('loginPIN').value.trim();
+  if(id === 'admin'){ voltarDoLogin(); return; }
+  const f = funcionarios.find(x => x.id === id);
+  if(!f || f.pin !== pin){ el('erroLogin').style.display = 'block'; return; }
   voltarDoLogin();
 }
 function voltarDoLogin(){
-  document.getElementById('tela-login').style.display='none';
-  document.querySelector('header').style.display='flex';
-  document.querySelector('.layout').style.display='flex';
-  if(window.innerWidth<=850) document.querySelector('nav').style.display='flex';
+  el('tela-login').style.display = 'none';
+  document.querySelector('header').style.display = 'flex';
+  el('layoutPrincipal').style.display = 'flex';
+  if(window.innerWidth <= 850) document.querySelector('nav').style.display = 'flex';
   trocarTela('dashboard');
 }
-var nomesDias=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-function renderDiasConfig(){ var el=document.getElementById('cfgDias'); var cfg=JSON.parse(localStorage.getItem('configBarbearia')||'null'); el.innerHTML=''; nomesDias.forEach(function(nome,i){ var d=cfg&&cfg.dias&&cfg.dias[i]?cfg.dias[i]:{ativo:i!==0,abre:'09:00',fecha:'19:00'}; var div=document.createElement('div'); div.style.cssText='display:grid;grid-template-columns:90px 1fr 1fr 70px;gap:8px;margin-bottom:8px'; div.innerHTML='<b>'+nome+'</b><input type="time" id="diaAbre'+i+'" value="'+d.abre+'"><input type="time" id="diaFecha'+i+'" value="'+d.fecha+'"><label><input type="checkbox" id="diaAtivo'+i+'" '+(d.ativo?'checked':'')+' style="width:20px"> Aberto</label>'; el.appendChild(div); }); }
-function carregarConfig(){ var cfg=JSON.parse(localStorage.getItem('configBarbearia')||'null'); if(!cfg){ renderDiasConfig(); return; } document.getElementById('cfgNome').value=cfg.nome||''; document.getElementById('cfgTelefone').value=cfg.telefone||''; document.getElementById('cfgEndereco').value=cfg.endereco||''; document.getElementById('cfgIntervalo').value=cfg.intervalo||30; document.getElementById('cfgAntecedencia').value=cfg.antecedencia||1; document.getElementById('cfgAlmocoInicio').value=cfg.almocoInicio||'12:00'; document.getElementById('cfgAlmocoFim').value=cfg.almocoFim||'13:00'; document.getElementById('nomeHeader').textContent='💈 '+(cfg.nome||'Barbearia'); renderDiasConfig(); }
-function salvarConfig(){ var dias=[]; for(var i=0;i<7;i++){ dias.push({ativo:document.getElementById('diaAtivo'+i).checked, abre:document.getElementById('diaAbre'+i).value, fecha:document.getElementById('diaFecha'+i).value}); } var cfg={nome:document.getElementById('cfgNome').value.trim(), telefone:document.getElementById('cfgTelefone').value.trim(), endereco:document.getElementById('cfgEndereco').value.trim(), intervalo:document.getElementById('cfgIntervalo').value, antecedencia:document.getElementById('cfgAntecedencia').value, almocoInicio:document.getElementById('cfgAlmocoInicio').value, almocoFim:document.getElementById('cfgAlmocoFim').value, dias:dias}; localStorage.setItem('configBarbearia',JSON.stringify(cfg)); document.getElementById('nomeHeader').textContent='💈 '+(cfg.nome||'Barbearia'); alert('Salvo!'); }
-var funcionarios=lerLocal('funcionarios');
-function salvarFuncionario(){ var nome=document.getElementById('funcNome').value.trim(); var tel=document.getElementById('funcTelefone').value.trim(); var funcao=document.getElementById('funcFuncao').value.trim(); var pin=document.getElementById('funcPIN').value.trim(); var id=document.getElementById('funcId').value; if(!nome||!tel||!/^\d{4,6}$/.test(pin)||!funcao){ document.getElementById('erroFunc').style.display='block'; return; } document.getElementById('erroFunc').style.display='none'; var dados={id:id||Date.now().toString(), nome:nome, telefone:tel, funcao:funcao, inicio:document.getElementById('funcInicio').value, fim:document.getElementById('funcFim').value, comissao:document.getElementById('funcComissao').value, tipoComissao:document.getElementById('funcTipoComissao').value, pin:pin}; if(id){ funcionarios=funcionarios.map(function(f){ return f.id===id?dados:f }); } else { funcionarios.push(dados); } salvarLocal('funcionarios',funcionarios); limparFormFunc(); listarFuncionarios(); }
-function listarFuncionarios(){ var el=document.getElementById('listaFuncionarios'); var busca=(document.getElementById('buscaFunc').value||'').toLowerCase(); var lista=funcionarios.filter(function(f){ return f.nome.toLowerCase().includes(busca) }); if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum funcionário.</p>'; return; } el.innerHTML=''; lista.forEach(function(f){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+f.nome+'</b><br><small>'+f.telefone+' - '+f.funcao+' - '+f.inicio+' às '+f.fim+'</small></div><div class="acoes"><button class="btn-sec" onclick="editarFuncionario(\''+f.id+'\')">Editar</button><button class="btn-danger" onclick="excluirFuncionario(\''+f.id+'\')">Excluir</button></div>'; el.appendChild(div); }); }
-function editarFuncionario(id){ var f=funcionarios.find(function(x){ return x.id===id }); if(!f) return; document.getElementById('funcId').value=f.id; document.getElementById('funcNome').value=f.nome; document.getElementById('funcTelefone').value=f.telefone; document.getElementById('funcFuncao').value=f.funcao; document.getElementById('funcInicio').value=f.inicio; document.getElementById('funcFim').value=f.fim; document.getElementById('funcComissao').value=f.comissao||''; document.getElementById('btnCancelarFunc').style.display='block'; window.scrollTo(0,0); }
-function cancelarEdicaoFunc(){ limparFormFunc(); }
-function limparFormFunc(){ ['funcId','funcNome','funcTelefone','funcFuncao','funcComissao','funcPIN'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('btnCancelarFunc').style.display='none'; }
-function excluirFuncionario(id){ if(!confirm('Excluir?')) return; funcionarios=funcionarios.filter(function(f){ return f.id!==id }); salvarLocal('funcionarios',funcionarios); listarFuncionarios(); }
-var servicos=lerLocal('servicos');
-function toggleCombo(){ document.getElementById('boxCombo').style.display=document.getElementById('servCombo').checked?'block':'none'; if(document.getElementById('servCombo').checked) renderComboServicos(); }
-function renderComboServicos(){ var el=document.getElementById('listaComboServicos'); var atual=document.getElementById('servId').value; var simples=servicos.filter(function(s){ return !s.isCombo && s.id!==atual }); if(!simples.length){ el.innerHTML='<p style="color:#A1A1AA">Cadastre serviços simples primeiro.</p>'; return; } el.innerHTML=''; simples.forEach(function(s){ var div=document.createElement('div'); div.innerHTML='<label style="display:flex;gap:8px"><input type="checkbox" value="'+s.id+'" class="chkCombo" onchange="atualizarDuracaoCombo()" style="width:20px">'+s.nome+' - '+s.duracao+' min</label>'; el.appendChild(div); }); }
-function atualizarDuracaoCombo(){ var total=0; document.querySelectorAll('.chkCombo:checked').forEach(function(c){ var s=servicos.find(function(x){ return x.id===c.value }); if(s) total+=Number(s.duracao||0); }); document.getElementById('infoComboDuracao').textContent='Duração total: '+total+' min'; document.getElementById('servDuracao').value=total||''; }
-function renderServBarbeiros(sel){ sel=sel||[]; var el=document.getElementById('listaServBarbeiros'); if(!funcionarios.length){ el.innerHTML='<p style="color:#A1A1AA">Cadastre funcionários primeiro.</p>'; return; } el.innerHTML=''; funcionarios.forEach(function(f){ var div=document.createElement('div'); div.innerHTML='<label style="display:flex;gap:8px"><input type="checkbox" value="'+f.id+'" class="chkBarbServ" '+(sel.includes(f.id)?'checked':'')+' style="width:20px">'+f.nome+' - '+f.funcao+'</label>'; el.appendChild(div); }); }
-function salvarServico(){ var nome=document.getElementById('servNome').value.trim(); var preco=document.getElementById('servPreco').value; var duracao=document.getElementById('servDuracao').value; var isCombo=document.getElementById('servCombo').checked; var ativo=document.getElementById('servAtivo').value==='true'; var id=document.getElementById('servId').value; if(!nome||!preco||!duracao){ document.getElementById('erroServ').style.display='block'; return; } document.getElementById('erroServ').style.display='none'; var comboIds=[]; if(isCombo){ comboIds=[].map.call(document.querySelectorAll('.chkCombo:checked'), function(c){ return c.value }); } var barbeiros=[].map.call(document.querySelectorAll('.chkBarbServ:checked'), function(c){ return c.value }); var dados={id:id||Date.now().toString(), nome:nome, preco:Number(preco), duracao:Number(duracao), isCombo:isCombo, comboIds:comboIds, barbeiros:barbeiros, ativo:ativo}; if(id){ servicos=servicos.map(function(s){ return s.id===id?dados:s }); } else { servicos.push(dados); } salvarLocal('servicos',servicos); limparFormServ(); listarServicos(); }
-function listarServicos(){ var el=document.getElementById('listaServicos'); var busca=(document.getElementById('buscaServ').value||'').toLowerCase(); var lista=servicos.filter(function(s){ return s.nome.toLowerCase().includes(busca) }); if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum serviço.</p>'; return; } el.innerHTML=''; lista.forEach(function(s){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+s.nome+'</b> '+(s.isCombo?'<span class="tag">COMBO</span>':'')+'<br><small>R$ '+s.preco+' - '+s.duracao+' min - '+(s.ativo?'Ativo':'Inativo')+'</small></div><div class="acoes"><button class="btn-sec" onclick="editarServico(\''+s.id+'\')">Editar</button><button class="btn-sec" onclick="toggleAtivoServ(\''+s.id+'\')">'+(s.ativo?'Desativar':'Ativar')+'</button><button class="btn-danger" onclick="excluirServico(\''+s.id+'\')">Excluir</button></div>'; el.appendChild(div); }); }
-function editarServico(id){ var s=servicos.find(function(x){ return x.id===id }); if(!s) return; document.getElementById('servId').value=s.id; document.getElementById('servNome').value=s.nome; document.getElementById('servPreco').value=s.preco; document.getElementById('servDuracao').value=s.duracao; document.getElementById('servCombo').checked=s.isCombo; document.getElementById('servAtivo').value=s.ativo?'true':'false'; toggleCombo(); renderServBarbeiros(s.barbeiros||[]); document.getElementById('btnCancelarServ').style.display='block'; window.scrollTo(0,0); }
-function cancelarEdicaoServ(){ limparFormServ(); }
-function limparFormServ(){ ['servId','servNome','servPreco','servDuracao'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('servCombo').checked=false; document.getElementById('boxCombo').style.display='none'; document.getElementById('btnCancelarServ').style.display='none'; renderServBarbeiros(); }
-function toggleAtivoServ(id){ servicos=servicos.map(function(s){ return s.id===id?{...s,ativo:!s.ativo}:s }); salvarLocal('servicos',servicos); listarServicos(); }
-function excluirServico(id){ if(!confirm('Excluir?')) return; servicos=servicos.filter(function(s){ return s.id!==id }); salvarLocal('servicos',servicos); listarServicos(); }
-var clientes=lerLocal('clientes');
-function salvarCliente(){ var nome=document.getElementById('cliNome').value.trim(); var tel=document.getElementById('cliTelefone').value.trim(); var id=document.getElementById('cliId').value; if(!nome||!tel){ document.getElementById('erroCli').style.display='block'; return; } document.getElementById('erroCli').style.display='none'; var dados={id:id||Date.now().toString(), nome:nome, telefone:tel, email:document.getElementById('cliEmail').value.trim(), nasc:document.getElementById('cliNasc').value, obs:document.getElementById('cliObs').value.trim(), bloqueado:document.getElementById('cliBloqueado').value==='true'}; if(id){ clientes=clientes.map(function(c){ return c.id===id?dados:c }); } else { clientes.push(dados); } salvarLocal('clientes',clientes); limparFormCli(); listarClientes(); }
-function listarClientes(){ var el=document.getElementById('listaClientes'); var busca=(document.getElementById('buscaCli').value||'').toLowerCase(); var lista=clientes.filter(function(c){ return c.nome.toLowerCase().includes(busca)||c.telefone.includes(busca) }); if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum cliente.</p>'; return; } el.innerHTML=''; lista.forEach(function(c){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+c.nome+'</b> '+(c.bloqueado?'<span class="tag" style="background:#EF4444;color:#fff">BLOQUEADO</span>':'')+'<br><small>'+c.telefone+'</small></div><div class="acoes"><button class="btn-sec" onclick="verHistoricoCli(\''+c.id+'\')">Histórico</button><button class="btn-sec" onclick="editarCliente(\''+c.id+'\')">Editar</button><button class="btn-sec" onclick="toggleBloqueioCli(\''+c.id+'\')">'+(c.bloqueado?'Desbloquear':'Bloquear')+'</button><button class="btn-danger" onclick="excluirCliente(\''+c.id+'\')">Excluir</button></div>'; el.appendChild(div); }); }
-function editarCliente(id){ var c=clientes.find(function(x){ return x.id===id }); if(!c) return; document.getElementById('cliId').value=c.id; document.getElementById('cliNome').value=c.nome; document.getElementById('cliTelefone').value=c.telefone; document.getElementById('cliEmail').value=c.email||''; document.getElementById('cliNasc').value=c.nasc||''; document.getElementById('cliObs').value=c.obs||''; document.getElementById('cliBloqueado').value=c.bloqueado?'true':'false'; document.getElementById('btnCancelarCli').style.display='block'; window.scrollTo(0,0); }
-function cancelarEdicaoCli(){ limparFormCli(); }
-function limparFormCli(){ ['cliId','cliNome','cliTelefone','cliEmail','cliNasc','cliObs'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('btnCancelarCli').style.display='none'; }
-function toggleBloqueioCli(id){ clientes=clientes.map(function(c){ return c.id===id?{...c,bloqueado:!c.bloqueado}:c }); salvarLocal('clientes',clientes); listarClientes(); }
-function excluirCliente(id){ if(!confirm('Excluir?')) return; clientes=clientes.filter(function(c){ return c.id!==id }); salvarLocal('clientes',clientes); listarClientes(); }
-function verHistoricoCli(id){ var c=clientes.find(function(x){ return x.id===id }); if(!c) return; var ags=lerLocal('agendamentos').filter(function(a){ return a.clienteId===c.id }); document.getElementById('boxHistoricoCli').style.display='block'; document.getElementById('nomeHistoricoCli').textContent=c.nome; var box=document.getElementById('conteudoHistoricoCli'); if(!ags.length){ box.innerHTML='<p style="color:#A1A1AA">Nenhum agendamento.</p>'; return; } box.innerHTML=ags.map(function(a){ return '<div style="background:#23232B;padding:10px;border-radius:10px;margin-bottom:8px"><b>'+a.servicoNome+'</b><br><small>'+a.data+' '+a.hora+' - '+a.status+' - R$ '+a.preco+'</small></div>' }).join(''); }
-function fecharHistoricoCli(){ document.getElementById('boxHistoricoCli').style.display='none'; }
-var estoque=lerLocal('estoque'); var filtroEstAtual='todos';
-function salvarEstoque(){ var nome=document.getElementById('estNome').value.trim(); var cat=document.getElementById('estCategoria').value.trim(); var qtd=document.getElementById('estQtd').value; var min=document.getElementById('estMinimo').value; var id=document.getElementById('estId').value; if(!nome||!cat||qtd===''||min===''){ document.getElementById('erroEst').style.display='block'; return; } document.getElementById('erroEst').style.display='none'; var dados={id:id||Date.now().toString(), nome:nome, categoria:cat, unidade:document.getElementById('estUnidade').value, qtd:Number(qtd), minimo:Number(min), preco:Number(document.getElementById('estPreco').value||0), obs:document.getElementById('estObs').value.trim()}; if(id){ estoque=estoque.map(function(e){ return e.id===id?dados:e }); } else { estoque.push(dados); } salvarLocal('estoque',estoque); limparFormEst(); listarEstoque(); }
-function listarEstoque(){ var el=document.getElementById('listaEstoque'); var busca=(document.getElementById('buscaEst').value||'').toLowerCase(); var lista=estoque.filter(function(e){ return e.nome.toLowerCase().includes(busca)||e.categoria.toLowerCase().includes(busca) }); if(filtroEstAtual==='baixo') lista=lista.filter(function(e){ return e.qtd<=e.minimo && e.qtd>0 }); if(filtroEstAtual==='zerado') lista=lista.filter(function(e){ return e.qtd===0 }); var baixo=estoque.filter(function(e){ return e.qtd<=e.minimo }); document.getElementById('alertaEst').innerHTML=baixo.length?'<div style="background:#3A1A1A;padding:10px;border-radius:10px;color:#FCA5A5">⚠️ '+baixo.length+' abaixo do mínimo</div>':'<p style="color:#22C55E">✅ Estoque ok</p>'; if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum produto.</p>'; return; } el.innerHTML=''; lista.forEach(function(e){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+e.nome+'</b><br><small>'+e.categoria+' - Qtd: '+e.qtd+' | Mín: '+e.minimo+' | R$ '+e.preco+'</small></div><div class="acoes"><button class="btn-sec" onclick="ajustarEst(\''+e.id+'\',1)">+1</button><button class="btn-sec" onclick="ajustarEst(\''+e.id+'\',-1)">-1</button><button class="btn-sec" onclick="editarEstoque(\''+e.id+'\')">Editar</button><button class="btn-danger" onclick="excluirEstoque(\''+e.id+'\')">Excluir</button></div>'; el.appendChild(div); }); }
-function filtrarEst(t,btn){ filtroEstAtual=t; listarEstoque(); }
-function ajustarEst(id,d){ estoque=estoque.map(function(e){ if(e.id!==id) return e; var n=e.qtd+d; if(n<0) n=0; return {...e,qtd:n} }); salvarLocal('estoque',estoque); listarEstoque(); }
-function editarEstoque(id){ var e=estoque.find(function(x){ return x.id===id }); if(!e) return; document.getElementById('estId').value=e.id; document.getElementById('estNome').value=e.nome; document.getElementById('estCategoria').value=e.categoria; document.getElementById('estQtd').value=e.qtd; document.getElementById('estMinimo').value=e.minimo; document.getElementById('estPreco').value=e.preco; document.getElementById('estObs').value=e.obs||''; document.getElementById('btnCancelarEst').style.display='block'; }
-function cancelarEdicaoEst(){ limparFormEst(); }
-function limparFormEst(){ ['estId','estNome','estCategoria','estQtd','estMinimo','estPreco','estObs'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('btnCancelarEst').style.display='none'; }
-function excluirEstoque(id){ if(!confirm('Excluir?')) return; estoque=estoque.filter(function(e){ return e.id!==id }); salvarLocal('estoque',estoque); listarEstoque(); }
-var agendamentos=lerLocal('agendamentos'); var filtroAgendaAtual='todos';
-function buscarClienteAgenda(){ var busca=document.getElementById('agClienteBusca').value.trim().toLowerCase(); var box=document.getElementById('listaBuscaCliente'); if(!busca){ box.style.display='none'; return; } var ach=clientes.filter(function(c){ return c.nome.toLowerCase().includes(busca)||c.telefone.includes(busca) }); if(!ach.length){ box.innerHTML='<p style="padding:10px">Nenhum cliente. Cadastre no Módulo Clientes.</p>'; box.style.display='block'; return; } box.innerHTML=''; ach.forEach(function(c){ var d=document.createElement('div'); d.style.cssText='padding:10px;border-bottom:1px solid #333;cursor:pointer'; d.innerHTML='<b>'+c.nome+'</b><br><small>'+c.telefone+'</small>'; d.onclick=function(){ selecionarClienteAgenda(c.id) }; box.appendChild(d); }); box.style.display='block'; }
-function selecionarClienteAgenda(id){ var c=clientes.find(function(x){ return x.id===id }); if(!c) return; if(c.bloqueado){ alert('Cliente bloqueado!'); return; } document.getElementById('agClienteId').value=c.id; document.getElementById('agClienteBusca').value=c.nome; document.getElementById('listaBuscaCliente').style.display='none'; var box=document.getElementById('clienteSelecionado'); box.style.display='block'; box.innerHTML='✅ <b>'+c.nome+'</b> - '+c.telefone; }
-function carregarBarbeirosAgenda(){ var sel=document.getElementById('agBarbeiro'); var atual=sel.value; sel.innerHTML='<option value="">Selecione</option>'; funcionarios.forEach(function(f){ var o=document.createElement('option'); o.value=f.id; o.textContent=f.nome+' - '+f.funcao; sel.appendChild(o); }); if(atual) sel.value=atual; }
-function atualizarServicosAgenda(){ var barb=document.getElementById('agBarbeiro').value; var sel=document.getElementById('agServico'); sel.innerHTML='<option value="">Selecione</option>'; servicos.filter(function(s){ return s.ativo }).forEach(function(s){ if(s.barbeiros&&s.barbeiros.length&&!s.barbeiros.includes(barb)) return; var o=document.createElement('option'); o.value=s.id; o.textContent=s.nome+' - R$ '+s.preco+' - '+s.duracao+' min'; sel.appendChild(o); }); gerarHorariosAgenda(); }
-function atualizarInfoServico(){ var s=servicos.find(function(x){ return x.id===document.getElementById('agServico').value }); document.getElementById('infoServico').textContent=s?(s.nome+' | R$ '+s.preco+' | '+s.duracao+' min'):''; gerarHorariosAgenda(); }
-function gerarHorariosAgenda(){ var dataVal=document.getElementById('agData').value; var sel=document.getElementById('agHora'); var barbId=document.getElementById('agBarbeiro').value; var servId=document.getElementById('agServico').value; if(!dataVal||!barbId){ sel.innerHTML='<option value="">Escolha barbeiro e data</option>'; return; } var cfg=JSON.parse(localStorage.getItem('configBarbearia')||'null'); var data=new Date(dataVal+'T12:00:00'); var dia=data.getDay(); var abre='09:00', fecha='19:00', intervalo=30, almI='12:00', almF='13:00', ativo=true; if(cfg){ var d=cfg.dias?cfg.dias[dia]:null; if(d){ abre=d.abre; fecha=d.fecha; ativo=d.ativo; } intervalo=Number(cfg.intervalo)||30; almI=cfg.almocoInicio||almI; almF=cfg.almocoFim||almF; } var func=funcionarios.find(function(f){ return f.id===barbId }); if(func){ if(func.inicio) abre=func.inicio; if(func.fim) fecha=func.fim; } if(!ativo){ sel.innerHTML='<option value="">Fechado nesse dia</option>'; return; } var serv=servicos.find(function(s){ return s.id===servId }); var dur=serv?Number(serv.duracao):intervalo; var slots=[]; var parts=abre.split(':'); var cur=Number(parts[0])*60+Number(parts[1]); var fp=fecha.split(':'); var fimMin=Number(fp[0])*60+Number(fp[1]); var ap=almI.split(':'); var almIMin=Number(ap[0])*60+Number(ap[1]); var bp=almF.split(':'); var almFMin=Number(bp[0])*60+Number(bp[1]); var ocup=agendamentos.filter(function(a){ return a.data===dataVal && a.barbeiroId===barbId && a.status!=='cancelado' }); while(cur+dur<=fimMin){ var conflita=false; if(cur<almFMin && cur+dur>almIMin) conflita=true; for(var i=0;i<ocup.length;i++){ var hp=ocup[i].hora.split(':'); var ini=Number(hp[0])*60+Number(hp[1]); var dd=Number(ocup[i].duracao||30); if(cur<ini+dd && cur+dur>ini) conflita=true; } if(!conflita) slots.push(String(Math.floor(cur/60)).padStart(2,'0')+':'+String(cur%60).padStart(2,'0')); cur+=intervalo; } if(!slots.length){ sel.innerHTML='<option value="">Sem horário livre</option>'; return; } sel.innerHTML='<option value="">Selecione</option>'+slots.map(function(s){ return '<option value="'+s+'">'+s+'</option>' }).join(''); }
-function salvarAgendamento(){ var cid=document.getElementById('agClienteId').value; var bid=document.getElementById('agBarbeiro').value; var sid=document.getElementById('agServico').value; var data=document.getElementById('agData').value; var hora=document.getElementById('agHora').value; var id=document.getElementById('agId').value; if(!cid||!bid||!sid||!data||!hora){ document.getElementById('erroAg').style.display='block'; return; } document.getElementById('erroAg').style.display='none'; var cli=clientes.find(function(c){ return c.id===cid }); var barb=funcionarios.find(function(f){ return f.id===bid }); var serv=servicos.find(function(s){ return s.id===sid }); var dados={id:id||Date.now().toString(), clienteId:cid, clienteNome:cli.nome, telefone:cli.telefone, barbeiroId:bid, barbeiroNome:barb.nome, servicoId:sid, servicoNome:serv.nome, preco:serv.preco, duracao:serv.duracao, data:data, hora:hora, obs:document.getElementById('agObs').value.trim(), status:'agendado'}; if(id){ var ant=agendamentos.find(function(a){ return a.id===id }); dados.status=ant?ant.status:'agendado'; agendamentos=agendamentos.map(function(a){ return a.id===id?dados:a }); } else { agendamentos.push(dados); } salvarLocal('agendamentos',agendamentos); limparFormAg(); listarAgenda(); alert('Agendado!'); }
-function listarAgenda(){ var el=document.getElementById('listaAgenda'); var filtro=document.getElementById('agDataFiltro').value||hojeISO(); document.getElementById('agDataFiltro').value=filtro; var lista=agendamentos.filter(function(a){ return a.data===filtro }); if(filtroAgendaAtual!=='todos') lista=lista.filter(function(a){ return a.status===filtroAgendaAtual }); lista.sort(function(a,b){ return a.hora.localeCompare(b.hora) }); if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum agendamento.</p>'; return; } el.innerHTML=''; lista.forEach(function(a){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+a.hora+' - '+a.clienteNome+'</b><br><small>'+a.servicoNome+' - '+a.barbeiroNome+' - R$ '+a.preco+'</small><br><small>'+a.status+'</small></div><div class="acoes">'+(a.status==='agendado'?'<button class="btn-sec" onclick="concluirAg(\''+a.id+'\')">Concluir</button><button class="btn-sec" onclick="editarAg(\''+a.id+'\')">Editar</button><button class="btn-danger" onclick="cancelarAg(\''+a.id+'\')">Cancelar</button>':'')+(a.status==='cancelado'?'<button class="btn-sec" onclick="reativarAg(\''+a.id+'\')">Reativar</button>':'')+'</div>'; el.appendChild(div); }); }
-function filtrarAgendaDia(t,btn){ filtroAgendaAtual=t; listarAgenda(); }
-function concluirAg(id){ agendamentos=agendamentos.map(function(a){ return a.id===id?{...a,status:'concluido'}:a }); salvarLocal('agendamentos',agendamentos); listarAgenda(); }
-function cancelarAg(id){ if(!confirm('Cancelar?')) return; agendamentos=agendamentos.map(function(a){ return a.id===id?{...a,status:'cancelado'}:a }); salvarLocal('agendamentos',agendamentos); listarAgenda(); }
-function reativarAg(id){ agendamentos=agendamentos.map(function(a){ return a.id===id?{...a,status:'agendado'}:a }); salvarLocal('agendamentos',agendamentos); listarAgenda(); }
-function editarAg(id){ var a=agendamentos.find(function(x){ return x.id===id }); if(!a) return; document.getElementById('agId').value=a.id; document.getElementById('agClienteId').value=a.clienteId; document.getElementById('agClienteBusca').value=a.clienteNome; carregarBarbeirosAgenda(); document.getElementById('agBarbeiro').value=a.barbeiroId; atualizarServicosAgenda(); setTimeout(function(){ document.getElementById('agServico').value=a.servicoId; document.getElementById('agData').value=a.data; gerarHorariosAgenda(); setTimeout(function(){ document.getElementById('agHora').value=a.hora },50); },50); document.getElementById('btnCancelarAg').style.display='block'; }
-function cancelarEdicaoAg(){ limparFormAg(); }
-function limparFormAg(){ ['agId','agClienteId','agClienteBusca','agServico','agData','agHora','agObs'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('clienteSelecionado').style.display='none'; document.getElementById('btnCancelarAg').style.display='none'; carregarBarbeirosAgenda(); }
-var financeiro=lerLocal('financeiro'); var filtroFinAtual='todos';
-function atualizarCategoriasFin(){ var dl=document.getElementById('listaCatFin'); dl.innerHTML=''; ['Corte','Barba','Combo','Produto','Aluguel','Material','Comissão','Outros'].forEach(function(c){ var o=document.createElement('option'); o.value=c; dl.appendChild(o); }); }
-function carregarSelectsFin(){ var selF=document.getElementById('finFuncionario'); selF.innerHTML='<option value="">Nenhum</option>'; funcionarios.forEach(function(f){ var o=document.createElement('option'); o.value=f.id; o.textContent=f.nome; selF.appendChild(o); }); var selA=document.getElementById('finAgendamento'); selA.innerHTML='<option value="">Nenhum</option>'; agendamentos.filter(function(a){ return a.status==='concluido' }).slice().reverse().slice(0,50).forEach(function(a){ var o=document.createElement('option'); o.value=a.id; o.textContent=a.data+' '+a.hora+' - '+a.clienteNome+' - R$ '+a.preco; selA.appendChild(o); }); }
-function salvarFinanceiro(){ var desc=document.getElementById('finDesc').value.trim(); var valor=document.getElementById('finValor').value; var data=document.getElementById('finData').value; var id=document.getElementById('finId').value; if(!desc||!valor||!data){ document.getElementById('erroFin').style.display='block'; return; } document.getElementById('erroFin').style.display='none'; var dados={id:id||Date.now().toString(), tipo:document.getElementById('finTipo').value, desc:desc, valor:Number(valor), data:data, categoria:document.getElementById('finCategoria').value||'Outros', forma:document.getElementById('finForma').value, funcId:document.getElementById('finFuncionario').value, agId:document.getElementById('finAgendamento').value}; if(id){ financeiro=financeiro.map(function(f){ return f.id===id?dados:f }); } else { financeiro.push(dados); } salvarLocal('financeiro',financeiro); limparFormFin(); listarFinanceiro(); listarPendentesFin(); }
-function listarFinanceiro(){ var el=document.getElementById('listaFinanceiro'); var busca=(document.getElementById('buscaFin').value||'').toLowerCase(); var de=document.getElementById('finDe').value; var ate=document.getElementById('finAte').value; var lista=financeiro.filter(function(f){ return f.desc.toLowerCase().includes(busca) }); if(filtroFinAtual!=='todos') lista=lista.filter(function(f){ return f.tipo===filtroFinAtual }); if(de) lista=lista.filter(function(f){ return f.data>=de }); if(ate) lista=lista.filter(function(f){ return f.data<=ate }); lista.sort(function(a,b){ return b.data.localeCompare(a.data) }); var ent=0, sai=0; lista.forEach(function(f){ if(f.tipo==='entrada') ent+=Number(f.valor); else sai+=Number(f.valor); }); document.getElementById('finEntradas').textContent=fmtBRL(ent); document.getElementById('finSaidas').textContent=fmtBRL(sai); document.getElementById('finSaldo').textContent=fmtBRL(ent-sai); if(!lista.length){ el.innerHTML='<p style="color:#A1A1AA;text-align:center">Nenhum lançamento.</p>'; return; } el.innerHTML=''; lista.forEach(function(f){ var div=document.createElement('div'); div.className='item-lista'; div.innerHTML='<div><b>'+f.desc+'</b><br><small>'+f.data+' - '+f.categoria+' - '+f.forma+'</small></div><div><b style="color:'+(f.tipo==='entrada'?'#22C55E':'#EF4444')+'">'+(f.tipo==='entrada'?'+':'-')+' '+fmtBRL(f.valor)+'</b><br><button class="btn-sec" onclick="editarFin(\''+f.id+'\')">Editar</button> <button class="btn-danger" onclick="excluirFin(\''+f.id+'\')">Excluir</button></div>'; el.appendChild(div); }); }
-function listarPendentesFin(){ var el=document.getElementById('listaPendenteFin'); var ja=new Set(financeiro.filter(function(f){ return f.agId }).map(function(f){ return f.agId })); var pend=agendamentos.filter(function(a){ return a.status==='concluido' && !ja.has(a.id) }); if(!pend.length){ el.innerHTML='<p style="color:#22C55E">✅ Tudo lançado.</p>'; return; } el.innerHTML=''; pend.slice().reverse().forEach(function(a){ var div=document.createElement('div'); div.style.cssText='background:#23232B;padding:10px;border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between'; div.innerHTML='<div><b>'+a.clienteNome+'</b><br><small>'+a.data+' '+a.hora+' - '+a.servicoNome+' - R$ '+a.preco+'</small></div><button class="btn-sec" onclick="lancarAgendamentoFin(\''+a.id+'\')">Lançar</button>'; el.appendChild(div); }); }
-function lancarAgendamentoFin(agId){ var a=agendamentos.find(function(x){ return x.id===agId }); if(!a) return; document.getElementById('finTipo').value='entrada'; document.getElementById('finDesc').value=a.servicoNome+' - '+a.clienteNome; document.getElementById('finValor').value=a.preco; document.getElementById('finData').value=a.data; document.getElementById('finCategoria').value='Corte'; document.getElementById('finAgendamento').value=a.id; alert('Preenchido! Aperta Lançar.'); }
-function filtrarFin(t,btn){ filtroFinAtual=t; listarFinanceiro(); }
-function limparFiltroFin(){ document.getElementById('finDe').value=''; document.getElementById('finAte').value=''; filtroFinAtual='todos'; listarFinanceiro(); }
-function editarFin(id){ var f=financeiro.find(function(x){ return x.id===id }); if(!f) return; document.getElementById('finId').value=f.id; document.getElementById('finTipo').value=f.tipo; document.getElementById('finDesc').value=f.desc; document.getElementById('finValor').value=f.valor; document.getElementById('finData').value=f.data; document.getElementById('finCategoria').value=f.categoria; document.getElementById('btnCancelarFin').style.display='block'; }
-function cancelarEdicaoFin(){ limparFormFin(); }
-function limparFormFin(){ ['finId','finDesc','finValor','finCategoria'].forEach(function(i){ document.getElementById(i).value='' }); document.getElementById('finData').value=hojeISO(); document.getElementById('btnCancelarFin').style.display='none'; }
-function excluirFin(id){ if(!confirm('Excluir?')) return; financeiro=financeiro.filter(function(f){ return f.id!==id }); salvarLocal('financeiro',financeiro); listarFinanceiro(); listarPendentesFin(); }
-function atualizarDashboard(){ var hoje=hojeISO(); var mes=hoje.slice(0,7); document.getElementById('dashHojeTxt').textContent=new Date(hoje+'T12:00:00').toLocaleDateString('pt-BR'); var hojeConc=agendamentos.filter(function(a){ return a.data===hoje && a.status==='concluido' }); var fatHoje=hojeConc.reduce(function(s,a){ return s+Number(a.preco||0) },0); document.getElementById('dashFatHoje').textContent=fmtBRL(fatHoje); document.getElementById('dashQtdHoje').textContent=hojeConc.length+' atendimentos'; var hojeAg=agendamentos.filter(function(a){ return a.data===hoje && a.status==='agendado' }); document.getElementById('dashAgHojeTxt').textContent=hojeAg.length+' agendados hoje'; var finsMes=financeiro.filter(function(f){ return (f.data||'').slice(0,7)===mes }); var ent=0, sai=0; finsMes.forEach(function(f){ if(f.tipo==='entrada') ent+=Number(f.valor); else sai+=Number(f.valor); }); var mesConc=agendamentos.filter(function(a){ return (a.data||'').slice(0,7)===mes && a.status==='concluido' }); var fatMes=Math.max(ent, mesConc.reduce(function(s,a){ return s+Number(a.preco||0) },0)); document.getElementById('dashFatMes').textContent=fmtBRL(fatMes); document.getElementById('dashQtdMes').textContent=mesConc.length+' atendimentos'; document.getElementById('dashSaldoMes').textContent=fmtBRL(ent-sai); var baixo=estoque.filter(function(e){ return e.qtd<=e.minimo }); document.getElementById('dashProximos').innerHTML=hojeAg.length?hojeAg.sort(function(a,b){ return a.hora.localeCompare(b.hora) }).slice(0,5).map(function(a){ return '<div style="background:#23232B;padding:10px;border-radius:10px;margin-bottom:8px"><b>'+a.hora+' - '+a.clienteNome+'</b><br><small>'+a.servicoNome+' - R$ '+a.preco+'</small></div>' }).join(''):'<p style="color:#A1A1AA">Nenhum agendamento hoje.</p>'; document.getElementById('dashAlertas').innerHTML=baixo.length?'<div style="background:#23232B;padding:10px;border-radius:10px">⚠️ '+baixo.length+' produto(s) abaixo do mínimo</div>':'<div>✅ Tudo certo</div>'; var porBarb={}; mesConc.forEach(function(a){ if(!porBarb[a.barbeiroNome]) porBarb[a.barbeiroNome]={total:0,qtd:0}; porBarb[a.barbeiroNome].total+=Number(a.preco||0); porBarb[a.barbeiroNome].qtd++; }); document.getElementById('dashRanking').innerHTML=Object.keys(porBarb).length?Object.entries(porBarb).sort(function(a,b){ return b[1].total-a[1].total }).map(function(e,i){ return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #333"><span>'+(i+1)+'º '+e[0]+'</span><span>'+fmtBRL(e[1].total)+' - '+e[1].qtd+' atend.</span></div>' }).join(''):'<p style="color:#A1A1AA">Nenhum atendimento no mês.</p>'; var porServ={}; mesConc.forEach(function(a){ if(!porServ[a.servicoNome]) porServ[a.servicoNome]={qtd:0,total:0}; porServ[a.servicoNome].qtd++; porServ[a.servicoNome].total+=Number(a.preco||0); }); document.getElementById('dashTopServ').innerHTML=Object.keys(porServ).length?Object.entries(porServ).sort(function(a,b){ return b[1].qtd-a[1].qtd }).slice(0,5).map(function(e,i){ return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #333"><span>'+(i+1)+'º '+e[0]+'</span><span>'+e[1].qtd+'x - '+fmtBRL(e[1].total)+'</span></div>' }).join(''):'<p style="color:#A1A1AA">Nenhum serviço no mês.</p>'; }
-carregarConfig(); listarFuncionarios(); renderServBarbeiros(); listarServicos(); listarClientes(); listarEstoque();
-document.getElementById('agData').value=hojeISO(); document.getElementById('agDataFiltro').value=hojeISO(); carregarBarbeirosAgenda(); listarAgenda();
-document.getElementById('finData').value=hojeISO(); atualizarCategoriasFin(); carregarSelectsFin(); listarFinanceiro(); listarPendentesFin();
-atualizarDashboard();
-document.getElementById('loginPIN').addEventListener('keydown', function(e){ if(e.key==='Enter') entrar(); });
+
+// ---------- CONFIG ----------
+const nomesDias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+function renderDiasConfig(){
+  const box = el('cfgDias');
+  const cfg = JSON.parse(localStorage.getItem('configBarbearia') || 'null');
+  box.innerHTML = '';
+  nomesDias.forEach((nome, i) => {
+    const d = (cfg && cfg.dias && cfg.dias[i]) ? cfg.dias[i] : { ativo: i !== 0, abre: '09:00', fecha: '19:00' };
+    const div = document.createElement('div');
+    div.className = 'dia-row';
+    div.innerHTML = '<b>' + nome + '</b><input type="time" id="diaAbre' + i + '" value="' + d.abre + '"><input type="time" id="diaFecha' + i + '" value="' + d.fecha + '"><label class="check"><input type="checkbox" id="diaAtivo' + i + '" ' + (d.ativo ? 'checked' : '') + '> Aberto</label>';
+    box.appendChild(div);
+  });
+}
+function carregarConfig(){
+  const cfg = JSON.parse(localStorage.getItem('configBarbearia') || 'null');
+  if(!cfg){ renderDiasConfig(); return; }
+  el('cfgNome').value = cfg.nome || '';
+  el('cfgTelefone').value = cfg.telefone || '';
+  el('cfgEndereco').value = cfg.endereco || '';
+  el('cfgIntervalo').value = cfg.intervalo || 30;
+  el('cfgAntecedencia').value = cfg.antecedencia || 1;
+  el('cfgAlmocoInicio').value = cfg.almocoInicio || '12:00';
+  el('cfgAlmocoFim').value = cfg.almocoFim || '13:00';
+  el('nomeHeader').textContent = '💈 ' + (cfg.nome || 'Barbearia');
+  renderDiasConfig();
+}
+function salvarConfig(){
+  const dias = [];
+  for(let i = 0; i < 7; i++){
+    dias.push({ ativo: el('diaAtivo'+i).checked, abre: el('diaAbre'+i).value, fecha: el('diaFecha'+i).value });
+  }
+  const cfg = { nome: el('cfgNome').value.trim(), telefone: el('cfgTelefone').value.trim(), endereco: el('cfgEndereco').value.trim(), intervalo: el('cfgIntervalo').value, antecedencia: el('cfgAntecedencia').value, almocoInicio: el('cfgAlmocoInicio').value, almocoFim: el('cfgAlmocoFim').value, dias: dias };
+  localStorage.setItem('configBarbearia', JSON.stringify(cfg));
+  el('nomeHeader').textContent = '💈 ' + (cfg.nome || 'Barbearia');
+  alert('Salvo!');
+}
+
+// ---------- FUNCIONARIOS ----------
+function salvarFuncionario(){
+  const nome = el('funcNome').value.trim();
+  const tel = el('funcTelefone').value.trim();
+  const funcao = el('funcFuncao').value.trim();
+  const pin = el('funcPIN').value.trim();
+  const id = el('funcId').value;
+  if(!nome || !tel || !funcao || !/^\d{4,6}$/.test(pin)){ mostrarErro('erroFunc'); return; }
+  esconderErro('erroFunc');
+  const dados = { id: id || Date.now().toString(), nome, telefone: tel, funcao, inicio: el('funcInicio').value, fim: el('funcFim').value, comissao: el('funcComissao').value, tipoComissao: el('funcTipoComissao').value, pin };
+  if(id) funcionarios = funcionarios.map(f => f.id === id ? dados : f);
+  else funcionarios.push(dados);
+  salvarLocal('funcionarios', funcionarios);
+  limparFunc(); listarFuncionarios();
+}
+function listarFuncionarios(){
+  const box = el('listaFuncionarios');
+  const busca = (el('buscaFunc').value || '').toLowerCase();
+  const lista = funcionarios.filter(f => f.nome.toLowerCase().includes(busca));
+  if(!lista.length){ box.innerHTML = '<p class="muted">Nenhum funcionário.</p>'; return; }
+  box.innerHTML = '';
+  lista.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'item-lista';
+    div.innerHTML = '<div><b>' + f.nome + '</b><br><small>' + f.telefone + ' - ' + f.funcao + ' - ' + f.inicio + ' às ' + f.fim + '</small></div><div class="acoes"><button class="btn-sec" data-editar-func="' + f.id + '">Editar</button><button class="btn-danger" data-excluir-func="' + f.id + '">Excluir</button></div>';
+    box.appendChild(div);
+  });
+  box.querySelectorAll('[data-editar-func]').forEach(b => b.addEventListener('click', () => editarFuncionario(b.dataset.editarFunc)));
+  box.querySelectorAll('[data-excluir-func]').forEach(b => b.addEventListener('click', () => excluirFuncionario(b.dataset.excluirFunc)));
+}
+function editarFuncionario(id){
+  const f = funcionarios.find(x => x.id === id); if(!f) return;
+  el('funcId').value = f.id; el('funcNome').value = f.nome; el('funcTelefone').value = f.telefone;
+  el('funcFuncao').value = f.funcao; el('funcInicio').value = f.inicio; el('funcFim').value = f.fim;
+  el('funcComissao').value = f.comissao || '';
+  el('btnCancelarFunc').style.display = 'block';
+  window.scrollTo(0,0);
+}
+function limparFunc(){ ['funcId','funcNome','funcTelefone','funcFuncao','funcComissao','funcPIN'].forEach(i => el(i).value = ''); el('btnCancelarFunc').style.display = 'none'; }
+function excluirFuncionario(id){ if(!confirm('Excluir?')) return; funcionarios = funcionarios.filter(f => f.id !== id); salvarLocal('funcionarios', funcionarios); listarFuncionarios(); }
+
+// ---------- SERVICOS ----------
+function toggleCombo(){
+  el('boxCombo').style.display = el('servCombo').checked ? 'block' : 'none';
+  if(el('servCombo').checked) renderCombo();
+}
+function renderCombo(){
+  const box = el('listaComboServicos');
+  const atual = el('servId').value;
+  const simples = servicos.filter(s => !s.isCombo && s.id !== atual);
+  if(!simples.length){ box.innerHTML = '<p class="muted">Cadastre serviços simples primeiro.</p>'; return; }
+  box.innerHTML = '';
+  simples.forEach(s => {
+    const div = document.createElement('div');
+    div.innerHTML = '<label class="check"><input type="checkbox" value="' + s.id + '" class="chkCombo"> ' + s.nome + ' - ' + s.duracao + ' min</label>';
+    box.appendChild(div);
+  });
+  box.querySelectorAll('.chkCombo').forEach(c => c.addEventListener('change', atualizarDuracaoCombo));
+}
+function atualizarDuracaoCombo(){
+  let total = 0;
+  document.querySelectorAll('.chkCombo:checked').forEach(c => {
+    const s = servicos.find(x => x.id === c.value);
+    if(s) total += Number(s.duracao || 0);
+  });
+  el('infoComboDuracao').textContent = 'Duração total: ' + total + ' min';
+  el('servDuracao').value = total || '';
+}
+function renderServBarbeiros(sel){
+  sel = sel || [];
+  const box = el('listaServBarbeiros');
+  if(!funcionarios.length){ box.innerHTML = '<p class="muted">Cadastre funcionários primeiro.</p>'; return; }
+  box.innerHTML = '';
+  funcionarios.forEach(f => {
+    const div = document.createElement('div');
+    div.innerHTML = '<label class="check"><input type="checkbox" value="' + f.id + '" class="chkBarbServ" ' + (sel.includes(f.id) ? 'checked' : '') + '> ' + f.nome + ' - ' + f.funcao + '</label>';
+    box.appendChild(div);
+  });
+}
+function salvarServico(){
+  const nome = el('servNome').value.trim();
+  const preco = el('servPreco').value;
+  const duracao = el('servDuracao').value;
+  const isCombo = el('servCombo').checked;
+  const ativo = el('servAtivo').value === 'true';
+  const id = el('servId').value;
+  if(!nome || !preco || !duracao){ mostrarErro('erroServ'); return; }
+  esconderErro('erroServ');
+  const comboIds = isCombo ? Array.from(document.querySelectorAll('.chkCombo:checked')).map(c => c.value) : [];
+  const barbeiros = Array.from(document.querySelectorAll('.chkBarbServ:checked')).map(c => c.value);
+  const dados = { id: id || Date.now().toString(), nome, preco: Number(preco), duracao: Number(duracao), isCombo, comboIds, barbeiros, ativo };
+  if(id) servicos = servicos.map(s => s.id === id ? dados : s);
+  else servicos.push(dados);
+  salvarLocal('servicos', servicos);
+  limparServ(); listarServicos();
+}
+function listarServicos(){
+  const box = el('listaServicos');
+  const busca = (el('buscaServ').value || '').toLowerCase();
+  const lista = servicos.filter(s => s.nome.toLowerCase().includes(busca));
+  if(!lista.length){ box.innerHTML = '<p class="muted">Nenhum serviço.</p>'; return; }
+  box.innerHTML = '';
+  lista.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'item-lista';
+    div.innerHTML = '<div><b>' + s.nome + '</b> ' + (s.isCombo ? '<span class="tag">COMBO</span>' : '') + '<br><small>R$ ' + s.preco + ' - ' + s.duracao + ' min - ' + (s.ativo ? 'Ativo' : 'Inativo') + '</small></div><div class="acoes"><button class="btn-sec" data-editar-serv="' + s.id + '">Editar</button><button class="btn-sec" data-toggle-serv="' + s.id + '">' + (s.ativo ? 'Desativar' : 'Ativar') + '</button><button class="btn-danger" data-excluir-serv="' + s.id + '">Excluir</button></div>';
+    box.appendChild(div);
+  });
+  box.querySelectorAll('[data-editar-serv]').forEach(b => b.addEventListener('click', () => editarServico(b.dataset.editarServ)));
+  box.querySelectorAll('[data-toggle-serv]').forEach(b => b.addEventListener('click', () => { servicos = servicos.map(s => s.id === b.dataset.toggleServ ? Object.assign({}, s, { ativo: !s.ativo }) : s); salvarLocal('servicos', servicos); listarServicos(); }));
+  box.querySelectorAll('[data-excluir-serv]').forEach(b => b.addEventListener('click', () => { if(!confirm('Excluir?')) return; servicos = servicos.filter(s => s.id !== b.dataset.excluirServ); salvarLocal('servicos', servicos); listarServicos(); }));
+}
+function editarServico(id){
+  const s = servicos.find(x => x.id === id); if(!s) return;
+  el('servId').value = s.id; el('servNome').value = s.nome; el('servPreco').value = s.preco;
+  el('servDuracao').value = s.duracao; el('servCombo').checked = s.isCombo; el('servAtivo').value = s.ativo ? 'true' : 'false';
+  toggleCombo(); renderServBarbeiros(s.barbeiros || []);
+  el('btnCancelarServ').style.display = 'block';
+  window.scrollTo(0,0);
+}
+function limparServ(){ ['servId','servNome','servPreco','servDuracao'].forEach(i => el(i).value = ''); el('servCombo').checked = false; el('boxCombo').style.display = 'none'; el('btnCancelarServ').style.display = 'none'; renderServBarbeiros([]); }
+
+// ---------- CLIENTES ----------
+function salvarCliente(){
+  const nome = el('cliNome').value.trim();
+  const tel = el('cliTelefone').value.trim();
+  const id = el('cliId').value;
+  if(!nome || !tel){ mostrarErro('erroCli'); return; }
+  esconderErro('erroCli');
+  const dados = { id: id || Date.now().toString(), nome, telefone: tel, email: el('cliEmail').value.trim(), nasc: el('cliNasc').value, obs: el('cliObs').value.trim(), bloqueado: el('cliBloqueado').value === 'true' };
+  if(id) clientes = clientes.map(c => c.id === id ? dados : c);
+  else clientes.push(dados);
+  salvarLocal('clientes', clientes);
+  limparCli(); listarClientes();
+}
+function listarClientes(){
+  const box = el('listaClientes');
+  const busca = (el('buscaCli').value || '').toLowerCase();
+  const lista = clientes.filter(c => c.nome.toLowerCase().includes(busca) || c.telefone.includes(busca));
+  if(!lista.length){ box.innerHTML = '<p class="muted">Nenhum cliente.</p>'; return; }
+  box.innerHTML = '';
+  lista.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'item-lista';
+    div.innerHTML = '<div><b>' + c.nome + '</b> ' + (c.bloqueado ? '<span class="tag" style="background:#EF4444;color:#fff">BLOQUEADO</span>' : '') + '<br><small>' + c.telefone + '</small></div><div class="acoes"><button class="btn-sec" data-hist-cli="' + c.id + '">Histórico</button><button class="btn-sec" data-editar-cli="' + c.id + '">Editar</button><button class="btn-sec" data-bloq-cli="' + c.id + '">' + (c.bloqueado ? 'Desbloquear' : 'Bloquear') + '</button><button class="btn-danger" data-excluir-cli="' + c.id + '">Excluir</button></div>';
+    box.appendChild(div);
+  });
+  box.querySelectorAll('[data-hist-cli]').forEach(b => b.addEventListener('click', () => verHistoricoCli(b.dataset.histCli)));
+  box.querySelectorAll('[data-editar-cli]').forEach(b => b.addEventListener('click', () => editarCliente(b.dataset.editarCli)));
+  box.querySelectorAll('[data-bloq-cli]').forEach(b => b.addEventListener('click', () => { clientes = clientes.map(c => c.id === b.dataset.bloqCli ? Object.assign({}, c, { bloqueado: !c.bloqueado }) : c); salvarLocal('clientes', clientes); listarClientes(); }));
+  box.querySelectorAll('[data-excluir-cli]').forEach(b => b.addEventListener('click', () => { if(!confirm('Excluir?')) return; clientes = clientes.filter(c => c.id !== b.dataset.excluirCli); salvarLocal('clientes', clientes); listarClientes(); }));
+}
+function editarCliente(id){
+  const c = clientes.find(x => x.id === id); if(!c) return;
+  el('cliId').value = c.id; el('cliNome').value = c.nome; el('cliTelefone').value = c.telefone;
+  el('cliEmail').value = c.email || ''; el('cliNasc').value = c.nasc || ''; el('cliObs').value = c.obs || '';
+  el('cliBloqueado').value = c.bloqueado ? 'true' : 'false';
+  el('btnCancelarCli').style.display = 'block';
+  window.scrollTo(0,0);
+}
+function limparCli(){ ['cliId','cliNome','cliTelefone','cliEmail','cliNasc','cliObs'].forEach(i => el(i).value = ''); el('btnCancelarCli').style.display = 'none'; }
+function verHistoricoCli(id){
+  const c = clientes.find(x => x.id === id); if(!c) return;
+  const ags = lerLocal('agendamentos').filter(a => a.clienteId === c.id);
+  el('boxHistoricoCli').style.display = 'block';
+  el('nomeHistoricoCli').textContent = c.nome;
+  const box = el('conteudoHistoricoCli');
+  if(!ags.length){ box.innerHTML = '<p class="muted">Nenhum agendamento.</p>'; return; }
+  box.innerHTML = ags.map(a => '<div class="item-lista"><b>' + a.servicoNome + '</b><br><small>' + a.data + ' ' + a.hora + ' - ' + a.status + ' - R$ ' + a.preco + '</small></div>').join('');
+}
+
+// ---------- ESTOQUE ----------
+function salvarEstoque(){
+  const nome = el('estNome').value.trim();
+  const cat = el('estCategoria').value.trim();
+  const qtd = el('estQtd').value;
+  const min = el('estMinimo').value;
+  const id = el('estId').value;
+  if(!nome || !cat || qtd === '' || min === ''){ mostrarErro('erroEst'); return; }
+  esconderErro('erroEst');
+  const dados = { id: id || Date.now().toString(), nome, categoria: cat, unidade: el('estUnidade').value, qtd: Number(qtd), minimo: Number(min), preco: Number(el('estPreco').value || 0), obs: el('estObs').value.trim() };
+  if(id) estoque = estoque.map(e => e.id === id ? dados : e);
+  else estoque.push(dados);
+  salvarLocal('estoque', estoque);
+  limparEst(); listarEstoque();
+}
+function listarEstoque(){
+  const box = el('listaEstoque');
+  const busca = (el('buscaEst').value || '').toLowerCase();
+  let lista = estoque.filter(e => e.nome.toLowerCase().includes(busca) || e.categoria.toLowerCase().includes(busca));
+  if(filtroEst === 'baixo') lista = lista.filter(e => e.qtd <= e.minimo && e.qtd > 0);
+  if(filtroEst === 'zerado') lista = lista.filter(e => e.qtd === 0);
+  const baixo = estoque.filter(e => e.qtd <= e.minimo);
+  el('alertaEst').innerHTML = baixo.length ? '<div class="erro" style="display:block">⚠️ ' + baixo.length + ' abaixo do mínimo</div>' : '<p class="verde">✅ Estoque ok</p>';
+  if(!lista.length){ box.innerHTML = '<p class="muted">Nenhum produto.</p>'; return; }
+  box.innerHTML = '';
+  lista.forEach(e => {
+    const div = document.createElement('div');
+    div.className = 'item-lista';
+    div.innerHTML = '<div><b>' + e.nome + '</b><br><small>' + e.categoria + ' - Qtd: ' + e.qtd + ' | Mín: ' + e.minimo + ' | R$ ' + e.preco + '</small></div><div class="acoes"><button class="btn-sec" data-mais-est="' + e.id + '">+1</button><button class="btn-sec" data-menos-est="' + e.id + '">-1</button><button class="btn-sec" data-editar-est="' + e.id + '">Editar</button><button class="btn-danger" data-excluir-est="' + e.id + '">Excluir</button></div>';
+    box.appendChild(div);
+  });
+  box.querySelectorAll('[data-mais-est]').forEach(b => b.addEventListener('click', () => ajustarEst(b.dataset.maisEst, 1)));
+  box.querySelectorAll('[data-menos-est]').forEach(b => b.addEventListener('click', () => ajustarEst(b.dataset.menosEst, -1)));
+  box.querySelectorAll('[data-editar-est]').forEach(b => b.addEventListener('click', () => editarEstoque(b.dataset.editarEst)));
+  box.querySelectorAll('[data-excluir-est]').forEach(b => b.addEventListener('click', () => { if(!confirm('Excluir?')) return; estoque = estoque.filter(e => e.id !== b.dataset.excluirEst); salvarLocal('estoque', estoque); listarEstoque(); }));
+}
+function ajustarEst(id, d){
+  estoque = estoque.map(e => {
+    if(e.id !== id) return e;
+    let n = e.qtd + d; if(n < 0) n = 0;
+    return Object.assign({}, e, { qtd: n });
+  });
+  salvarLocal('estoque', estoque); listarEstoque();
+}
+function editarEstoque(id){
+  const e = estoque.find(x => x.id === id); if(!e) return;
+  el('estId').value = e.id; el('estNome').value = e.nome; el('estCategoria').value = e.categoria;
+  el('estQtd').value = e.qtd; el('estMinimo').value = e.minimo; el('estPreco').value = e.preco; el('estObs').value = e.obs || '';
+  el('btnCancelarEst').style.display = 'block';
+}
+function limparEst(){ ['estId','estNome','estCategoria','estQtd','estMinimo','estPreco','estObs'].forEach(i => el(i).value = ''); el('btnCancelarEst').style.display = 'none'; }
+
+// ---------- AGENDA ----------
+function buscarClienteAgenda(){
+  const busca = el('agClienteBusca').value.trim().toLowerCase();
+  const box = el('listaBuscaCliente');
+  if(!busca){ box.style.display = 'none'; return; }
+  const ach = clientes.filter(c => c.nome.toLowerCase().includes(busca) || c.telefone.includes(busca));
+  if(!ach.length){ box.innerHTML = '<div style="padding:10px">Nenhum cliente. Cadastre no Módulo Clientes.</div>'; box.style.display = 'block'; return; }
+  box.innerHTML = '';
+  ach.forEach(c => {
+    const d = document.createElement('div');
+    d.innerHTML = '<b>' + c.nome + '</b><br><small>' + c.telefone + '</small>';
+    d.addEventListener('click', () => selecionarClienteAgenda(c.id));
+    box.appendChild(d);
+  });
+  box.style.display = 'block';
+}
+function selecionarClienteAgenda(id){
+  const c = clientes.find(x => x.id === id); if(!c) return;
+  if(c.bloqueado){ alert('Cliente bloqueado!'); return; }
+  el('agClienteId').value = c.id;
+  el('agClienteBusca').value = c.nome;
+  el('listaBuscaCliente').style.display = 'none';
+  const box = el('clienteSelecionado');
+  box.style.display = 'block';
+  box.innerHTML = '✅ <b>' + c.nome + '</b> - ' + c.telefone;
+}
+function carregarBarbeirosAgenda(){
+  const sel = el('agBarbeiro');
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Selecione</option>';
+  funcionarios.forEach(f => {
+    const o = document.createElement('option');
+    o.value = f.id; o.textContent = f.nome + ' - ' + f.funcao;
+    sel.appendChild(o);
+  });
+  if(atual) sel.value = atual;
+}
+function atualizarServicosAgenda(){
+  const barb = el('agBarbeiro').value;
+  const sel = el('agServico');
+  sel.innerHTML = '<option value="">Selecione</option>';
+  servicos.filter(s => s.ativo).forEach(s => {
+    if(s.barbeiros && s.barbeiros.length && !s.barbeiros.includes(barb)) return;
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = s.nome + ' - R$ ' + s.preco + ' - ' + s.duracao + ' min';
+    sel.appendChild(o);
+  });
+  gerarHorariosAgenda();
+}
+function atualizarInfoServico(){
+  const s = servicos.find(x => x.id === el('agServico').value);
+  el('infoServico').textContent = s ? (s.nome + ' | R$ ' + s.preco + ' | ' + s.duracao + ' min') : '';
+  gerarHorariosAgenda();
+}
+function gerarHorariosAgenda(){
+  const dataVal = el('agData').value;
+  const sel = el('agHora');
+  const barbId = el('agBarbeiro').value;
+  const servId = el('agServico').value;
+  if(!dataVal || !barbId){ sel.innerHTML = '<option value="">Escolha barbeiro e data</option>'; return; }
+  const cfg = JSON.parse(localStorage.getItem('configBarbearia') || 'null');
+  const data = new Date(dataVal + 'T12:00:00');
+  const dia = data.getDay();
+  let abre = '09:00', fecha = '19:00', intervalo = 30, almI = '12:00', almF = '13:00', ativo = true;
+  if(cfg){
+    const d = cfg.dias ? cfg.dias[dia] : null;
+    if(d){ abre = d.abre; fecha = d.fecha; ativo = d.ativo; }
+    intervalo = Number(cfg.intervalo) || 30;
+    almI = cfg.almocoInicio || almI; almF = cfg.almocoFim || almF;
+  }
+  const func = funcionarios.find(f => f.id === barbId);
+  if(func){ if(func.inicio) abre = func.inicio; if(func.fim) fecha = func.fim; }
+  if(!ativo){ sel.innerHTML = '<option value="">Fechado nesse dia</option>'; return; }
+  const serv = servicos.find(s => s.id === servId);
+  const dur = serv ? Number(serv.duracao) : intervalo;
+  const slots = [];
+  const parts = abre.split(':'); let cur = Number(parts[0]) * 60 + Number(parts[1]);
+  const fp = fecha.split(':'); const fimMin = Number(fp[0]) * 60 + Number(fp[1]);
+  const ap = almI.split(':'); const almIMin = Number(ap[0]) * 60 + Number(ap[1]);
+  const bp = almF.split(':'); const almFMin = Number(bp[0]) * 60 + Number(bp[1]);
+  const ocup = agendamentos.filter(a => a.data === dataVal && a.barbeiroId === barbId && a.status !== 'cancelado');
+  while(cur + dur <= fimMin){
+    let conflita = false;
+    if(cur < almFMin && cur + dur > almIMin) conflita = true;
+    for(let i = 0; i < ocup.length; i++){
+      const hp = ocup[i].hora.split(':');
+      const ini = Number(hp[0]) * 60 + Number(hp[1]);
+      const dd = Number(ocup[i].duracao || 30);
+      if(cur < ini + dd && cur + dur > ini) conflita = true;
+    }
+    if(!conflita) slots.push(String(Math.floor(cur / 60)).padStart(2,'0') + ':' + String(cur % 60).padStart(2,'0'));
+    cur += intervalo;
+  }
+  if(!slots.length){ sel.innerHTML = '<option value="">Sem horário livre</option>'; return; }
+  sel.innerHTML = '<option value="">Selecione</option>' + slots.map(s => '<option value="' + s + '">' + s + '</option>').join('');
+}
+function salvarAgendamento(){
+  const cid = el('agClienteId').value;
+  const bid = el('agBarbeiro').value;
+  const sid = el('agServico').value;
+  const data = el('agData').value;
+  const hora = el('agHora').value;
+  const id = el('agId').value;
+  if(!cid || !bid || !sid || !data || !hora){ mostrarErro('erroAg'); return; }
+  esconderErro('erroAg');
+  const cli = clientes.find(c => c.id === cid);
+  const barb = funcionarios.find(f => f.id === bid);
+  const serv = servicos.find(s => s.id === sid);
+  const dados = { id: id || Date.now().toString(), clienteId: cid, clienteNome: cli.nome, telefone: cli.telefone, barbeiroId: bid, barbeiroNome: barb.nome, servicoId: sid, servicoNome: serv.nome, preco: serv.preco, duracao: serv.duracao, data, hora, obs: el('agObs').value.trim(), status: 'agendado' };
+  if(id){
+    const ant = agendamentos.find(a => a.id === id);
+    dados.status = ant ? ant.status : 'agendado';
+    agendamentos = agendamentos.map(a => a.id === id ? dados : a);
+  } else agendamentos.push(dados);
+  salvarLocal('agendamentos', agendamentos);
+  limparAg(); listarAgenda();
+  alert('Agendado!');
+}
+function listarAgenda(){
+  const box = el('listaAgenda');
+  const filtro = el('agDataFiltro').value || hojeISO();
+  el('agDataFiltro').value = filtro;
+  let lista = agendamentos.filter(a => a.data === filtro);
+  if(filtroAg !== 'todos') lista = lista.filter(a => a.status === filtroAg);
+  lista.sort((a,b) => a.hora.localeCompare(b.hora));
+  if(!lista.length){ box.innerHTML = '<p class="muted">Nenhum agendamento.</p>'; return; }
+  box.innerHTML = '';
+  lista.forEach(a => {
+    const div = document.createElement('div');
+    div.className = 'item-lista';
+    let botoes = '';
+    if(a.status === 'agendado') botoes = '<button class="btn-sec" data-concluir-ag="' + a.id + '">Concluir</button><button class="btn-sec" data-editar-ag="' + a.id + '">Editar</button><button class="btn-danger" data-cancelar-ag="' + a.id + '">Cancelar</button>';
+    if(a.status === 'cancelado') botoes = '<button class="btn-sec" data-reativar-ag="' + a.id + '">Reativar</button>';
+    div.innerHTML = '<div><b>' + a.hora + ' - ' + a.clienteNome + '</b><br><small>' + a.servicoNome + ' - ' + a.barbeiroNome + ' - R$ ' + a.preco + '</small><br><small>' + a.status + '</small></div><div class="acoes">' + botoes + '</div>';
+    box.appendChild(div);
+  });
+  box.querySelectorAll('[data-concluir-ag]').forEach(b => b.addEventListener('click', () => { agendamentos = agendamentos.map(a => a.id === b.dataset.concluirAg ? Object.assign({}, a, { status: 'concluido' }) : a); salvarLocal('agendamentos', agendamentos); listarAgenda(); }));
+  box.querySelectorAll('[data-cancelar-ag]').forEach(b => b.addEventListener('click', () => { if(!confirm('Cancelar?')) return; agendamentos = agendamentos.map(a => a.id === b.dataset.cancelarAg ? Object.assign({}, a, { status: 'cancelado' }) : a); salvarLocal('agendamentos', agendamentos); listarAgenda(); }));
+  box.querySelectorAll('[data-reativar-ag]').forEach(b => b.addEventListener('click', () => { agendamentos = agendamentos.map(a => a.id === b.dataset.reativarAg ? Object.assign({}, a, { status: 'agendado' }) : a); salvarLocal('agendamentos', agendamentos); listarAgenda(); }));
+  box.querySelectorAll('[data-editar-ag]').forEach(b => b.addEventListener('click', () => editarAg(b.dataset.editarAg)));
+}
+function editarAg(id){
+  const a = agendamentos.find(x => x.id === id); if(!a) return;
+  el('agId').value = a.id; el('agClienteId').value = a.clienteId; el('agClienteBusca').value = a.clienteNome;
+  carregarBarbeirosAgenda();
+  el('agBarbeiro').value = a.barbeiroId;
+  atualizarServicosAgenda();
+  setTimeout(() => {
+    el('agServico').value = a.servicoId;
+    el('agData').value = a.data;
+    gerarHorariosAgenda();
+    setTimeout(() => { el('agHora').value = a.hora; }, 50);
+  }, 50);
+  el('btnCancelarAg').style.display = 'block';
+}
+function limparAg(){ ['agId','agClienteId','agClienteBusca','agServico','agData','agHora','agObs'].forEach(i => el(i).value = ''); el('clienteSelecionado').style.display = 'none'; el('btnCancelarAg').style.display = 'none'; carregarBarbeirosAgenda(); }
+
+// ---------- FINANCEIRO ----------
+function atualizarCategoriasFin(){
+  const dl = el('listaCatFin');
+  dl.innerHTML = '';
+  ['Corte','Barba','Combo','Produto','Aluguel','Material','Comissão','Outros'].forEach(c => {
+    const o = document.createElement('option'); o.value = c; dl.appendChild(o);
+  });
+}
+function carregarSelectsFin(){
+  const selF = el('finFuncionario');
+  selF.innerHTML = '<option value="">Nenhum</option>';
+  funcionarios.forEach(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.nome; selF.appendChild(o); });
+  const selA = el('finAgendamento');
+  selA.innerHTML = '<option value="">Nenhum</option>';
+  agendamentos.filter(a => a.status === 'concluido').slice().reverse().slice(0,50).forEach(a => {
+    const o = document.createElement('option'); o.value = a.id; o.textContent = a.data + ' ' + a.hora + ' - ' + a.clienteNome + ' - R$ ' + a.preco; selA.appendChild(o);
+  });
+}
+function salvarFinanceiro(){
+  const desc = el('finDesc').value.trim();
+  const valor = el('finValor').value;
+  const data = el('finData').value;
+  const id = el('finId').value;
+  if(!desc || !valor || !data){ mostrarErro('erroFin'); return; }
+  esconderErro('erroFin');
+  const dados = { id: id || Date.now().toString(), tipo: el('finTipo').value, desc, valor: Number(valor), data, categoria: el('finCategoria').value || 'Outros', forma: el('finForma').value, funcId: el('finFuncionario').value, agId: el('finAgendamento').value };
+  if(id) financeiro = financeiro.map(f => f.id === id ? dados : f);
+  else financeiro.push(dados);
+  salvarLocal('financeiro', financeiro);
+  limparFin(); listarFinanceiro(); listarPendentesFin();
+}
+function listarFinanceiro(){
+  const box = el('listaFinanceiro');
+  const busca = (el('buscaFin').value || '').toLowerCase();
+  const de = el('finDe').value;
+  const ate = el('finAte').value;
+  let lista = financeiro.filter(f => f.desc.toLowerCase().includes(busca));
+  if(filtroFin !== 'todos') lista = lista.filter(f => f.tipo === filtroFin);
+  if(de) lista = lista.filter(f => f.data >= de);
+  if(ate) lista = lista.filter(f => f.data <= ate);
+  lista.sort((a,b) => b.data.localeCompare(a.data));
+  let ent = 0, sai = 0;
+  lista.forEach(f => { if(f.tipo === 'entrada') ent += Number(f.valor); else sai += Number(f.valor); });
+  el('finEntradas').textContent = fmtBRL(ent);
+  el('finSaidas').textContent = fmtBRL(sai);
+  el('finSaldo').textContent = fmtBRL(ent - sai);
+  if(!lista.length){ box.innerHTML = '<p class="muted">Nenhum lançamento.</p>'; return; }
+  box.innerHTML = '';
+  lista.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'item-lista';
+    div.innerHTML = '<div><b>' + f.desc + '</b><br><small>' + f.data + ' - ' + f.categoria + ' - ' + f.forma + '</small></div><div><b class="' + (f.tipo === 'entrada' ? 'verde' : 'vermelho') + '">' + (f.tipo === 'entrada' ? '+' : '-') + ' ' + fmtBRL(f.valor) + '</b><br><button class="btn-sec" data-editar-fin="' + f.id + '">Editar</button> <button class="btn-danger" data-excluir-fin="' + f.id + '">Excluir</button></div>';
+    box.appendChild(div);
+  });
+  box.querySelectorAll('[data-editar-fin]').forEach(b => b.addEventListener('click', () => editarFin(b.dataset.editarFin)));
+  box.querySelectorAll('[data-excluir-fin]').forEach(b => b.addEventListener('click', () => { if(!confirm('Excluir?')) return; financeiro = financeiro.filter(f => f.id !== b.dataset.excluirFin); salvarLocal('financeiro', financeiro); listarFinanceiro(); listarPendentesFin(); }));
+}
+function listarPendentesFin(){
+  const box = el('listaPendenteFin');
+  const ja = new Set(financeiro.filter(f => f.agId).map(f => f.agId));
+  const pend = agendamentos.filter(a => a.status === 'concluido' && !ja.has(a.id));
+  if(!pend.length){ box.innerHTML = '<p class="verde">✅ Tudo lançado.</p>'; return; }
+  box.innerHTML = '';
+  pend.slice().reverse().forEach(a => {
+    const div = document.createElement('div');
+    div.className = 'item-lista';
+    div.innerHTML = '<div><b>' + a.clienteNome + '</b><br><small>' + a.data + ' ' + a.hora + ' - ' + a.servicoNome + ' - R$ ' + a.preco + '</small></div><button class="btn-sec" data-lancar-fin="' + a.id + '">Lançar</button>';
+    box.appendChild(div);
+  });
+  box.querySelectorAll('[data-lancar-fin]').forEach(b => b.addEventListener('click', () => {
+    const a = agendamentos.find(x => x.id === b.dataset.lancarFin); if(!a) return;
+    el('finTipo').value = 'entrada';
+    el('finDesc').value = a.servicoNome + ' - ' + a.clienteNome;
+    el('finValor').value = a.preco;
+    el('finData').value = a.data;
+    el('finCategoria').value = 'Corte';
+    el('finAgendamento').value = a.id;
+    alert('Preenchido! Aperta Lançar.');
+  }));
+}
+function editarFin(id){
+  const f = financeiro.find(x => x.id === id); if(!f) return;
+  el('finId').value = f.id; el('finTipo').value = f.tipo; el('finDesc').value = f.desc;
+  el('finValor').value = f.valor; el('finData').value = f.data; el('finCategoria').value = f.categoria;
+  el('btnCancelarFin').style.display = 'block';
+}
+function limparFin(){ ['finId','finDesc','finValor','finCategoria'].forEach(i => el(i).value = ''); el('finData').value = hojeISO(); el('btnCancelarFin').style.display = 'none'; }
+
+// ---------- DASHBOARD ----------
+function atualizarDashboard(){
+  const hoje = hojeISO();
+  const mes = hoje.slice(0,7);
+  el('dashHojeTxt').textContent = new Date(hoje + 'T12:00:00').toLocaleDateString('pt-BR');
+  const hojeConc = agendamentos.filter(a => a.data === hoje && a.status === 'concluido');
+  const fatHoje = hojeConc.reduce((s,a) => s + Number(a.preco || 0), 0);
+  el('dashFatHoje').textContent = fmtBRL(fatHoje);
+  el('dashQtdHoje').textContent = hojeConc.length + ' atendimentos';
+  const hojeAg = agendamentos.filter(a => a.data === hoje && a.status === 'agendado');
+  el('dashAgHojeTxt').textContent = hojeAg.length + ' agendados hoje';
+  const finsMes = financeiro.filter(f => (f.data || '').slice(0,7) === mes);
+  let ent = 0, sai = 0;
+  finsMes.forEach(f => { if(f.tipo === 'entrada') ent += Number(f.valor); else sai += Number(f.valor); });
+  const mesConc = agendamentos.filter(a => (a.data || '').slice(0,7) === mes && a.status === 'concluido');
+  const fatMes = Math.max(ent, mesConc.reduce((s,a) => s + Number(a.preco || 0), 0));
+  el('dashFatMes').textContent = fmtBRL(fatMes);
+  el('dashQtdMes').textContent = mesConc.length + ' atendimentos';
+  el('dashSaldoMes').textContent = fmtBRL(ent - sai);
+  const baixo = estoque.filter(e => e.qtd <= e.minimo);
+  el('dashProximos').innerHTML = hojeAg.length ? hojeAg.sort((a,b) => a.hora.localeCompare(b.hora)).slice(0,5).map(a => '<div class="item-lista"><b>' + a.hora + ' - ' + a.clienteNome + '</b><br><small>' + a.servicoNome + ' - R$ ' + a.preco + '</small></div>').join('') : '<p class="muted">Nenhum agendamento hoje.</p>';
+  el('dashAlertas').innerHTML = baixo.length ? '<div class="item-lista">⚠️ ' + baixo.length + ' produto(s) abaixo do mínimo</div>' : '<div>✅ Tudo certo</div>';
+  const porBarb = {};
+  mesConc.forEach(a => { if(!porBarb[a.barbeiroNome]) porBarb[a.barbeiroNome] = { total: 0, qtd: 0 }; porBarb[a.barbeiroNome].total += Number(a.preco || 0); porBarb[a.barbeiroNome].qtd++; });
+  el('dashRanking').innerHTML = Object.keys(porBarb).length ? Object.entries(porBarb).sort((a,b) => b[1].total - a[1].total).map((e,i) => '<div class="item-lista"><span>' + (i+1) + 'º ' + e[0] + '</span><span>' + fmtBRL(e[1].total) + ' - ' + e[1].qtd + ' atend.</span></div>').join('') : '<p class="muted">Nenhum atendimento no mês.</p>';
+  const porServ = {};
+  mesConc.forEach(a => { if(!porServ[a.servicoNome]) porServ[a.servicoNome] = { qtd: 0, total: 0 }; porServ[a.servicoNome].qtd++; porServ[a.servicoNome].total += Number(a.preco || 0); });
+  el('dashTopServ').innerHTML = Object.keys(porServ).length ? Object.entries(porServ).sort((a,b) => b[1].qtd - a[1].qtd).slice(0,5).map((e,i) => '<div class="item-lista"><span>' + (i+1) + 'º ' + e[0] + '</span><span>' + e[1].qtd + 'x - ' + fmtBRL(e[1].total) + '</span></div>').join('') : '<p class="muted">Nenhum serviço no mês.</p>';
+}
+
+// ---------- LIGA TUDO NO FINAL ----------
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-tela]').forEach(b => b.addEventListener('click', () => trocarTela(b.dataset.tela)));
+  el('btnSairTopo').addEventListener('click', sair);
+  el('btnSairLateral').addEventListener('click', sair);
+  el('btnSairNav').addEventListener('click', sair);
+  el('btnEntrar').addEventListener('click', entrar);
+  el('loginPIN').addEventListener('keydown', e => { if(e.key === 'Enter') entrar(); });
+  el('btnAtualizarDash').addEventListener('click', atualizarDashboard);
+  el('btnSalvarConfig').addEventListener('click', salvarConfig);
+  el('btnSalvarFunc').addEventListener('click', salvarFuncionario);
+  el('btnCancelarFunc').addEventListener('click', limparFunc);
+  el('buscaFunc').addEventListener('input', listarFuncionarios);
+  el('servCombo').addEventListener('change', toggleCombo);
+  el('btnSalvarServ').addEventListener('click', salvarServico);
+  el('btnCancelarServ').addEventListener('click', limparServ);
+  el('buscaServ').addEventListener('input', listarServicos);
+  el('btnSalvarCli').addEventListener('click', salvarCliente);
+  el('btnCancelarCli').addEventListener('click', limparCli);
+  el('buscaCli').addEventListener('input', listarClientes);
+  el('btnFecharHist').addEventListener('click', () => el('boxHistoricoCli').style.display = 'none');
+  el('btnSalvarEst').addEventListener('click', salvarEstoque);
+  el('btnCancelarEst').addEventListener('click', limparEst);
+  el('buscaEst').addEventListener('input', listarEstoque);
+  document.querySelectorAll('[data-filtro-est]').forEach(b => b.addEventListener('click', () => { filtroEst = b.dataset.filtroEst; listarEstoque(); }));
+  el('agClienteBusca').addEventListener('input', buscarClienteAgenda);
+  el('agBarbeiro').addEventListener('change', atualizarServicosAgenda);
+  el('agServico').addEventListener('change', atualizarInfoServico);
+  el('agData').addEventListener('change', gerarHorariosAgenda);
+  el('btnSalvarAg').addEventListener('click', salvarAgendamento);
+  el('btnCancelarAg').addEventListener('click', limparAg);
+  el('agDataFiltro').addEventListener('change', listarAgenda);
+  document.querySelectorAll('[data-filtro-ag]').forEach(b => b.addEventListener('click', () => { filtroAg = b.dataset.filtroAg; listarAgenda(); }));
+  el('btnFiltrarFin').addEventListener('click', listarFinanceiro);
+  el('btnLimparFin').addEventListener('click', () => { el('finDe').value = ''; el('finAte').value = ''; filtroFin = 'todos'; listarFinanceiro(); });
+  el('btnSalvarFin').addEventListener('click', salvarFinanceiro);
+  el('btnCancelarFin').addEventListener('click', limparFin);
+  el('buscaFin').addEventListener('input', listarFinanceiro);
+  document.querySelectorAll('[data-filtro-fin]').forEach(b => b.addEventListener('click', () => { filtroFin = b.dataset.filtroFin; listarFinanceiro(); }));
+
+  carregarConfig();
+  listarFuncionarios(); renderServBarbeiros([]); listarServicos();
+  listarClientes(); listarEstoque();
+  el('agData').value = hojeISO(); el('agDataFiltro').value = hojeISO();
+  carregarBarbeirosAgenda(); listarAgenda();
+  el('finData').value = hojeISO(); atualizarCategoriasFin(); carregarSelectsFin();
+  listarFinanceiro(); listarPendentesFin();
+  atualizarDashboard();
+});
