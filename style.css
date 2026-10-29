@@ -1,30 +1,13 @@
+/* ============ PARTE 1 - GERAL - VALE PRA TODAS AS TELAS ============ */
 *{box-sizing:border-box}
 body{margin:0;background:#131318;color:#fff;font-family:Arial,sans-serif}
 header{background:#1C1C22;padding:14px 16px;position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #333}
 header b{font-size:18px}
 header small{display:block;color:#FACC15}
-.top-acoes{display:flex;gap:8px}
-.layout{display:flex;width:100%;margin:0}
-.sidebar{width:240px;min-width:240px;background:#1C1C22;border-right:1px solid #333;padding:14px 10px;position:sticky;top:57px;height:calc(100vh - 57px);display:flex;flex-direction:column;gap:6px}
-.sidebar button{background:none;border:0;color:#A1A1AA;padding:12px;text-align:left;cursor:pointer;font-size:14px;border-radius:10px;width:100%}
-.sidebar button.ativo{background:#FACC15;color:#111;font-weight:bold}
-.sidebar small{color:#666;font-size:11px;padding:10px 12px 4px;text-transform:uppercase}
-.btn-sair{margin-top:auto!important;background:#3A1A1A!important;color:#FCA5A5!important;border:1px solid #7F1D1D!important}
-.btn-sair-top{color:#FCA5A5!important;border-color:#7F1D1D!important}
-.container{flex:1;padding:18px;width:100%;padding-bottom:90px;max-width:1000px;margin:0 auto}
-nav{position:fixed;bottom:0;left:0;right:0;background:#1C1C22;display:none;overflow-x:auto;border-top:1px solid #333;z-index:10}
-nav button{background:none;border:0;color:#A1A1AA;padding:12px 10px;cursor:pointer;white-space:nowrap;font-size:13px}
-nav button.ativo{color:#FACC15;font-weight:bold}
-@media(max-width:850px){.sidebar{display:none}nav{display:flex}}
 .card{background:#1C1C22;border:1px solid #333;border-radius:14px;padding:16px;margin-bottom:14px}
 .card h2{margin:0 0 12px;font-size:18px}
 input,select,textarea{width:100%;background:#23232B;border:1px solid #3A3A44;color:#fff;border-radius:10px;padding:11px;margin:4px 0 10px;font-size:14px}
 label{font-size:13px;color:#D4D4D8;font-weight:bold}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
-@media(max-width:750px){.grid{grid-template-columns:1fr}}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-@media(max-width:500px){.row,.row3{grid-template-columns:1fr}}
 button{cursor:pointer}
 .btn-save{width:100%;background:#FACC15;color:#111;border:0;border-radius:10px;padding:13px;font-weight:bold;font-size:15px}
 .btn-sec{background:#23232B;color:#fff;border:1px solid #3A3A44;border-radius:8px;padding:8px 10px;font-size:13px}
@@ -33,9 +16,6 @@ button{cursor:pointer}
 .item-lista{background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
 .acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .tag{background:#FACC15;color:#111;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:bold}
-.tela{display:none}
-.tela.ativa{display:block}
-.box-resumo{background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center}
 .verde{color:#22C55E}.vermelho{color:#EF4444}.amarelo{color:#FACC15}
 .muted{color:#A1A1AA}.pequeno{font-size:12px}
 .full{width:100%;margin-top:8px}
@@ -43,12 +23,38 @@ button{cursor:pointer}
 .auto{width:auto}
 .check{display:flex;gap:8px;align-items:center}
 .check input{width:18px}
-.box-combo{background:#23232B;border-radius:12px;padding:12px;margin-top:10px}
-.box-combo small{color:#FACC15}
-.login-box{max-width:400px;margin:60px auto;padding:20px;text-align:center}
-.login-card{text-align:center}
-.pin-input{text-align:center;font-size:20px;letter-spacing:8px}
-.erro-login{display:none;color:#FCA5A5;font-size:13px}
-.busca-cliente{background:#23232B;border:1px solid #FACC15;border-radius:10px;margin-top:6px;max-height:180px;overflow:auto}
-.busca-cliente div{padding:10px;border-bottom:1px solid #333;cursor:pointer}
-.cliente-selecionado{background:#23232B;border:1px solid #22C55E;border-radius:10px;padding:10px;margin-top:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media(max-width:750px){.grid{grid-template-columns:1fr}}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:500px){.row,.row3{grid-template-columns:1fr}}
+
+/* ============ PARTE 2 - SÓ ADMIN - NÃO MEXER NAS OUTRAS TELAS ============ */
+/* Tudo aqui começa com body.admin-page, então só vale dentro do admin.html */
+body.admin-page .top-acoes{display:flex;gap:8px}
+body.admin-page .layout{display:flex;width:100%;margin:0}
+body.admin-page .sidebar{width:240px;min-width:240px;background:#1C1C22;border-right:1px solid #333;padding:14px 10px;position:sticky;top:57px;height:calc(100vh - 57px);display:flex;flex-direction:column;gap:6px}
+body.admin-page .sidebar button{background:none;border:0;color:#A1A1AA;padding:12px;text-align:left;cursor:pointer;font-size:14px;border-radius:10px;width:100%}
+body.admin-page .sidebar button.ativo{background:#FACC15;color:#111;font-weight:bold}
+body.admin-page .sidebar small{color:#666;font-size:11px;padding:10px 12px 4px;text-transform:uppercase}
+body.admin-page .btn-sair{margin-top:auto!important;background:#3A1A1A!important;color:#FCA5A5!important;border:1px solid #7F1D1D!important}
+body.admin-page .btn-sair-top{color:#FCA5A5!important;border-color:#7F1D1D!important}
+body.admin-page .container{flex:1;padding:18px;width:100%;padding-bottom:90px;max-width:1000px;margin:0 auto}
+body.admin-page nav{position:fixed;bottom:0;left:0;right:0;background:#1C1C22;display:none;overflow-x:auto;border-top:1px solid #333;z-index:10}
+body.admin-page nav button{background:none;border:0;color:#A1A1AA;padding:12px 10px;cursor:pointer;white-space:nowrap;font-size:13px}
+body.admin-page nav button.ativo{color:#FACC15;font-weight:bold}
+@media(max-width:850px){body.admin-page .sidebar{display:none}body.admin-page nav{display:flex}}
+body.admin-page .tela{display:none}
+body.admin-page .tela.ativa{display:block}
+body.admin-page .box-resumo{background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center}
+body.admin-page .box-combo{background:#23232B;border-radius:12px;padding:12px;margin-top:10px}
+body.admin-page .box-combo small{color:#FACC15}
+body.admin-page .login-box{max-width:400px;margin:60px auto;padding:20px;text-align:center}
+body.admin-page .login-card{text-align:center}
+body.admin-page .pin-input{text-align:center;font-size:20px;letter-spacing:8px}
+body.admin-page .erro-login{display:none;color:#FCA5A5;font-size:13px}
+body.admin-page .busca-cliente{background:#23232B;border:1px solid #FACC15;border-radius:10px;margin-top:6px;max-height:180px;overflow:auto}
+body.admin-page .busca-cliente div{padding:10px;border-bottom:1px solid #333;cursor:pointer}
+body.admin-page .cliente-selecionado{background:#23232B;border:1px solid #22C55E;border-radius:10px;padding:10px;margin-top:8px}
+body.admin-page .dia-row{display:grid;grid-template-columns:90px 1fr 1fr 70px;gap:8px;align-items:center;margin-bottom:8px}
+@media(max-width:500px){body.admin-page .dia-row{grid-template-columns:1fr 1fr}body.admin-page .dia-row b{grid-column:1/3}}
