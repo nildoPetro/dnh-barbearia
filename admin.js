@@ -15,7 +15,6 @@ function trocarTela(id){
   if(id==='servicos') renderServBarbeiros();
   window.scrollTo(0,0);
 }
-window.trocarTela=trocarTela;
 function sair(){
   if(!confirm('Sair do sistema?')) return;
   document.querySelector('.layout').style.display='none';
