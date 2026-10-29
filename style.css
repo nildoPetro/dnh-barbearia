@@ -3,7 +3,6 @@ body{margin:0;background:#131318;color:#fff;font-family:Arial,sans-serif}
 header{background:#1C1C22;padding:14px 16px;position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #333}
 header b{font-size:18px}
 header small{color:#FACC15}
-/* LAYOUT - MENU COLADO NA ESQUERDA, SEM VÃO */
 .layout{display:flex;width:100%;margin:0}
 .sidebar{width:240px;min-width:240px;background:#1C1C22;border-right:1px solid #333;padding:14px 10px;position:sticky;top:57px;height:calc(100vh - 57px);display:flex;flex-direction:column;gap:6px;margin:0}
 .sidebar button{background:none;border:0;color:#A1A1AA;padding:12px;text-align:left;cursor:pointer;font-size:14px;border-radius:10px;width:100%;margin:0}
@@ -12,7 +11,6 @@ header small{color:#FACC15}
 .btn-sair{margin-top:auto!important;background:#3A1A1A!important;color:#FCA5A5!important;border:1px solid #7F1D1D!important}
 .btn-sair-top{color:#FCA5A5!important;border-color:#7F1D1D!important}
 .container{flex:1;padding:18px;width:100%;padding-bottom:90px;max-width:1000px;margin:0 auto}
-/* MENU DE BAIXO - SÓ NO CELULAR */
 nav{position:fixed;bottom:0;left:0;right:0;background:#1C1C22;display:none;overflow-x:auto;border-top:1px solid #333;z-index:10}
 nav button{background:none;border:0;color:#A1A1AA;padding:12px 10px;cursor:pointer;white-space:nowrap;font-size:13px}
 nav button.ativo{color:#FACC15;font-weight:bold}
