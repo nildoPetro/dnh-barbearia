@@ -2,10 +2,13 @@
 function lerLocal(chave){ try{ return JSON.parse(localStorage.getItem(chave)) || []; }catch(e){ return []; } }
 function salvarLocal(chave, dados){ localStorage.setItem(chave, JSON.stringify(dados)); }
 function trocarTela(id, btn){
+  const tela=document.getElementById('tela-'+id);
+  if(!tela){ console.log('Tela não achada: '+id); return; }
   document.querySelectorAll('.tela').forEach(t=>t.classList.remove('ativa'));
-  document.getElementById('tela-'+id).classList.add('ativa');
-  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('ativo'));
-  if(btn) btn.classList.add('ativo');
+  tela.classList.add('ativa');
+  // Sincroniza menu lateral + menu de baixo pelo data-menu, sem usar índice
+  document.querySelectorAll('[data-menu]').forEach(b=>b.classList.remove('ativo'));
+  document.querySelectorAll('[data-menu="'+id+'"]').forEach(b=>b.classList.add('ativo'));
   if(id==='dashboard') atualizarDashboard();
   if(id==='agenda'){ carregarBarbeirosAgenda(); listarAgenda(); }
   if(id==='financeiro'){ carregarSelectsFin(); listarFinanceiro(); listarPendentesFin(); }
