@@ -59,7 +59,7 @@ button{cursor:pointer}
 <div style="background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center"><small style="color:#A1A1AA">Total Serviços</small><br><b id="dashTotalServ" style="font-size:20px">0</b></div>
 <div style="background:#23232B;border:1px solid #3A3A44;border-radius:12px;padding:12px;text-align:center"><small style="color:#A1A1AA">Estoque Baixo</small><br><b id="dashEstBaixo" style="color:#F59E0B;font-size:20px">0 produtos</b></div>
 </div></div>
-<div class="grid"><div><div class="card"><h2>Próximos Agendamentos Hoje</h2><div id="dashProximos"></div><button class="btn-sec" style="width:100%;margin-top:10px" onclick="trocarTela('agenda', document.querySelectorAll('nav button')[6])">Ver Agenda Completa →</button></div><div class="card"><h2>⚠️ Alertas</h2><div id="dashAlertas"></div></div></div>
+<div class="grid"><div><div class="card"><h2>Próximos Agendamentos Hoje</h2><div id="dashProximos"></div><button class="btn-sec" style="width:100%;margin-top:10px" onclick="trocarTela('agenda', this)">Ver Agenda Completa →</button></div><div class="card"><h2>⚠️ Alertas</h2><div id="dashAlertas"></div></div></div>
 <div><div class="card"><h2>Ranking Barbeiros - Mês</h2><p style="color:#A1A1AA;font-size:12px;margin:0 0 10px">Por faturamento de agendamentos concluídos + comissão estimada.</p><div id="dashRanking"></div></div><div class="card"><h2>Top Serviços - Mês</h2><div id="dashTopServ"></div></div></div></div>
 </div>
 
@@ -160,16 +160,18 @@ button{cursor:pointer}
 <div><div class="card"><h2>Lançamentos</h2><input id="buscaFin" placeholder="🔍 Buscar descrição..." oninput="listarFinanceiro()"><div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn-sec" onclick="filtrarFin('todos',this)">Todos</button><button class="btn-sec" onclick="filtrarFin('entrada',this)">Entradas</button><button class="btn-sec" onclick="filtrarFin('saida',this)">Saídas</button></div><div id="listaFinanceiro" style="margin-top:12px"></div></div></div></div>
 </div>
 
+ 
+</div>
 </div>
 <nav>
-<button class="ativo" onclick="trocarTela('dashboard',this)">📊 Dashboard</button>
-<button onclick="trocarTela('config',this)">⚙️ Config</button>
-<button onclick="trocarTela('funcionarios',this)">👨‍🦰 Funcionários</button>
-<button onclick="trocarTela('servicos',this)">✂️ Serviços</button>
-<button onclick="trocarTela('clientes',this)">👥 Clientes</button>
-<button onclick="trocarTela('estoque',this)">📦 Estoque</button>
-<button onclick="trocarTela('agenda',this)">📅 Agenda</button>
-<button onclick="trocarTela('financeiro',this)">💰 Financeiro</button>
+<button class="ativo" data-menu="dashboard" onclick="trocarTela('dashboard',this)">📊 Dashboard</button>
+<button data-menu="config" onclick="trocarTela('config',this)">⚙️ Config</button>
+<button data-menu="funcionarios" onclick="trocarTela('funcionarios',this)">👨‍🦰 Funcionários</button>
+<button data-menu="servicos" onclick="trocarTela('servicos',this)">✂️ Serviços</button>
+<button data-menu="clientes" onclick="trocarTela('clientes',this)">👥 Clientes</button>
+<button data-menu="estoque" onclick="trocarTela('estoque',this)">📦 Estoque</button>
+<button data-menu="agenda" onclick="trocarTela('agenda',this)">📅 Agenda</button>
+<button data-menu="financeiro" onclick="trocarTela('financeiro',this)">💰 Financeiro</button>
 </nav>
 <script src="admin.js"></script>
 </body>
